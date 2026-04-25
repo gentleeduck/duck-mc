@@ -41,7 +41,7 @@ impl Parser {
                 self.advance();
             }
         }
-        Document { children, span: default_span() }
+        Document { children, diagnostics: Vec::new(), span: default_span() }
     }
 }
 

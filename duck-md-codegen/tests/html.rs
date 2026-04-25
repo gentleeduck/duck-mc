@@ -13,6 +13,7 @@ fn h1_with_id() {
   use duck_md_parser::ast::*;
   let doc = Document {
     span: duck_md_parser::ast::default_span(),
+    diagnostics: Vec::new(),
     children: vec![Node::Heading(Heading {
       level: 1,
       id: "hello".into(),

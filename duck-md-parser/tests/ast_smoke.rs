@@ -9,6 +9,7 @@ fn sp() -> duck_diagnostic::Span {
 fn build_a_simple_document() {
   let doc = Node::Document(Document {
     span: sp(),
+    diagnostics: Vec::new(),
     children: vec![
       Node::Heading(Heading {
         level: 1,

@@ -36,9 +36,23 @@ pub enum Node {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Document {
   pub children: Vec<Node>,
+  #[serde(default, skip_serializing_if = "Vec::is_empty")]
+  pub diagnostics: Vec<ParseDiagnostic>,
   #[serde(skip, default = "crate::ast::default_span")]
   pub span: Span,
 }
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ParseDiagnostic {
+  pub message: String,
+  pub line: u32,
+  pub column: u32,
+  pub severity: Severity,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Severity { Warning, Error }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Frontmatter {
