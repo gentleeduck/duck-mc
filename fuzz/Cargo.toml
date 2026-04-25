@@ -1,0 +1,36 @@
+[package]
+name = "duck-md-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2024"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+duck-md-lexer = { path = "../duck-md-lexer" }
+duck-md-parser = { path = "../duck-md-parser" }
+duck-md-core = { path = "../duck-md-core" }
+duck-diagnostic = "0.1.0"
+
+[[bin]]
+name = "fuzz_lex"
+path = "fuzz_targets/fuzz_lex.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_parse"
+path = "fuzz_targets/fuzz_parse.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_compile"
+path = "fuzz_targets/fuzz_compile.rs"
+test = false
+doc = false
+bench = false
