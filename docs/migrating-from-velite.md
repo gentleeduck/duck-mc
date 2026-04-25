@@ -31,13 +31,15 @@ the import and you're done.
 
 | Area                        | velite                                    | @duck/md                            |
 | --------------------------- | ----------------------------------------- | ----------------------------------- |
-| Image blur dataURL          | base64 webp via sharp                     | dimensions only (deferred)          |
+| Image blur dataURL          | base64 webp via sharp                     | base64 webp via `image` crate       |
 | Word-level marks `/word/`   | yes                                       | line marks only `{1,3-5}`           |
 | Dual themes                 | shiki paired output                       | single syntect theme                |
 | `.transform()` / `.refine()` (JS callback) | runs during JS build      | accepted in Rust API; JS callback bridge deferred |
-| `prepare()` / `complete()` hooks | runs                                | Rust accepts but no-op (TODO)       |
+| `prepare()` / `complete()` hooks | runs (async)                        | runs (async via JS adapter)         |
 | Custom JS plugins (remark/rehype) | run inline                          | spawns `@duck/md-sidecar` subprocess |
 | Watch mode                  | chokidar                                  | notify (Linux/macOS/Windows)        |
+| Per-file compile parallelism | sequential                               | rayon parallel                       |
+| `build()` return            | `Promise<Report>`                         | `Promise<Report>`                   |
 
 ## Plugin compatibility
 
