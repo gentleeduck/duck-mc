@@ -46,12 +46,29 @@ impl Schema for ImageSchema {
     )?;
     let resolved = resolve_asset(ctx, raw, self.absolute_root.is_some())?;
     let url = ctx_publish_asset(ctx, &resolved)?;
-    let (w, h) = match image::image_dimensions(&resolved) {
-      Ok(d) => (d.0, d.1),
-      Err(_) => (0, 0),
-    };
-    Ok(json!({ "src": url, "width": w, "height": h }))
+    let (w, h) = image::image_dimensions(&resolved).unwrap_or((0, 0));
+    let mut out = json!({ "src": url, "width": w, "height": h });
+    if let Some((dataurl, bw, bh)) = make_blur(&resolved) {
+      let map = out.as_object_mut().unwrap();
+      map.insert("blurDataURL".into(), Value::String(dataurl));
+      map.insert("blurWidth".into(), Value::from(bw));
+      map.insert("blurHeight".into(), Value::from(bh));
+    }
+    Ok(out)
   }
+}
+
+fn make_blur(path: &PathBuf) -> Option<(String, u32, u32)> {
+  use base64::Engine;
+  let img = image::open(path).ok()?;
+  let target_w: u32 = 8;
+  let aspect = img.height() as f32 / img.width() as f32;
+  let target_h = (target_w as f32 * aspect).round().max(1.0) as u32;
+  let small = img.resize_exact(target_w, target_h, image::imageops::FilterType::Lanczos3);
+  let mut buf = Vec::new();
+  small.write_to(&mut std::io::Cursor::new(&mut buf), image::ImageFormat::WebP).ok()?;
+  let b64 = base64::engine::general_purpose::STANDARD.encode(&buf);
+  Some((format!("data:image/webp;base64,{b64}"), target_w, target_h))
 }
 
 fn resolve_asset(ctx: &Ctx, raw: &str, allow_abs: bool) -> Result<PathBuf, ValidationError> {

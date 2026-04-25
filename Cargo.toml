@@ -45,6 +45,7 @@ image = { version = "0.25", default-features = false, features = ["png", "jpeg",
 notify = "6"
 notify-debouncer-mini = "0.4"
 rayon = "1"
+base64 = "0.22"
 
 # Dev
 pretty_assertions = "1"
