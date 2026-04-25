@@ -74,6 +74,10 @@ pub enum TokenKind {
   MarkdownCommentStart, // {/*
   MarkdownCommentEnd,   //  */}
 
+  // Breaks
+  HardBreak, // blank line (>=2 consecutive newlines)
+  SoftBreak, // single newline between content
+
   // Trivia
   Newline,    // \n
   Whitespace, // spaces and tabs
@@ -127,6 +131,8 @@ impl fmt::Display for TokenKind {
       TokenKind::MarkdownCommentEnd => "MarkdownCommentEnd",
       TokenKind::Eq => "Eq",
       TokenKind::String => "String",
+      TokenKind::HardBreak => "HardBreak",
+      TokenKind::SoftBreak => "SoftBreak",
       TokenKind::Newline => "Newline",
       TokenKind::Whitespace => "Whitespace",
       TokenKind::Quote => "Qoute",
