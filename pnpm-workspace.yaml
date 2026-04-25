@@ -1,3 +1,4 @@
 packages:
   - 'duck-md-napi'
+  - 'duck-md-sidecar'
   - 'examples/*'
