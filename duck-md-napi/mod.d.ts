@@ -19,7 +19,7 @@ export interface CompileOutput {
     imports: string[];
     exports: string[];
 }
-export type SchemaKind = 'string' | 'number' | 'boolean' | 'array' | 'object' | 'enum' | 'literal' | 'union' | 'optional' | 'nullable' | 'default' | 'transform' | 'refine' | 'raw' | 'markdown' | 'mdx' | 'toc' | 'metadata' | 'excerpt' | 'path' | 'slug' | 'unique' | 'isodate' | 'file' | 'image';
+export type SchemaKind = 'string' | 'number' | 'boolean' | 'array' | 'object' | 'record' | 'tuple' | 'intersection' | 'enum' | 'literal' | 'union' | 'discriminatedUnion' | 'optional' | 'nullable' | 'default' | 'transform' | 'refine' | 'superRefine' | 'coerce.string' | 'coerce.number' | 'coerce.boolean' | 'coerce.date' | 'raw' | 'markdown' | 'mdx' | 'toc' | 'metadata' | 'excerpt' | 'path' | 'slug' | 'unique' | 'isodate' | 'file' | 'image';
 export interface SchemaDescriptor {
     kind: SchemaKind;
     [field: string]: unknown;
@@ -102,9 +102,19 @@ export interface SBuilders {
     boolean(): SchemaBuilder<boolean>;
     array<I>(item: SchemaBuilder<I>): SchemaBuilder<I[]>;
     object<S extends Record<string, SchemaBuilder>>(fields: S): SchemaBuilder;
+    record<V>(value: SchemaBuilder<V>): SchemaBuilder<Record<string, V>>;
+    tuple(items: SchemaBuilder[]): SchemaBuilder<unknown[]>;
+    intersection<A, B>(a: SchemaBuilder<A>, b: SchemaBuilder<B>): SchemaBuilder<A & B>;
     enum<T>(variants: T[]): SchemaBuilder<T>;
     literal<T>(value: T): SchemaBuilder<T>;
     union<T>(variants: SchemaBuilder<T>[]): SchemaBuilder<T>;
+    discriminatedUnion<T>(discriminator: string, variants: SchemaBuilder<T>[]): SchemaBuilder<T>;
+    coerce: {
+        string(): SchemaBuilder<string>;
+        number(): SchemaBuilder<number>;
+        boolean(): SchemaBuilder<boolean>;
+        date(): SchemaBuilder<string>;
+    };
     raw(): SchemaBuilder<string>;
     markdown(): SchemaBuilder<string>;
     mdx(): SchemaBuilder<string>;

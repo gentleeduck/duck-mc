@@ -47,9 +47,23 @@ export const s = {
         kind: 'object',
         fields: Object.fromEntries(Object.entries(fields).map(([k, v]) => [k, v.toJSON()])),
     }),
+    record: (value) => sb({ kind: 'record', value: value.toJSON() }),
+    tuple: (items) => sb({ kind: 'tuple', items: items.map((v) => v.toJSON()) }),
+    intersection: (a, b) => sb({ kind: 'intersection', left: a.toJSON(), right: b.toJSON() }),
     enum: (variants) => sb({ kind: 'enum', variants }),
     literal: (expected) => sb({ kind: 'literal', expected }),
     union: (variants) => sb({ kind: 'union', variants: variants.map((v) => v.toJSON()) }),
+    discriminatedUnion: (discriminator, variants) => sb({
+        kind: 'discriminatedUnion',
+        discriminator,
+        variants: variants.map((v) => v.toJSON()),
+    }),
+    coerce: {
+        string: () => sb({ kind: 'coerce.string' }),
+        number: () => sb({ kind: 'coerce.number' }),
+        boolean: () => sb({ kind: 'coerce.boolean' }),
+        date: () => sb({ kind: 'coerce.date' }),
+    },
     raw: () => sb({ kind: 'raw' }),
     markdown: () => sb({ kind: 'markdown' }),
     mdx: () => sb({ kind: 'mdx' }),
@@ -162,6 +176,9 @@ function adaptToBuildInput(input) {
         markdownRehypePlugins: cfg.markdown?.rehypePlugins,
         mdxRemarkPlugins: cfg.mdx?.remarkPlugins,
         mdxRehypePlugins: cfg.mdx?.rehypePlugins,
+        copyLinkedFiles: cfg.markdown?.copyLinkedFiles ?? cfg.mdx?.copyLinkedFiles,
+        mdxOutputFormat: cfg.mdx?.outputFormat,
+        mdxMinify: cfg.mdx?.minify,
     };
 }
 export function compile(source) {

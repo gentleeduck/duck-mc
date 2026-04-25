@@ -46,6 +46,8 @@ pub struct BuildInput {
     pub mdx_remark_plugins: Option<Value>,
     pub mdx_rehype_plugins: Option<Value>,
     pub copy_linked_files: Option<bool>,
+    pub mdx_output_format: Option<String>,
+    pub mdx_minify: Option<bool>,
 }
 
 #[napi(object)]
@@ -83,6 +85,8 @@ pub fn build(input: BuildInput) -> Result<BuildReport> {
         mdx_remark_plugins: input.mdx_remark_plugins,
         mdx_rehype_plugins: input.mdx_rehype_plugins,
         copy_linked_files: input.copy_linked_files.unwrap_or(false),
+        mdx_output_format: input.mdx_output_format,
+        mdx_minify: input.mdx_minify.unwrap_or(false),
         collections: input
             .collections
             .into_iter()

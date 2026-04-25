@@ -43,6 +43,10 @@ pub struct EngineConfig {
     pub mdx_rehype_plugins: Option<Value>,
     #[serde(default)]
     pub copy_linked_files: bool,
+    #[serde(default)]
+    pub mdx_output_format: Option<String>,
+    #[serde(default)]
+    pub mdx_minify: bool,
 }
 
 #[derive(Debug, Default)]
@@ -131,6 +135,12 @@ fn process_collection(
             if let Some(html) = run_sidecar(&compiled.content, cfg) {
                 compiled.html = html;
             }
+        }
+        if cfg.mdx_output_format.as_deref() == Some("module") {
+            compiled.body = wrap_mdx_module(&compiled.body, &compiled.imports);
+        }
+        if cfg.mdx_minify {
+            compiled.body = minify_js(&compiled.body);
         }
         let (validated_frontmatter, err) = match (&collection_schema, &compiled.frontmatter) {
             (Some(schema), fm) if !fm.is_null() => {
@@ -300,6 +310,42 @@ fn build_velite_record(
     map.insert("sourceFilePath".into(), Value::String(source_file_path));
 
     Value::Object(map)
+}
+
+fn wrap_mdx_module(body: &str, imports: &[String]) -> String {
+    let mut out = String::new();
+    out.push_str("import { Fragment as _Fragment, jsx as _jsx, jsxs as _jsxs } from 'react/jsx-runtime'\n");
+    for i in imports {
+        out.push_str(i);
+        if !i.ends_with('\n') { out.push('\n'); }
+    }
+    out.push_str("export default function MDXContent(props) {\n");
+    out.push_str("  const __runtime = { Fragment: _Fragment, jsx: _jsx, jsxs: _jsxs };\n");
+    out.push_str("  return (function() { ");
+    out.push_str(body);
+    out.push_str(" }).call(undefined);\n");
+    out.push_str("}\n");
+    out
+}
+
+fn minify_js(src: &str) -> String {
+    let mut out = String::with_capacity(src.len());
+    let mut prev_space = false;
+    for c in src.chars() {
+        if c == '\n' || c == '\t' {
+            if !prev_space { out.push(' '); prev_space = true; }
+            continue;
+        }
+        if c == ' ' {
+            if prev_space { continue; }
+            prev_space = true;
+            out.push(' ');
+            continue;
+        }
+        prev_space = false;
+        out.push(c);
+    }
+    out
 }
 
 fn has_js_plugins(cfg: &EngineConfig) -> bool {
