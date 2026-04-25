@@ -47,11 +47,28 @@ main.docs h1 { font-size: 32px; margin: 0 0 8px; }
 main.docs .lede { color: var(--muted); margin: 0; }
 main.docs h2 { margin-top: 32px; }
 main.docs pre {
-  background: var(--code-bg);
   padding: 16px;
   border-radius: 8px;
   overflow-x: auto;
   border: 1px solid var(--border);
+  background: var(--code-bg);
+}
+main.docs pre.pretty-code .line { display: inline-block; min-width: 100%; }
+main.docs pre.pretty-code .line--highlighted {
+  background: rgba(99, 102, 241, 0.12);
+  margin: 0 -16px;
+  padding: 0 16px;
+  border-left: 2px solid var(--accent);
+}
+main.docs pre.pretty-code .word--highlighted {
+  background: rgba(236, 72, 153, 0.18);
+  border-radius: 3px;
+  padding: 1px 3px;
+}
+main.docs [data-rehype-pretty-code-fragment] pre[data-appearance='dark'] { display: none; }
+@media (prefers-color-scheme: dark) {
+  main.docs [data-rehype-pretty-code-fragment] pre[data-appearance='light'] { display: none; }
+  main.docs [data-rehype-pretty-code-fragment] pre[data-appearance='dark'] { display: block; }
 }
 main.docs code {
   font-family: ui-monospace, monospace;

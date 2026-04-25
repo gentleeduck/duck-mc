@@ -128,6 +128,8 @@ interface NativeBuildInput {
   mdxMinify?: boolean
   markdownGfm?: boolean
   includeHtml?: boolean
+  themeLight?: string
+  themeDark?: string
 }
 
 const cbRegistry = new Map<number, (v: unknown) => unknown>()
@@ -366,6 +368,10 @@ function adaptToBuildInput(input: UserConfig | NativeBuildInput): NativeBuildInp
     mdxMinify: cfg.mdx?.minify,
     markdownGfm: cfg.markdown?.gfm,
     includeHtml: (cfg.output as { html?: boolean } | undefined)?.html,
+    themeLight: (cfg.mdx as { themeLight?: string } | undefined)?.themeLight
+      ?? (cfg.markdown as { themeLight?: string } | undefined)?.themeLight,
+    themeDark: (cfg.mdx as { themeDark?: string } | undefined)?.themeDark
+      ?? (cfg.markdown as { themeDark?: string } | undefined)?.themeDark,
   }
 }
 

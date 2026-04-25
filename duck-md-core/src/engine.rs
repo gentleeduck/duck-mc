@@ -51,6 +51,10 @@ pub struct EngineConfig {
     pub markdown_gfm: bool,
     #[serde(default)]
     pub include_html: bool,
+    #[serde(default)]
+    pub theme_light: Option<String>,
+    #[serde(default)]
+    pub theme_dark: Option<String>,
 }
 
 fn default_true() -> bool { true }
@@ -76,6 +80,8 @@ impl Default for EngineConfig {
             mdx_minify: false,
             markdown_gfm: true,
             include_html: false,
+            theme_light: None,
+            theme_dark: None,
         }
     }
 }
@@ -149,7 +155,18 @@ fn process_collection(
             Err(e) => return (Value::Null, Some(EngineError { file: path.clone(), message: e.to_string() })),
         };
         let mut compiled = {
-            let mut pipeline = duck_md_transform::Pipeline::with_defaults();
+            let pretty = match (&cfg.theme_light, &cfg.theme_dark) {
+                (Some(l), Some(d)) => duck_md_transform::PrettyCode::dual(l, d),
+                (Some(l), None) => duck_md_transform::PrettyCode::new(l),
+                _ => duck_md_transform::PrettyCode::default(),
+            };
+            let mut pipeline = duck_md_transform::Pipeline::new()
+                .add(duck_md_transform::CodeImport::default())
+                .add(duck_md_transform::NpmCommand)
+                .add(duck_md_transform::BareUrlAutolink)
+                .add(duck_md_transform::AutolinkHeadings::new())
+                .add(duck_md_transform::Mermaid::default())
+                .add(pretty);
             if !cfg.markdown_gfm {
                 pipeline = pipeline.add(duck_md_transform::DisableGfm);
             }

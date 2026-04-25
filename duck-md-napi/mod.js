@@ -193,6 +193,10 @@ function adaptToBuildInput(input) {
         mdxMinify: cfg.mdx?.minify,
         markdownGfm: cfg.markdown?.gfm,
         includeHtml: cfg.output?.html,
+        themeLight: cfg.mdx?.themeLight
+            ?? cfg.markdown?.themeLight,
+        themeDark: cfg.mdx?.themeDark
+            ?? cfg.markdown?.themeDark,
     };
 }
 export function compile(source) {
