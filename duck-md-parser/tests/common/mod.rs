@@ -3,7 +3,5 @@ use duck_md_parser::parse;
 use duck_md_ast::*;
 
 pub fn parse_doc(src: &str) -> Document {
-    match parse(src) {
-        d => d,
-    }
+    parse(src)
 }

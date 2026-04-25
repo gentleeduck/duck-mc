@@ -30,12 +30,12 @@ fn live_fixtures() -> Vec<PathBuf> {
     .unwrap_or_else(|e| panic!("cannot read fixtures dir: {}", e))
     .filter_map(|e| e.ok())
     .map(|e| e.path())
-    .filter(|p| p.extension().map_or(false, |x| x == "mdx"))
+    .filter(|p| p.extension().is_some_and(|x| x == "mdx"))
     .filter(|p| {
       // skip *.known_fail.mdx
       !p.file_name()
         .and_then(|n| n.to_str())
-        .map_or(false, |s| s.ends_with(".known_fail.mdx"))
+        .is_some_and(|s| s.ends_with(".known_fail.mdx"))
     })
     .collect()
 }

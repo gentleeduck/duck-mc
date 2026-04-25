@@ -89,49 +89,44 @@ pub(crate) fn parse_jsx(p: &mut Parser) -> Node {
 
 fn parse_attrs(p: &mut Parser) -> Vec<JsxAttr> {
     let mut out = Vec::new();
-    loop {
-        match p.peek_kind() {
-            Some(TokenKind::JsxAttributeName) => {
-                let name = p.peek().unwrap().raw.clone();
-                p.advance();
-                let value = if matches!(p.peek_kind(), Some(TokenKind::Eq)) {
+    while let Some(TokenKind::JsxAttributeName) = p.peek_kind() {
+        let name = p.peek().unwrap().raw.clone();
+        p.advance();
+        let value = if matches!(p.peek_kind(), Some(TokenKind::Eq)) {
+            p.advance();
+            match p.peek_kind() {
+                Some(TokenKind::String) => {
+                    let s = p.peek().unwrap().raw.clone();
                     p.advance();
-                    match p.peek_kind() {
-                        Some(TokenKind::String) => {
-                            let s = p.peek().unwrap().raw.clone();
-                            p.advance();
-                            JsxAttrValue::String(s)
-                        }
-                        Some(TokenKind::ExpressionStart) => {
-                            p.advance();
-                            let mut s = String::new();
-                            while let Some(t) = p.peek() {
-                                match &t.kind {
-                                    TokenKind::ExpressionEnd | TokenKind::Eof => break,
-                                    _ => {
-                                        s.push_str(&t.raw);
-                                        p.advance();
-                                    }
-                                }
-                            }
-                            if matches!(p.peek_kind(), Some(TokenKind::ExpressionEnd)) {
+                    JsxAttrValue::String(s)
+                }
+                Some(TokenKind::ExpressionStart) => {
+                    p.advance();
+                    let mut s = String::new();
+                    while let Some(t) = p.peek() {
+                        match &t.kind {
+                            TokenKind::ExpressionEnd | TokenKind::Eof => break,
+                            _ => {
+                                s.push_str(&t.raw);
                                 p.advance();
                             }
-                            JsxAttrValue::Expression(s)
                         }
-                        _ => JsxAttrValue::Boolean,
                     }
-                } else {
-                    JsxAttrValue::Boolean
-                };
-                out.push(JsxAttr {
-                    name,
-                    value,
-                    span: default_span(),
-                });
+                    if matches!(p.peek_kind(), Some(TokenKind::ExpressionEnd)) {
+                        p.advance();
+                    }
+                    JsxAttrValue::Expression(s)
+                }
+                _ => JsxAttrValue::Boolean,
             }
-            _ => break,
-        }
+        } else {
+            JsxAttrValue::Boolean
+        };
+        out.push(JsxAttr {
+            name,
+            value,
+            span: default_span(),
+        });
     }
     out
 }

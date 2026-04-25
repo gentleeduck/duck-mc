@@ -30,7 +30,7 @@ impl<'engine> Lexer<'engine> {
       current: 0,
       line: 0,
       column: 0,
-      engine: engine,
+      engine,
       frontmatter_reserved: false,
     }
   }

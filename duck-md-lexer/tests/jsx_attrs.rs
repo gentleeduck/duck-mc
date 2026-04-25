@@ -3,11 +3,6 @@ use common::*;
 use duck_md_lexer::token::TokenKind;
 use pretty_assertions::assert_eq;
 
-fn first_kind(src: &str, want: TokenKind) -> bool {
-    let kinds = lex_kinds(src);
-    kinds.contains(&want)
-}
-
 #[test]
 fn string_attr_double() {
     let kinds = lex_kinds("<Btn color=\"red\" />");

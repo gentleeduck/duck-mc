@@ -25,8 +25,8 @@ impl<'engine> Lexer<'engine> {
     while let Some(c) = self.peek() {
       if c == '\\' {
         // look at the next char; if escapable, swallow both and continue
-        if let Some(nx) = self.peek_next() {
-          if matches!(
+        if let Some(nx) = self.peek_next()
+          && matches!(
             nx,
             '\\' | '*'
               | '_'
@@ -42,11 +42,11 @@ impl<'engine> Lexer<'engine> {
               | '!'
               | '#'
               | '-'
-          ) {
-            self.advance(); // backslash
-            self.advance(); // escaped char
-            continue;
-          }
+          )
+        {
+          self.advance(); // backslash
+          self.advance(); // escaped char
+          continue;
         }
         // lone backslash, treat as text
         self.advance();
@@ -56,10 +56,10 @@ impl<'engine> Lexer<'engine> {
         break;
       }
       if c == '<' {
-        if let Some(nx) = self.peek_next() {
-          if nx.is_ascii_alphabetic() || nx == '/' || nx == '>' {
-            break;
-          }
+        if let Some(nx) = self.peek_next()
+          && (nx.is_ascii_alphabetic() || nx == '/' || nx == '>')
+        {
+          break;
         }
         // not JSX, treat `<` as text
         self.advance();

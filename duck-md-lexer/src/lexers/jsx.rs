@@ -45,7 +45,7 @@ impl<'engine> Lexer<'engine> {
     if is_close_tag {
       return self.emit(TokenKind::JsxCloseTagEnd);
     }
-    return self.emit(TokenKind::JsxOpenTagEnd);
+    self.emit(TokenKind::JsxOpenTagEnd)
   }
 
   pub(crate) fn lex_jsx_attribute(&mut self) {

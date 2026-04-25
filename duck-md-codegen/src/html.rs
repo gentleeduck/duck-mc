@@ -111,8 +111,11 @@ impl HtmlEmitter {
     fn emit_list(&mut self, l: &List) {
         let tag = if l.ordered { "ol" } else { "ul" };
         self.out.push('<'); self.out.push_str(tag);
-        if l.ordered {
-            if let Some(s) = l.start { if s != 1 { self.out.push_str(&format!(" start=\"{}\"", s)); } }
+        if l.ordered
+            && let Some(s) = l.start
+            && s != 1
+        {
+            self.out.push_str(&format!(" start=\"{}\"", s));
         }
         self.out.push('>');
         for c in &l.children { self.emit(c); }

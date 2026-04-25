@@ -77,21 +77,11 @@ impl<'engine> Lexer<'engine> {
     self.source.get(self.start..self.current).unwrap_or("")
   }
 
-  pub(crate) fn match_next_char_consume(&mut self, expected: char) -> bool {
-    if let Some(c) = self.peek() {
-      if c == expected {
-        self.advance();
-        return true;
-      }
-    }
-    false
-  }
-
   pub(crate) fn match_current_char(&mut self, expected: char) -> bool {
-    if let Some(c) = self.source[self.current..].chars().next() {
-      if c == expected {
-        return true;
-      }
+    if let Some(c) = self.source[self.current..].chars().next()
+      && c == expected
+    {
+      return true;
     }
     false
   }

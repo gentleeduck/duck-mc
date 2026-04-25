@@ -1,5 +1,4 @@
 use duck_md::{run, CollectionConfig, EngineConfig};
-use std::path::PathBuf;
 
 fn tmp_workspace() -> tempfile::TempDir {
     let dir = tempfile::tempdir().expect("tempdir");

@@ -1,7 +1,6 @@
 mod common;
 use common::*;
 use duck_md_lexer::token::TokenKind;
-use pretty_assertions::assert_eq;
 
 #[test]
 fn markdown_comment_basic() {

@@ -101,15 +101,15 @@ fn build_record(compiled: CompileOutput, path: &Path, base: &Path) -> DocRecord 
     let rel = path.strip_prefix(base).unwrap_or(path);
     let rel_str = rel.to_string_lossy().to_string();
     let file_name = path.file_name().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
-    let parent = path.parent().and_then(|p| {
+    let parent = path.parent().map(|p| {
         let mut comps: Vec<String> = p.components()
             .map(|c| c.as_os_str().to_string_lossy().to_string())
             .collect();
         if comps.len() >= 2 {
             let last2 = comps.split_off(comps.len() - 2);
-            Some(last2.join("/"))
+            last2.join("/")
         } else {
-            Some(comps.join("/"))
+            comps.join("/")
         }
     }).unwrap_or_default();
 

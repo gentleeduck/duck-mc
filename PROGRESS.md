@@ -170,7 +170,7 @@ See SURVEY.md §I for required output shape.
 
 ## Phase 15 — Hardening
 
-- [ ] H1: `cargo clippy --all-targets -- -D warnings` clean
+- [x] H1: `cargo clippy --all-targets -- -D warnings` clean (13 issues fixed)
 - [ ] H2: `cargo fmt` enforced via `rustfmt.toml` (already exists)
 - [ ] H3: `criterion` bench `benches/parse_200line.rs`
 - [ ] H4: `criterion` bench `benches/full_pipeline.rs`
