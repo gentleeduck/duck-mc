@@ -41,6 +41,37 @@ importers:
         specifier: ^6
         version: 6.0.3
 
+  examples/acme-docs:
+    dependencies:
+      '@duck/md':
+        specifier: workspace:*
+        version: link:../../duck-md-napi
+      next:
+        specifier: ^15
+        version: 15.5.15(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
+      react:
+        specifier: ^19
+        version: 19.2.5
+      react-dom:
+        specifier: ^19
+        version: 19.2.5(react@19.2.5)
+    devDependencies:
+      '@types/node':
+        specifier: ^22
+        version: 22.19.17
+      '@types/react':
+        specifier: ^19
+        version: 19.2.14
+      '@types/react-dom':
+        specifier: ^19
+        version: 19.2.3(@types/react@19.2.14)
+      tsx:
+        specifier: ^4
+        version: 4.21.0
+      typescript:
+        specifier: ^5
+        version: 5.9.3
+
   examples/nextjs:
     dependencies:
       '@duck/md':
