@@ -1,5 +1,6 @@
 import { createRequire } from 'node:module'
-import { readFileSync, writeFileSync, unlinkSync } from 'node:fs'
+import { readFileSync, writeFileSync, unlinkSync, readdirSync, statSync } from 'node:fs'
+import { join, relative } from 'node:path'
 
 const require = createRequire(import.meta.url)
 const native = require('./index.js')
@@ -374,6 +375,64 @@ export function compileMany(sources: string[]): CompileOutput[] {
   return native.compileMany(sources) as CompileOutput[]
 }
 
+function walkDir(dir: string): string[] {
+  const out: string[] = []
+  try {
+    for (const name of readdirSync(dir)) {
+      const full = join(dir, name)
+      const st = statSync(full)
+      if (st.isDirectory()) out.push(...walkDir(full))
+      else out.push(full)
+    }
+  } catch {}
+  return out
+}
+
+async function applyCustomLoaders(
+  input: UserConfig,
+  report: BuildReport,
+): Promise<{ extras: Map<string, unknown[]> }> {
+  const extras = new Map<string, unknown[]>()
+  const loaders = (input.loaders as CustomLoader[] | undefined) ?? []
+  if (loaders.length === 0) return { extras }
+  const root = input.root ?? '.'
+  for (const [key, c] of Object.entries(input.collections)) {
+    const baseDir = c.baseDir ?? root
+    const files = walkDir(baseDir)
+    const matched: unknown[] = []
+    const matchedPaths = new Set<string>()
+    for (const file of files) {
+      const rel = relative(baseDir, file)
+      for (const loader of loaders) {
+        const re = loader.test instanceof RegExp ? loader.test : new RegExp(loader.test)
+        if (re.test(rel) || re.test(file)) {
+          const content = readFileSync(file, 'utf8')
+          const data = await loader.load({ path: file, value: content })
+          if (data && typeof data === 'object') {
+            const record = { ...(data as object), sourceFilePath: file }
+            matched.push(record)
+            matchedPaths.add(file)
+          }
+          break
+        }
+      }
+    }
+    if (matched.length > 0) {
+      const name = c.name ?? key
+      extras.set(name, matched)
+      const target = report.collections.find((rc) => rc.name === name)
+      if (target) {
+        const existing: { sourceFilePath?: string }[] = JSON.parse(readFileSync(target.outputPath, 'utf8'))
+        const filtered = existing.filter((r) => !matchedPaths.has(r?.sourceFilePath ?? ''))
+        const merged = [...filtered, ...matched]
+        writeFileSync(target.outputPath, JSON.stringify(merged, null, 2))
+        target.records = merged.length
+      }
+    }
+  }
+  return { extras }
+}
+
 export async function build(input: UserConfig): Promise<BuildReport> {
   const collectionCallbacks = new Map<string, PendingCallback[]>()
   if (input?.collections && !Array.isArray(input.collections)) {
@@ -387,6 +446,7 @@ export async function build(input: UserConfig): Promise<BuildReport> {
   }
 
   const report = native.build(adaptToBuildInput(input)) as BuildReport
+  await applyCustomLoaders(input, report)
 
   const needPostprocess = collectionCallbacks.size > 0 || input.prepare || input.complete
   if (!needPostprocess) return report

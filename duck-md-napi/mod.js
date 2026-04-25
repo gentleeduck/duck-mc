@@ -1,5 +1,6 @@
 import { createRequire } from 'node:module';
-import { readFileSync, writeFileSync, unlinkSync } from 'node:fs';
+import { readFileSync, writeFileSync, unlinkSync, readdirSync, statSync } from 'node:fs';
+import { join, relative } from 'node:path';
 const require = createRequire(import.meta.url);
 const native = require('./index.js');
 const cbRegistry = new Map();
@@ -199,6 +200,63 @@ export function compile(source) {
 export function compileMany(sources) {
     return native.compileMany(sources);
 }
+function walkDir(dir) {
+    const out = [];
+    try {
+        for (const name of readdirSync(dir)) {
+            const full = join(dir, name);
+            const st = statSync(full);
+            if (st.isDirectory())
+                out.push(...walkDir(full));
+            else
+                out.push(full);
+        }
+    }
+    catch { }
+    return out;
+}
+async function applyCustomLoaders(input, report) {
+    const extras = new Map();
+    const loaders = input.loaders ?? [];
+    if (loaders.length === 0)
+        return { extras };
+    const root = input.root ?? '.';
+    for (const [key, c] of Object.entries(input.collections)) {
+        const baseDir = c.baseDir ?? root;
+        const files = walkDir(baseDir);
+        const matched = [];
+        const matchedPaths = new Set();
+        for (const file of files) {
+            const rel = relative(baseDir, file);
+            for (const loader of loaders) {
+                const re = loader.test instanceof RegExp ? loader.test : new RegExp(loader.test);
+                if (re.test(rel) || re.test(file)) {
+                    const content = readFileSync(file, 'utf8');
+                    const data = await loader.load({ path: file, value: content });
+                    if (data && typeof data === 'object') {
+                        const record = { ...data, sourceFilePath: file };
+                        matched.push(record);
+                        matchedPaths.add(file);
+                    }
+                    break;
+                }
+            }
+        }
+        if (matched.length > 0) {
+            const name = c.name ?? key;
+            extras.set(name, matched);
+            const target = report.collections.find((rc) => rc.name === name);
+            if (target) {
+                const existing = JSON.parse(readFileSync(target.outputPath, 'utf8'));
+                const filtered = existing.filter((r) => !matchedPaths.has(r?.sourceFilePath ?? ''));
+                const merged = [...filtered, ...matched];
+                writeFileSync(target.outputPath, JSON.stringify(merged, null, 2));
+                target.records = merged.length;
+            }
+        }
+    }
+    return { extras };
+}
 export async function build(input) {
     const collectionCallbacks = new Map();
     if (input?.collections && !Array.isArray(input.collections)) {
@@ -212,6 +270,7 @@ export async function build(input) {
         }
     }
     const report = native.build(adaptToBuildInput(input));
+    await applyCustomLoaders(input, report);
     const needPostprocess = collectionCallbacks.size > 0 || input.prepare || input.complete;
     if (!needPostprocess)
         return report;

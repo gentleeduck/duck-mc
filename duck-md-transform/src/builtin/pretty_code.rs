@@ -37,15 +37,38 @@ impl PrettyCode {
   pub fn dual(light_name: &str, dark_name: &str) -> Self {
     let syntax_set = SyntaxSet::load_defaults_newlines();
     let ts = ThemeSet::load_defaults();
-    let pick = |n: &str| ts.themes.get(n).cloned()
-      .unwrap_or_else(|| ts.themes["base16-ocean.dark"].clone());
+    let resolve = |n: &str| -> syntect::highlighting::Theme {
+      let aliased = match n {
+        "github-light" | "GitHubLight" => "InspiredGitHub",
+        "catppuccin-mocha" | "CatppuccinMocha" => "base16-mocha.dark",
+        "catppuccin-latte" => "base16-ocean.light",
+        other => other,
+      };
+      ts.themes.get(aliased).cloned()
+        .or_else(|| ts.themes.get(n).cloned())
+        .unwrap_or_else(|| ts.themes["base16-ocean.dark"].clone())
+    };
     Self {
       syntax_set,
-      light_theme: pick(light_name),
+      light_theme: resolve(light_name),
       light_theme_name: light_name.to_string(),
-      dark_theme: Some(pick(dark_name)),
+      dark_theme: Some(resolve(dark_name)),
       dark_theme_name: Some(dark_name.to_string()),
     }
+  }
+
+  pub fn dual_with_files(light_path: &std::path::Path, dark_path: &std::path::Path) -> Result<Self, String> {
+    let syntax_set = SyntaxSet::load_defaults_newlines();
+    let load = |p: &std::path::Path| -> Result<syntect::highlighting::Theme, String> {
+      ThemeSet::get_theme(p).map_err(|e| format!("load theme {}: {e}", p.display()))
+    };
+    Ok(Self {
+      syntax_set,
+      light_theme: load(light_path)?,
+      light_theme_name: light_path.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default(),
+      dark_theme: Some(load(dark_path)?),
+      dark_theme_name: dark_path.file_stem().map(|s| s.to_string_lossy().to_string()),
+    })
   }
 
   fn highlight(
