@@ -27,7 +27,12 @@ pub(crate) fn parse_block(p: &mut Parser) -> Option<Node> {
             p.advance();
             None
         }
-        _ => Some(parse_paragraph(p)),
+        _ => {
+            if let Some(n) = crate::table::try_parse_table(p) {
+                return Some(n);
+            }
+            Some(parse_paragraph(p))
+        }
     }
 }
 

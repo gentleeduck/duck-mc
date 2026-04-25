@@ -154,6 +154,17 @@ fn plain_node(n: &Node, out: &mut String) {
         plain_node(c, out);
       }
     },
+    Node::Table(t) => {
+      for row in &t.children {
+        for cell in &row.cells {
+          for c in &cell.children {
+            plain_node(c, out);
+          }
+          out.push(' ');
+        }
+        out.push('\n');
+      }
+    },
     Node::JsxElement(e) => {
       for c in &e.children {
         plain_node(c, out);

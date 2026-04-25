@@ -21,7 +21,7 @@ Goal: drop-in Rust replacement for Velite's role in `apps/duck` (see `SURVEY.md`
 - [x] L13: dispatch `{` → `lex_expression` from main `lex_tokens`
 - [ ] L14: JSX fragment `<>...</>`
 - [ ] L15: lexer test crate `tests/lexer/*.rs` covering every TokenKind via `pretty_assertions` + table-driven tests
-- [ ] L16: GFM table pipe `|` row detection (block-start)
+- [x] L16: GFM table — handled in parser via try_parse_table re-tokenization
 - [x] L17: GFM task list `- [ ] / - [x]` (parser-side; lexer unchanged)
 - [x] L18: GFM strikethrough `~~text~~` (Token::Strike + lex_strike + lex_text break)
 - [ ] L19: GFM autolink `<https://...>` and bare URL detection
@@ -62,7 +62,7 @@ Goal: drop-in Rust replacement for Velite's role in `apps/duck` (see `SURVEY.md`
 - [x] P18: parse JSX element (re-entrant block parse for children)
 - [x] P19: parse JSX expression `{expr}`
 - [x] P20: parse JSX fragment
-- [ ] P21: parse GFM table
+- [x] P21: parse GFM table (header + alignment + body, alignments :--/--:/:-:)
 - [x] P22: parse GFM task list item (Bracket/Text/Bracket detection inside list)
 - [x] P23: parse GFM strikethrough (Strike token mirrored after Bold/Italic)
 - [ ] P24: parser test suite — `duck-md-parser/tests/*.rs` per construct
@@ -80,7 +80,7 @@ Goal: drop-in Rust replacement for Velite's role in `apps/duck` (see `SURVEY.md`
 - [x] C1: new crate `duck-md-codegen`. `HtmlEmitter` struct with output buffer + escape helpers
 - [x] C2: emit Heading (with id slug), Paragraph, Text (escaped), Bold, Italic, InlineCode, Strikethrough, CodeBlock (no highlight)
 - [x] C3: emit Link, Image, List, ListItem, TaskListItem, Blockquote, ThematicBreak, HardBreak (`<br/>`), SoftBreak (newline)
-- [ ] C4: emit Table, TableRow, TableCell with align attrs
+- [x] C4: emit Table, TableRow, TableCell with align attrs
 - [x] C5: emit JSX self-closing, JSX element, JSX expression as JSX-string passthrough into HTML
 - [x] C6: tests — `duck-md-codegen/tests/html.rs` golden per construct
 

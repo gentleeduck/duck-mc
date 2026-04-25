@@ -41,8 +41,9 @@ impl HtmlEmitter {
             Node::List(l) => self.emit_list(l),
             Node::ListItem(li) => self.emit_list_item(li),
             Node::TaskListItem(t) => self.emit_task_list_item(t),
-            Node::Table(_) | Node::TableRow(_) | Node::TableCell(_) => {
-                // tables not yet wired here; emit as-is best-effort
+            Node::Table(t) => self.emit_table(t),
+            Node::TableRow(_) | Node::TableCell(_) => {
+                // handled inside emit_table
             }
             Node::JsxElement(e) => self.emit_jsx_element(e),
             Node::JsxSelfClosing(s) => self.emit_jsx_self_closing(s),
@@ -130,6 +131,58 @@ impl HtmlEmitter {
         self.out.push_str("<li>");
         for c in &li.children { self.emit(c); }
         self.out.push_str("</li>");
+    }
+
+    fn emit_table(&mut self, t: &Table) {
+        self.out.push_str("<table>");
+        if let Some(header) = t.children.first() {
+            self.out.push_str("<thead><tr>");
+            for (i, cell) in header.cells.iter().enumerate() {
+                self.emit_cell(
+                    "th",
+                    cell,
+                    t.align.get(i).copied().unwrap_or(TableAlign::None),
+                );
+            }
+            self.out.push_str("</tr></thead>");
+        }
+        if t.children.len() > 1 {
+            self.out.push_str("<tbody>");
+            for row in &t.children[1..] {
+                self.out.push_str("<tr>");
+                for (i, cell) in row.cells.iter().enumerate() {
+                    self.emit_cell(
+                        "td",
+                        cell,
+                        t.align.get(i).copied().unwrap_or(TableAlign::None),
+                    );
+                }
+                self.out.push_str("</tr>");
+            }
+            self.out.push_str("</tbody>");
+        }
+        self.out.push_str("</table>");
+    }
+
+    fn emit_cell(&mut self, tag: &str, cell: &TableCell, align: TableAlign) {
+        self.out.push('<');
+        self.out.push_str(tag);
+        let align_str = match align {
+            TableAlign::Left => Some("left"),
+            TableAlign::Right => Some("right"),
+            TableAlign::Center => Some("center"),
+            TableAlign::None => None,
+        };
+        if let Some(a) = align_str {
+            self.out.push_str(&format!(" align=\"{}\"", a));
+        }
+        self.out.push('>');
+        for c in &cell.children {
+            self.emit(c);
+        }
+        self.out.push_str("</");
+        self.out.push_str(tag);
+        self.out.push('>');
     }
 
     fn emit_task_list_item(&mut self, t: &TaskListItem) {

@@ -102,6 +102,18 @@ fn blockquote_html() {
 }
 
 #[test]
+fn table_html_with_align() {
+    let h = duck_md_codegen::render_html(&duck_md_parser::parse(
+        "| a | b |\n|:--|--:|\n| 1 | 2 |\n",
+    ));
+    assert!(h.contains("<table>"));
+    assert!(h.contains("<thead>"));
+    assert!(h.contains("<tbody>"));
+    assert!(h.contains("align=\"left\""));
+    assert!(h.contains("align=\"right\""));
+}
+
+#[test]
 fn pretty_code_html_output_used() {
     use duck_md_transform::{Pipeline, PrettyCode};
     let mut d = duck_md_parser::parse("```ts\nlet x = 1\n```\n");
