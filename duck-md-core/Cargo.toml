@@ -17,6 +17,7 @@ duck-diagnostic.workspace = true
 duck-md-parser = { path = "../duck-md-parser" }
 duck-md-codegen = { path = "../duck-md-codegen" }
 duck-md-transform = { path = "../duck-md-transform" }
+duck-md-schema = { path = "../duck-md-schema" }
 serde.workspace = true
 serde_json.workspace = true
 globwalk.workspace = true

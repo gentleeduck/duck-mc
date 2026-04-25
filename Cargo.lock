@@ -447,6 +447,7 @@ dependencies = [
  "duck-md-codegen",
  "duck-md-lexer",
  "duck-md-parser",
+ "duck-md-schema",
  "duck-md-transform",
  "globwalk",
  "insta",

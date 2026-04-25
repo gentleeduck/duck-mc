@@ -56,13 +56,26 @@ fn cmd_build(config: PathBuf) -> std::io::Result<()> {
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e.to_string()))?;
     let engine_cfg = EngineConfig {
         output_dir: cfg.output_dir,
+        root: PathBuf::from("."),
+        strict: false,
+        clean: false,
         collections: cfg.collections.into_iter().map(|c| CollectionConfig {
-            name: c.name, pattern: c.pattern, base_dir: c.base_dir,
+            name: c.name,
+            pattern: c.pattern,
+            base_dir: c.base_dir,
+            schema: None,
+            single: false,
         }).collect(),
     };
     let report = run(&engine_cfg)?;
     for c in &report.collections {
         println!("✓ {} — {} records → {}", c.name, c.records, c.output_path.display());
+    }
+    if !report.errors.is_empty() {
+        eprintln!("\n{} validation error(s):", report.errors.len());
+        for e in &report.errors {
+            eprintln!("  {}: {}", e.file.display(), e.message);
+        }
     }
     Ok(())
 }

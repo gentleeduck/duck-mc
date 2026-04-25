@@ -14,12 +14,14 @@
 //! assert_eq!(out["draft"], false);
 //! ```
 
+mod compile;
 mod ctx;
 mod error;
 mod markdown;
 mod modifiers;
 mod primitives;
 
+pub use compile::compile_descriptor;
 pub use ctx::Ctx;
 pub use error::ValidationError;
 pub use markdown::*;
