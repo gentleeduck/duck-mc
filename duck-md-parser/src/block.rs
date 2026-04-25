@@ -9,6 +9,7 @@ pub(crate) fn parse_block(p: &mut Parser) -> Option<Node> {
         TokenKind::Import => Some(consume_import(p)),
         TokenKind::Export => Some(consume_export(p)),
         TokenKind::Heading(_) => Some(parse_heading(p)),
+        TokenKind::CodeStart(n) if *n >= 3 => Some(parse_code_block(p)),
         TokenKind::HardBreak | TokenKind::SoftBreak => {
             p.advance();
             None
@@ -68,6 +69,70 @@ fn parse_paragraph(p: &mut Parser) -> Node {
     let children = collect_inline_until_break(p);
     Node::Paragraph(Paragraph {
         children,
+        span: default_span(),
+    })
+}
+
+fn parse_code_block(p: &mut Parser) -> Node {
+    let fence_n = match p.peek_kind() {
+        Some(TokenKind::CodeStart(n)) => *n,
+        _ => 3,
+    };
+    p.advance(); // CodeStart
+
+    // Info string: a single Text token (may be empty).
+    let info = match p.peek() {
+        Some(t) if matches!(t.kind, TokenKind::Text) => {
+            let raw = t.raw.clone();
+            p.advance();
+            raw
+        }
+        _ => String::new(),
+    };
+    let info_trimmed = info.trim();
+    let (lang, meta) = if info_trimmed.is_empty() {
+        (None, None)
+    } else {
+        match info_trimmed.split_once(char::is_whitespace) {
+            Some((l, rest)) => {
+                let rest = rest.trim();
+                (
+                    Some(l.to_string()),
+                    if rest.is_empty() {
+                        None
+                    } else {
+                        Some(rest.to_string())
+                    },
+                )
+            }
+            None => (Some(info_trimmed.to_string()), None),
+        }
+    };
+
+    // Body: concat all Text tokens until matching CodeEnd(n).
+    let mut value = String::new();
+    while let Some(t) = p.peek() {
+        match &t.kind {
+            TokenKind::CodeEnd(m) if *m == fence_n => {
+                p.advance();
+                break;
+            }
+            TokenKind::Eof => break,
+            TokenKind::Text => {
+                value.push_str(&t.raw);
+                p.advance();
+            }
+            _ => {
+                value.push_str(&t.raw);
+                p.advance();
+            }
+        }
+    }
+
+    Node::CodeBlock(CodeBlock {
+        lang,
+        meta,
+        value,
         span: default_span(),
     })
 }
