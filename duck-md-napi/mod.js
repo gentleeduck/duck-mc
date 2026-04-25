@@ -192,6 +192,7 @@ function adaptToBuildInput(input) {
         mdxOutputFormat: cfg.mdx?.outputFormat,
         mdxMinify: cfg.mdx?.minify,
         markdownGfm: cfg.markdown?.gfm,
+        includeHtml: cfg.output?.html,
     };
 }
 export function compile(source) {

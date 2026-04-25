@@ -49,6 +49,7 @@ pub struct BuildInput {
     pub mdx_output_format: Option<String>,
     pub mdx_minify: Option<bool>,
     pub markdown_gfm: Option<bool>,
+    pub include_html: Option<bool>,
 }
 
 #[napi(object)]
@@ -89,6 +90,7 @@ pub fn build(input: BuildInput) -> Result<BuildReport> {
         mdx_output_format: input.mdx_output_format,
         mdx_minify: input.mdx_minify.unwrap_or(false),
         markdown_gfm: input.markdown_gfm.unwrap_or(true),
+        include_html: input.include_html.unwrap_or(false),
         collections: input
             .collections
             .into_iter()

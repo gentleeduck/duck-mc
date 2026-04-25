@@ -49,6 +49,8 @@ pub struct EngineConfig {
     pub mdx_minify: bool,
     #[serde(default = "default_true")]
     pub markdown_gfm: bool,
+    #[serde(default)]
+    pub include_html: bool,
 }
 
 fn default_true() -> bool { true }
@@ -73,6 +75,7 @@ impl Default for EngineConfig {
             mdx_output_format: None,
             mdx_minify: false,
             markdown_gfm: true,
+            include_html: false,
         }
     }
 }
@@ -183,7 +186,7 @@ fn process_collection(
             }
             _ => (compiled.frontmatter.clone(), None),
         };
-        let include_html = has_js_plugins(cfg);
+        let include_html = cfg.include_html || has_js_plugins(cfg);
         let rec = build_velite_record(compiled, validated_frontmatter, path, &c.base_dir, &c.name, include_html);
         (rec, err)
     }).collect();

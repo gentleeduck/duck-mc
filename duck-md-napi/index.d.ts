@@ -26,6 +26,11 @@ export interface BuildInput {
   markdownRehypePlugins?: any
   mdxRemarkPlugins?: any
   mdxRehypePlugins?: any
+  copyLinkedFiles?: boolean
+  mdxOutputFormat?: string
+  mdxMinify?: boolean
+  markdownGfm?: boolean
+  includeHtml?: boolean
 }
 export interface BuildCollectionReport {
   name: string

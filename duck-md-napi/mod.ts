@@ -127,6 +127,7 @@ interface NativeBuildInput {
   mdxOutputFormat?: string
   mdxMinify?: boolean
   markdownGfm?: boolean
+  includeHtml?: boolean
 }
 
 const cbRegistry = new Map<number, (v: unknown) => unknown>()
@@ -364,6 +365,7 @@ function adaptToBuildInput(input: UserConfig | NativeBuildInput): NativeBuildInp
     mdxOutputFormat: cfg.mdx?.outputFormat,
     mdxMinify: cfg.mdx?.minify,
     markdownGfm: cfg.markdown?.gfm,
+    includeHtml: (cfg.output as { html?: boolean } | undefined)?.html,
   }
 }
 
