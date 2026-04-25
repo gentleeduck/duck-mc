@@ -281,6 +281,7 @@ fn parse_code_block(p: &mut Parser) -> Node {
         value,
         raw: None,
         commands: None,
+        highlighted_html: None,
         span: default_span(),
     })
 }

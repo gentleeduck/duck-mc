@@ -100,3 +100,12 @@ fn blockquote_html() {
     let h = duck_md_codegen::render_html(&duck_md_parser::parse("> hi\n"));
     assert!(h.contains("<blockquote>"), "got {}", h);
 }
+
+#[test]
+fn pretty_code_html_output_used() {
+    use duck_md_transform::{Pipeline, PrettyCode};
+    let mut d = duck_md_parser::parse("```ts\nlet x = 1\n```\n");
+    Pipeline::new().add(PrettyCode::default()).run(&mut d);
+    let h = duck_md_codegen::render_html(&d);
+    assert!(h.contains("pretty-code"), "got: {}", h);
+}

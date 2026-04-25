@@ -108,6 +108,8 @@ pub struct CodeBlock {
   pub raw: Option<String>,
   #[serde(default)]
   pub commands: Option<crate::NpmCommands>,
+  #[serde(default)]
+  pub highlighted_html: Option<String>,
   #[serde(skip, default = "crate::default_span")]
   pub span: Span,
 }

@@ -121,7 +121,7 @@ See SURVEY.md §I for required output shape.
 - [ ] B1: GFM helper transforms (autolink bare URL → `<a>`, expand task list class)
 - [x] B2: `code_import` — reads `file=...` meta, inlines file content (range syntax `{1,2-3}` deferred)
 - [ ] B3: `slug` — `id` on every heading via `slug` crate
-- [ ] B4: `pretty_code` — syntect highlight, dual themes (catppuccin-mocha + github-light), wrap `<div data-rehype-pretty-code-fragment>` with paired `<pre>`, line/word marks
+- [~] B4: `pretty_code` — syntect highlight (single theme `base16-ocean.dark`); dual-theme + line/word marks deferred
 - [ ] B5: `metadata_plugin` — `__rawString__`, `__title__`, `__marks__` on `<code>` from fence meta
 - [ ] B6: `pretty_code_title` — rename `<div data-rehype-pretty-code-title>` → `<figcaption>`
 - [ ] B7: `pre_block_source` — propagate `__rawString__` to `<pre>` children

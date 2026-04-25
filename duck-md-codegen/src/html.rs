@@ -72,6 +72,10 @@ impl HtmlEmitter {
     }
 
     fn emit_code_block(&mut self, cb: &CodeBlock) {
+        if let Some(h) = &cb.highlighted_html {
+            self.out.push_str(h);
+            return;
+        }
         self.out.push_str("<pre><code");
         if let Some(lang) = &cb.lang {
             self.out.push_str(&format!(" class=\"language-{}\"", escape_attr(lang)));

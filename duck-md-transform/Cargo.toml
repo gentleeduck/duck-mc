@@ -5,6 +5,7 @@ edition.workspace = true
 
 [dependencies]
 duck-md-ast = { path = "../duck-md-ast" }
+syntect.workspace = true
 
 [dev-dependencies]
 duck-md-parser = { path = "../duck-md-parser" }

@@ -8,4 +8,5 @@ duck-md-ast = { path = "../duck-md-ast" }
 
 [dev-dependencies]
 duck-md-parser = { path = "../duck-md-parser" }
+duck-md-transform = { path = "../duck-md-transform" }
 pretty_assertions.workspace = true
