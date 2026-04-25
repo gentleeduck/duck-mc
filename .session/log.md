@@ -18,4 +18,5 @@ Format: `<ISO ts> | <task id> | <pass|fail|halt> | <one-line note>`
 2026-04-25T08:33:00Z | P7+P8+P9+P10+P11 | pass | parser inline: bold/italic/code/link/image + fenced code block; tests/inline.rs 6/6; total 41 tests
 2026-04-25T08:38:00Z | P17+P18+P19+P20 | pass | parser jsx (self-close, element, expression, fragment) + parse_attrs; tests/jsx.rs 6/6; total 47 tests; lexer bug L24 noted
 2026-04-25T08:42:00Z | L24 | pass | lex_jsx_tag self-close after attrs fixed; parser workaround removed; +2 lexer tests; total 49 tests
+2026-04-25T08:48:00Z | C1+C2+C3+C5+C6 | pass | duck-md-codegen crate added: HtmlEmitter + escape; tests/html.rs 9/9; total 58 tests
 

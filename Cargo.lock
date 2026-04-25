@@ -55,6 +55,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "duck-md-codegen"
+version = "0.1.0"
+dependencies = [
+ "duck-md-ast",
+ "duck-md-parser",
+ "pretty_assertions",
+]
+
+[[package]]
 name = "duck-md-core"
 version = "0.1.0"
 dependencies = [

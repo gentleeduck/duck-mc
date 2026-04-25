@@ -5,6 +5,7 @@ members = [
   "duck-md-lexer",
   "duck-md-ast",
   "duck-md-parser",
+  "duck-md-codegen",
 ]
 
 [workspace.package]
@@ -25,6 +26,7 @@ duck-diagnostic = "0.1.0"
 duck-md-lexer = { path = "duck-md-lexer" }
 duck-md-ast = { path = "duck-md-ast" }
 duck-md-parser = { path = "duck-md-parser" }
+duck-md-codegen = { path = "duck-md-codegen" }
 
 # Dev
 pretty_assertions = "1"

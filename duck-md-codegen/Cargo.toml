@@ -1,0 +1,11 @@
+[package]
+name = "duck-md-codegen"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+duck-md-ast = { path = "../duck-md-ast" }
+
+[dev-dependencies]
+duck-md-parser = { path = "../duck-md-parser" }
+pretty_assertions.workspace = true

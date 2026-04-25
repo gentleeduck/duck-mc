@@ -77,12 +77,12 @@ Goal: drop-in Rust replacement for Velite's role in `apps/duck` (see `SURVEY.md`
 
 ## Phase 5 — Codegen (HTML)
 
-- [ ] C1: new crate `duck-md-codegen`. `HtmlEmitter` struct with output buffer + escape helpers
-- [ ] C2: emit Heading (with id slug), Paragraph, Text (escaped), Bold, Italic, InlineCode, Strikethrough, CodeBlock (no highlight)
-- [ ] C3: emit Link, Image, List, ListItem, TaskListItem, Blockquote, ThematicBreak, HardBreak (`<br/>`), SoftBreak (newline)
+- [x] C1: new crate `duck-md-codegen`. `HtmlEmitter` struct with output buffer + escape helpers
+- [x] C2: emit Heading (with id slug), Paragraph, Text (escaped), Bold, Italic, InlineCode, Strikethrough, CodeBlock (no highlight)
+- [x] C3: emit Link, Image, List, ListItem, TaskListItem, Blockquote, ThematicBreak, HardBreak (`<br/>`), SoftBreak (newline)
 - [ ] C4: emit Table, TableRow, TableCell with align attrs
-- [ ] C5: emit JSX self-closing, JSX element, JSX expression as JSX-string passthrough into HTML
-- [ ] C6: tests — `duck-md-codegen/tests/html.rs` golden per construct
+- [x] C5: emit JSX self-closing, JSX element, JSX expression as JSX-string passthrough into HTML
+- [x] C6: tests — `duck-md-codegen/tests/html.rs` golden per construct
 
 ## Phase 6 — Codegen (MDX body — JS function source)
 
