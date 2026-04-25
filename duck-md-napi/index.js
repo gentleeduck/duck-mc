@@ -310,7 +310,8 @@ if (!nativeBinding) {
   throw new Error(`Failed to load native binding`)
 }
 
-const { compile, build } = nativeBinding
+const { compile, compileMany, build } = nativeBinding
 
 module.exports.compile = compile
+module.exports.compileMany = compileMany
 module.exports.build = build

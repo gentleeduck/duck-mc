@@ -82,6 +82,7 @@ function build(input) {
 
 module.exports = {
   compile: native.compile,
+  compileMany: native.compileMany,
   build,
   defineConfig,
   defineCollection,

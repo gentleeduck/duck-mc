@@ -11,6 +11,16 @@ pub fn compile(source: String) -> Result<Value> {
     serde_json::to_value(&out).map_err(|e| Error::from_reason(e.to_string()))
 }
 
+#[napi]
+pub fn compile_many(sources: Vec<String>) -> Result<Vec<Value>> {
+    sources.into_iter()
+        .map(|s| {
+            let out = duck_md::compile(&s);
+            serde_json::to_value(&out).map_err(|e| Error::from_reason(e.to_string()))
+        })
+        .collect()
+}
+
 #[napi(object)]
 pub struct CollectionInput {
     pub name: String,

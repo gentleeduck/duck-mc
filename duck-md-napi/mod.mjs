@@ -78,8 +78,9 @@ function adaptToBuildInput(input) {
 }
 
 export const compile = native.compile
+export const compileMany = native.compileMany
 export function build(input) {
   return native.build(adaptToBuildInput(input))
 }
 
-export default { compile, build, defineConfig, defineCollection, defineLoader, defineSchema, s }
+export default { compile, compileMany, build, defineConfig, defineCollection, defineLoader, defineSchema, s }
