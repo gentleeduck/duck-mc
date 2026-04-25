@@ -1,0 +1,26 @@
+{
+  "name": "duck-md-nextjs",
+  "private": true,
+  "version": "0.0.0",
+  "scripts": {
+    "content": "tsx scripts/build-content.ts",
+    "predev": "pnpm content",
+    "prebuild": "pnpm content",
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
+  },
+  "dependencies": {
+    "@duck/md": "workspace:*",
+    "next": "^15",
+    "react": "^19",
+    "react-dom": "^19"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "tsx": "^4",
+    "typescript": "^5"
+  }
+}
