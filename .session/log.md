@@ -13,4 +13,5 @@ Format: `<ISO ts> | <task id> | <pass|fail|halt> | <one-line note>`
 2026-04-25T08:13:00Z | L8+L9 | pass | jsx attr {expr} branch + boolean attrs + dash names + single-quote bug fix; tests/jsx_attrs.rs 7/7
 2026-04-25T08:16:00Z | L10+L13 | pass | { dispatched: {/* → lex_md_comment, else lex_expression; tests/expressions.rs 4/4 + tests/md_comments.rs 3/3
 2026-04-25T08:18:00Z | A1+A2+A3+A5+A6 | pass | duck-md-ast crate added: Node enum + structs + JsxAttr + serde + smoke tests 2/2; Span skipped (no Serialize derive in duck_diagnostic)
+2026-04-25T08:24:00Z | P1+P5+P6 | pass | duck-md-parser crate: Parser, parse(), heading + paragraph + inline accumulator; basic.rs 4/4; total 31 tests workspace-wide
 

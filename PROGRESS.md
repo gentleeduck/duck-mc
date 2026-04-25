@@ -41,12 +41,12 @@ Goal: drop-in Rust replacement for Velite's role in `apps/duck` (see `SURVEY.md`
 
 ## Phase 3 — Parser
 
-- [ ] P1: new crate `duck-md-parser`. `Parser` struct, `peek/advance/expect`, `parse() -> Document` entry
+- [x] P1: new crate `duck-md-parser`. `Parser` struct, `peek/advance/expect`, `parse() -> Document` entry
 - [ ] P2: parse frontmatter
 - [ ] P3: parse top-level imports
 - [ ] P4: parse top-level exports
-- [ ] P5: parse heading + inline children
-- [ ] P6: parse paragraph + inline accumulator
+- [x] P5: parse heading + inline children
+- [x] P6: parse paragraph + inline accumulator
 - [ ] P7: parse fenced code block (lang + meta)
 - [ ] P8: parse inline code
 - [ ] P9: parse bold + italic delimiter pairing
