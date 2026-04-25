@@ -1,6 +1,7 @@
 'use strict'
 
 const native = require('./index.js')
+const fs = require('node:fs')
 
 class SchemaBuilder {
   constructor(descriptor) {
@@ -76,8 +77,26 @@ function adaptToBuildInput(input) {
   }
 }
 
-function build(input) {
-  return native.build(adaptToBuildInput(input))
+async function build(input) {
+  const report = native.build(adaptToBuildInput(input))
+  if (input?.prepare || input?.complete) {
+    const data = {}
+    for (const c of report.collections) {
+      data[c.name] = JSON.parse(fs.readFileSync(c.outputPath, 'utf8'))
+    }
+    if (input.prepare) {
+      const ret = await input.prepare(data, { config: input })
+      if (ret === false) {
+        for (const c of report.collections) try { fs.unlinkSync(c.outputPath) } catch (_) {}
+        return report
+      }
+      for (const c of report.collections) {
+        fs.writeFileSync(c.outputPath, JSON.stringify(data[c.name], null, 2))
+      }
+    }
+    if (input.complete) await input.complete(data, { config: input })
+  }
+  return report
 }
 
 module.exports = {

@@ -138,7 +138,7 @@ export interface BuildReport {
 
 export declare function compile(source: string): CompileOutput
 export declare function compileMany(sources: string[]): CompileOutput[]
-export declare function build(input: BuildInput | UserConfig): BuildReport
+export declare function build(input: BuildInput | UserConfig): Promise<BuildReport>
 
 export declare function defineConfig(config: UserConfig): UserConfig
 export declare function defineCollection(c: CollectionConfig): CollectionConfig

@@ -1,4 +1,5 @@
 import { createRequire } from 'node:module'
+import { readFileSync, writeFileSync, unlinkSync } from 'node:fs'
 
 const require = createRequire(import.meta.url)
 const native = require('./index.js')
@@ -79,8 +80,27 @@ function adaptToBuildInput(input) {
 
 export const compile = native.compile
 export const compileMany = native.compileMany
-export function build(input) {
-  return native.build(adaptToBuildInput(input))
+
+export async function build(input) {
+  const report = native.build(adaptToBuildInput(input))
+  if (input?.prepare || input?.complete) {
+    const data = {}
+    for (const c of report.collections) {
+      data[c.name] = JSON.parse(readFileSync(c.outputPath, 'utf8'))
+    }
+    if (input.prepare) {
+      const ret = await input.prepare(data, { config: input })
+      if (ret === false) {
+        for (const c of report.collections) try { unlinkSync(c.outputPath) } catch {}
+        return report
+      }
+      for (const c of report.collections) {
+        writeFileSync(c.outputPath, JSON.stringify(data[c.name], null, 2))
+      }
+    }
+    if (input.complete) await input.complete(data, { config: input })
+  }
+  return report
 }
 
 export default { compile, compileMany, build, defineConfig, defineCollection, defineLoader, defineSchema, s }
