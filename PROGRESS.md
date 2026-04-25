@@ -55,9 +55,9 @@ Goal: drop-in Rust replacement for Velite's role in `apps/duck` (see `SURVEY.md`
 - [x] P11: parse image (alt + src + title)
 - [x] P12: parse unordered list (flat; nesting deferred)
 - [x] P13: parse ordered list + start number
-- [ ] P14: parse blockquote with nested children
-- [ ] P15: parse thematic break
-- [ ] P16: parse soft/hard break
+- [x] P14: parse blockquote (multi-line `>`-led merge into one Blockquote of paragraphs)
+- [x] P15: parse thematic break (---, ***, ___) → Node::HorizontalRule
+- [x] P16: parse soft/hard break (top-level break separates blocks; explicit inline break as `<br/>` deferred)
 - [x] P17: parse JSX self-closing
 - [x] P18: parse JSX element (re-entrant block parse for children)
 - [x] P19: parse JSX expression `{expr}`

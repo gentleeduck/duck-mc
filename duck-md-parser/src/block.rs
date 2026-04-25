@@ -18,6 +18,11 @@ pub(crate) fn parse_block(p: &mut Parser) -> Option<Node> {
         }
         TokenKind::UnorderedListItem => Some(parse_list(p, false)),
         TokenKind::OrderedListItem => Some(parse_list(p, true)),
+        TokenKind::BlockQuote => Some(parse_blockquote(p)),
+        TokenKind::ThematicBreak => {
+            p.advance();
+            Some(Node::HorizontalRule(HorizontalRule { span: default_span() }))
+        }
         TokenKind::HardBreak | TokenKind::SoftBreak => {
             p.advance();
             None
@@ -127,6 +132,34 @@ fn parse_one_list_item(p: &mut Parser, ordered: bool) -> Node {
     let inline = crate::inline::collect_inline_for_list_item(p);
     Node::ListItem(ListItem {
         children: inline,
+        span: default_span(),
+    })
+}
+
+fn parse_blockquote(p: &mut Parser) -> Node {
+    let mut paras: Vec<Node> = Vec::new();
+    loop {
+        if !matches!(p.peek_kind(), Some(TokenKind::BlockQuote)) {
+            break;
+        }
+        p.advance();
+        let inline = collect_inline_until_break(p);
+        if !inline.is_empty() {
+            paras.push(Node::Paragraph(Paragraph {
+                children: inline,
+                span: default_span(),
+            }));
+        }
+        // consume one separator break
+        if matches!(
+            p.peek_kind(),
+            Some(TokenKind::SoftBreak) | Some(TokenKind::HardBreak)
+        ) {
+            p.advance();
+        }
+    }
+    Node::Blockquote(Blockquote {
+        children: paras,
         span: default_span(),
     })
 }

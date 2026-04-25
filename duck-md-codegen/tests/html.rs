@@ -88,3 +88,15 @@ fn ordered_list_with_start_renders() {
     let h = render_html(&duck_md_parser::parse("5. e\n6. f\n"));
     assert!(h.contains("<ol start=\"5\""));
 }
+
+#[test]
+fn thematic_break_html() {
+    let h = duck_md_codegen::render_html(&duck_md_parser::parse("---\n"));
+    assert!(h.contains("<hr />"), "got {}", h);
+}
+
+#[test]
+fn blockquote_html() {
+    let h = duck_md_codegen::render_html(&duck_md_parser::parse("> hi\n"));
+    assert!(h.contains("<blockquote>"), "got {}", h);
+}
