@@ -3,6 +3,22 @@ name = "duck-md-core"
 version.workspace = true
 edition.workspace = true
 
+[lib]
+name = "duck_md"
+path = "src/lib.rs"
+
+[[bin]]
+name = "duck-md-core"
+path = "src/main.rs"
+
 [dependencies]
 duck-md-lexer.workspace = true
 duck-diagnostic.workspace = true
+duck-md-ast = { path = "../duck-md-ast" }
+duck-md-parser = { path = "../duck-md-parser" }
+duck-md-codegen = { path = "../duck-md-codegen" }
+serde.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+pretty_assertions.workspace = true

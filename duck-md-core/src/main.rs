@@ -34,6 +34,17 @@ fn main() -> Result<(), std::io::Error> {
     engine.print_all(&source);
   }
 
+  println!("=== compiled ===");
+  let out = duck_md::compile(&source);
+  println!("title: {:?}", out.frontmatter.get("title"));
+  println!(
+    "words: {} reading: {}min",
+    out.metadata.word_count, out.metadata.reading_time
+  );
+  println!("toc: {} root items", out.toc.len());
+  println!("excerpt: {}", out.excerpt);
+  println!("html (len {}):", out.html.len());
+
   Ok(())
   // match lexer.scan_tokens() {
   //   Ok(_) => {

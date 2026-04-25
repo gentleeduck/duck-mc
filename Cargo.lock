@@ -68,7 +68,13 @@ name = "duck-md-core"
 version = "0.1.0"
 dependencies = [
  "duck-diagnostic",
+ "duck-md-ast",
+ "duck-md-codegen",
  "duck-md-lexer",
+ "duck-md-parser",
+ "pretty_assertions",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

@@ -99,10 +99,10 @@ See SURVEY.md §I for required output shape.
 
 - [ ] S1: new crate `duck-md-schema`. Type-level builder: `string(), boolean(), number(), object(map), array(item), optional(), default(value), max(N), min(N), regex(pat), enum_(["a","b"])`
 - [ ] S2: `mdx()` validator — runs MdxBodyEmitter, returns body string
-- [ ] S3: `markdown()` validator — returns raw markdown content
-- [ ] S4: `excerpt(opts)` validator — strip MD, truncate first 260 chars, ellipsis
-- [ ] S5: `metadata()` validator — `{readingTime, wordCount}` (200 wpm)
-- [ ] S6: `toc()` validator — nested `{title,url,items[]}` from headings
+- [x] S3: `markdown()` — provided as `CompileOutput.content` (raw md sans frontmatter)
+- [x] S4: `excerpt(opts)` — provided as `CompileOutput.excerpt` (strip MD, truncate 260)
+- [x] S5: `metadata()` — provided as `CompileOutput.metadata` (200 wpm)
+- [x] S6: `toc()` — provided as `CompileOutput.toc` (nested via index-path stack)
 - [ ] S7: schema parse error type with rich path (e.g. `frontmatter.title: too long`)
 - [ ] S8: `transform(fn)` post-step
 - [ ] S9: tests — `duck-md-schema/tests/*.rs` per primitive
