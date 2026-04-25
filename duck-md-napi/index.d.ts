@@ -22,6 +22,10 @@ export interface BuildInput {
   outputBase?: string
   outputName?: string
   outputFormat?: string
+  markdownRemarkPlugins?: any
+  markdownRehypePlugins?: any
+  mdxRemarkPlugins?: any
+  mdxRehypePlugins?: any
 }
 export interface BuildCollectionReport {
   name: string

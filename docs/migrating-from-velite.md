@@ -31,15 +31,21 @@ the import and you're done.
 
 | Area                        | velite                                    | @duck/md                            |
 | --------------------------- | ----------------------------------------- | ----------------------------------- |
-| Image blur dataURL          | base64 webp via sharp                     | base64 webp via `image` crate       |
-| Word-level marks `/word/`   | yes                                       | line marks only `{1,3-5}`           |
-| Dual themes                 | shiki paired output                       | single syntect theme                |
-| `.transform()` / `.refine()` (JS callback) | runs during JS build      | accepted in Rust API; JS callback bridge deferred |
-| `prepare()` / `complete()` hooks | runs (async)                        | runs (async via JS adapter)         |
-| Custom JS plugins (remark/rehype) | run inline                          | spawns `@duck/md-sidecar` subprocess |
-| Watch mode                  | chokidar                                  | notify (Linux/macOS/Windows)        |
-| Per-file compile parallelism | sequential                               | rayon parallel                       |
-| `build()` return            | `Promise<Report>`                         | `Promise<Report>`                   |
+| Image blur dataURL          | base64 webp via sharp                     | base64 webp via `image` crate ✅     |
+| Word-level marks `/word/`   | yes                                       | yes ✅                              |
+| Line marks `{1,3-5}`        | yes                                       | yes ✅                              |
+| Dual themes                 | shiki paired output                       | syntect paired output ✅            |
+| Mermaid                     | headless Chromium                         | shells out to `mmdc` if on PATH ✅  |
+| `<ComponentSource path=>`   | reads + emits tsx code block              | same ✅                             |
+| `<ComponentPreview name=>`  | registry lookup + tsx                     | deferred (registry-specific)        |
+| Indented code blocks        | yes                                       | yes ✅                              |
+| `<email>` autolinks         | yes                                       | yes ✅                              |
+| `.transform()` / `.refine()` (JS callback) | runs during JS build      | Rust callbacks work; JS callbacks accepted but not invoked across FFI |
+| `prepare()` / `complete()` hooks | runs (async)                        | runs (async via JS adapter) ✅      |
+| Custom JS plugins (remark/rehype) | run inline                          | spawns `duck-md-sidecar` ✅         |
+| Watch mode                  | chokidar                                  | notify ✅                           |
+| Per-file compile parallelism | sequential                               | rayon parallel ✅                   |
+| `build()` return            | `Promise<Report>`                         | `Promise<Report>` ✅                |
 
 ## Plugin compatibility
 
