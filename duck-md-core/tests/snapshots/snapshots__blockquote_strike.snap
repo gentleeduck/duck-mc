@@ -1,0 +1,20 @@
+---
+source: duck-md-core/tests/snapshots.rs
+assertion_line: 67
+expression: out
+---
+{
+  "frontmatter": null,
+  "frontmatterRaw": "",
+  "content": "> Block ~~old~~ new\n> next line\n",
+  "html": "<blockquote><p>Block <del>old</del>new</p><p>next line</p></blockquote>",
+  "body": "[REDACTED_FACTORY_STRING]",
+  "excerpt": "Block oldnew next line",
+  "metadata": {
+    "readingTime": 1,
+    "wordCount": 4
+  },
+  "toc": [],
+  "imports": [],
+  "exports": []
+}

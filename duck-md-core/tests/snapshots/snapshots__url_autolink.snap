@@ -1,0 +1,20 @@
+---
+source: duck-md-core/tests/snapshots.rs
+assertion_line: 24
+expression: out
+---
+{
+  "frontmatter": null,
+  "frontmatterRaw": "",
+  "content": "see <https://rust-lang.org> here",
+  "html": "<p>see <a href=\"https://rust-lang.org\">https://rust-lang.org</a>here</p>",
+  "body": "[REDACTED_FACTORY_STRING]",
+  "excerpt": "see https://rust-lang.orghere",
+  "metadata": {
+    "readingTime": 1,
+    "wordCount": 2
+  },
+  "toc": [],
+  "imports": [],
+  "exports": []
+}
