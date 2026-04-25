@@ -1,77 +1,93 @@
-use std::{cell::RefCell, fs, rc::Rc};
+use std::path::PathBuf;
+use clap::{Parser, Subcommand};
+use duck_md::{run, EngineConfig, CollectionConfig, compile};
 
-use duck_diagnostic::{Diagnostic, DiagnosticEngine};
-use duck_md_lexer::Lexer;
+#[derive(Parser)]
+#[command(name = "duck-md", version, about = "Rust MDX compiler — drop-in for velite docs role")]
+struct Cli {
+    #[command(subcommand)]
+    cmd: Cmd,
+}
 
-fn main() -> Result<(), std::io::Error> {
-  let path = String::from("./tmp/index.mdx");
-  let engine = Rc::new(RefCell::new(DiagnosticEngine::new()));
-
-  let source = match fs::read_to_string(&path) {
-    Ok(content) => content,
-    Err(err) => {
-      eprintln!("error: could not read file: {} ({})", path, err);
-      std::process::exit(66);
+#[derive(Subcommand)]
+enum Cmd {
+    /// Build all collections from duck-md.toml.
+    Build {
+        /// Path to config file
+        #[arg(long, default_value = "duck-md.toml")]
+        config: PathBuf,
     },
-  };
+    /// Scaffold a default duck-md.toml in the current directory.
+    Init {
+        #[arg(long, default_value = "duck-md.toml")]
+        path: PathBuf,
+    },
+    /// Compile a single MDX file and print JSON to stdout.
+    Compile {
+        path: PathBuf,
+    },
+}
 
-  println!("=== Source ===");
-  println!("{}", source);
+#[derive(serde::Serialize, serde::Deserialize)]
+struct ConfigFile {
+    output_dir: PathBuf,
+    collections: Vec<CollectionEntry>,
+}
 
-  // NOTE: later one when we use incremental parsing, we can pass the source obj instead of the
-  // string cloning
-  let mut lexer = Lexer::new(source.clone(), engine.borrow_mut());
-  lexer.scan_tokens();
+#[derive(serde::Serialize, serde::Deserialize)]
+struct CollectionEntry {
+    name: String,
+    pattern: String,
+    base_dir: PathBuf,
+}
 
-  println!("=== tokens ===");
-  for token in &lexer.tokens {
-    println!("  {}", token);
-  }
+fn main() -> std::io::Result<()> {
+    let cli = Cli::parse();
+    match cli.cmd {
+        Cmd::Build { config } => cmd_build(config),
+        Cmd::Init { path } => cmd_init(path),
+        Cmd::Compile { path } => cmd_compile(path),
+    }
+}
 
-  drop(lexer);
-  let engine = engine.borrow();
-  if engine.has_errors() || engine.has_warnings() {
-    engine.print_all(&source);
-  }
+fn cmd_build(config: PathBuf) -> std::io::Result<()> {
+    let raw = std::fs::read_to_string(&config)?;
+    let cfg: ConfigFile = toml::from_str(&raw)
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e.to_string()))?;
+    let engine_cfg = EngineConfig {
+        output_dir: cfg.output_dir,
+        collections: cfg.collections.into_iter().map(|c| CollectionConfig {
+            name: c.name, pattern: c.pattern, base_dir: c.base_dir,
+        }).collect(),
+    };
+    let report = run(&engine_cfg)?;
+    for c in &report.collections {
+        println!("✓ {} — {} records → {}", c.name, c.records, c.output_path.display());
+    }
+    Ok(())
+}
 
-  println!("=== compiled ===");
-  let out = duck_md::compile(&source);
-  println!("title: {:?}", out.frontmatter.get("title"));
-  println!(
-    "words: {} reading: {}min",
-    out.metadata.word_count, out.metadata.reading_time
-  );
-  println!("toc: {} root items", out.toc.len());
-  println!("excerpt: {}", out.excerpt);
-  println!("html (len {}):", out.html.len());
+fn cmd_init(path: PathBuf) -> std::io::Result<()> {
+    if path.exists() {
+        eprintln!("refusing to overwrite existing {}", path.display());
+        std::process::exit(2);
+    }
+    let default = r#"output_dir = ".duck-md"
 
-  Ok(())
-  // match lexer.scan_tokens() {
-  //   Ok(_) => {
-  //     println!("=== tokens ===");
-  //     println!("{:#?}", lexer.tokens);
-  //   },
-  //   Err(_) => {
-  //     lexer.engine.print_all(&lexer.source);
-  //   },
-  // }
+[[collections]]
+name = "docs"
+pattern = "docs/**/*.mdx"
+base_dir = "."
+"#;
+    std::fs::write(&path, default)?;
+    println!("wrote {}", path.display());
+    Ok(())
+}
 
-  // pub(crate) fn parse_yaml<T: serde::de::DeserializeOwned + std::fmt::Debug>(
-  //   &mut self,
-  //   content: &str,
-  // ) -> Result<T, ()> {
-  //   serde_yaml::from_str::<T>(content).map_err(|err| {
-  //     self.engine.emit(
-  //       Diagnostic::<Code>::new(
-  //         Code::InvalidFrontMatter,
-  //         format!("invalid YAML in frontmatter: {}", err),
-  //       )
-  //       .with_label(Label::primary(
-  //         Span::new("", self.line, self.column, 1),
-  //         Some("frontmatter parsed here".to_string()),
-  //       ))
-  //       .with_help("ensure the frontmatter is valid YAML"),
-  //     );
-  //   })
-  // }
+fn cmd_compile(path: PathBuf) -> std::io::Result<()> {
+    let src = std::fs::read_to_string(&path)?;
+    let out = compile(&src);
+    let json = serde_json::to_string_pretty(&out).unwrap();
+    println!("{}", json);
+    Ok(())
 }

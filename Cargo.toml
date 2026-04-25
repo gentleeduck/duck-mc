@@ -23,6 +23,10 @@ slug = "0.1"
 duck-diagnostic = "0.1.0"
 globwalk = "0.9"
 tempfile = "3"
+clap = { version = "4", features = ["derive"] }
+toml = "0.8"
+assert_cmd = "2"
+predicates = "3"
 
 # Workspace crates
 duck-md-lexer = { path = "duck-md-lexer" }

@@ -148,11 +148,11 @@ See SURVEY.md §I for required output shape.
 
 ## Phase 12 — CLI
 
-- [ ] U1: `duck-md` binary in `duck-md-core` (or new `duck-md-cli` crate). Commands: `build`, `dev`, `init`
-- [ ] U2: `build` — read `duck-md.toml` config, run pipeline, write `.duck-md/`
-- [ ] U3: `dev` — `notify` watcher, incremental rebuild
-- [ ] U4: `init` — scaffold default config
-- [ ] U5: tests — `assert_cmd` integration test on a fixture project
+- [x] U1: `duck-md` binary. Commands: `build`, `init`, `compile`
+- [x] U2: `build` — read `duck-md.toml` config, run pipeline, write `.duck-md/`
+- [ ] U3: `dev` — `notify` watcher, incremental rebuild (deferred)
+- [x] U4: `init` — scaffold default config
+- [x] U5: tests — `assert_cmd` integration tests on fixture projects
 
 ## Phase 13 — Output
 
