@@ -50,12 +50,19 @@ fn collect_inline(p: &mut Parser, stop: &dyn Fn(&TokenKind) -> bool) -> Vec<Node
             TokenKind::Autolink => {
                 let raw = t.raw.clone();
                 p.advance();
-                let url = raw.trim_start_matches('<').trim_end_matches('>').to_string();
+                let inner = raw.trim_start_matches('<').trim_end_matches('>').to_string();
+                let href = if inner.contains("://") {
+                    inner.clone()
+                } else if inner.contains('@') {
+                    format!("mailto:{inner}")
+                } else {
+                    inner.clone()
+                };
                 out.push(Node::Link(Link {
-                    href: url.clone(),
+                    href,
                     title: None,
                     class: None,
-                    children: vec![Node::Text(Text { value: url, span: default_span() })],
+                    children: vec![Node::Text(Text { value: inner, span: default_span() })],
                     span: default_span(),
                 }));
             }

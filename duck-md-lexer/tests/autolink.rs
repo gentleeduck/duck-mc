@@ -26,3 +26,9 @@ fn lex_url_with_space_falls_through() {
   let kinds = lex_kinds("<not a url>");
   assert!(!kinds.iter().any(|k| matches!(k, TokenKind::Autolink)));
 }
+
+#[test]
+fn lex_email_autolink() {
+  let kinds = lex_kinds("contact <hi@example.com> for info");
+  assert!(kinds.iter().any(|k| matches!(k, TokenKind::Autolink)));
+}

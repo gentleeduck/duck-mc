@@ -45,7 +45,19 @@ impl<'engine> Lexer<'engine> {
     for (i, &b) in bytes.iter().enumerate() {
       if b == b'>' {
         let inner = &rest[..i];
-        return inner.contains("://") && inner.len() >= 5;
+        if inner.contains("://") && inner.len() >= 5 { return true; }
+        if let Some(at) = inner.find('@') {
+          let (local, domain) = inner.split_at(at);
+          let domain = &domain[1..];
+          if !local.is_empty() && domain.contains('.') && !domain.starts_with('.')
+            && !domain.ends_with('.')
+            && local.chars().all(|c| c.is_ascii_alphanumeric() || ".+-_".contains(c))
+            && domain.chars().all(|c| c.is_ascii_alphanumeric() || ".-".contains(c))
+          {
+            return true;
+          }
+        }
+        return false;
       }
       if matches!(b, b' ' | b'\n' | b'\t' | b'<') {
         return false;
