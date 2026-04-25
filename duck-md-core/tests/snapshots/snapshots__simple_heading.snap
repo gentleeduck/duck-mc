@@ -5,14 +5,14 @@ expression: out
 ---
 {
   "frontmatter": null,
-  "frontmatter_raw": "",
+  "frontmatterRaw": "",
   "content": "# Hello\n\nworld",
   "html": "<h1 id=\"hello\"><a href=\"#hello\" class=\"subheading-anchor\" aria-label=\"Link to section\">Hello</a></h1><p>world</p>",
   "body": "[REDACTED_FACTORY_STRING]",
   "excerpt": "Hello world",
   "metadata": {
-    "reading_time": 1,
-    "word_count": 2
+    "readingTime": 1,
+    "wordCount": 2
   },
   "toc": [
     {

@@ -234,10 +234,7 @@ fn build_velite_record(
     map.insert("body".into(), Value::String(compiled.body));
     map.insert("content".into(), Value::String(compiled.content));
     map.insert("excerpt".into(), Value::String(compiled.excerpt));
-    map.insert("metadata".into(), json!({
-        "readingTime": compiled.metadata.reading_time,
-        "wordCount": compiled.metadata.word_count,
-    }));
+    map.insert("metadata".into(), serde_json::to_value(&compiled.metadata).unwrap_or(json!({})));
     map.insert("toc".into(), serde_json::to_value(&compiled.toc).unwrap_or(Value::Array(vec![])));
     map.insert("contentType".into(), Value::String(content_type));
     map.insert("flattenedPath".into(), Value::String(flattened_path));

@@ -5,8 +5,8 @@ export interface TocItem {
 }
 
 export interface Metadata {
-  reading_time: number
-  word_count: number
+  readingTime: number
+  wordCount: number
 }
 
 export interface CompileOutput {
@@ -17,7 +17,7 @@ export interface CompileOutput {
   metadata: Metadata
   toc: TocItem[]
   frontmatter: unknown
-  frontmatter_raw: string
+  frontmatterRaw: string
   imports: string[]
   exports: string[]
 }

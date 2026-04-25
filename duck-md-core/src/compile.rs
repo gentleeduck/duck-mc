@@ -3,8 +3,9 @@ use duck_md_transform::Pipeline;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
 pub struct Metadata {
-  pub reading_time: u32, // minutes
+  pub reading_time: u32,
   pub word_count: u32,
 }
 
@@ -16,13 +17,14 @@ pub struct TocItem {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CompileOutput {
   pub frontmatter: serde_json::Value,
   pub frontmatter_raw: String,
-  pub content: String, // raw markdown body (without frontmatter)
-  pub html: String,    // rendered HTML
-  pub body: String,    // MDX JS factory function source
-  pub excerpt: String, // first ~260 chars of plain text
+  pub content: String,
+  pub html: String,
+  pub body: String,
+  pub excerpt: String,
   pub metadata: Metadata,
   pub toc: Vec<TocItem>,
   pub imports: Vec<String>,
