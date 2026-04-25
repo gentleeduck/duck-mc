@@ -13,8 +13,8 @@ Goal: drop-in Rust replacement for Velite's role in `apps/duck` (see `SURVEY.md`
 - [x] L5: detect top-level `import` keyword at column 0 → `Token::Import` (single statement, balanced brackets for multi-line)
 - [x] L6: detect top-level `export` keyword at column 0 → `Token::Export` (covered by L5 statements.rs)
 - [x] L7: JSX boundary heuristic — `<` only enters JSX when next is `[A-Za-z/>]` (frag) else fall to text
-- [ ] L8: JSX attribute expression value `prop={expr}` — balanced-brace consumer
-- [ ] L9: JSX attribute boolean (no `=` value)
+- [x] L8: JSX attribute expression value `prop={expr}` — balanced-brace consumer
+- [x] L9: JSX attribute boolean (no `=` value)
 - [ ] L10: markdown comment `{/* ... */}` — `MarkdownCommentStart` + `MarkdownCommentEnd`
 - [ ] L11: blockquote multi-line; nest `>>`
 - [ ] L12: thematic break `---|***|___` on own line (split from frontmatter path)
