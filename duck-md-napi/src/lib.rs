@@ -41,6 +41,10 @@ pub struct BuildInput {
     pub output_base: Option<String>,
     pub output_name: Option<String>,
     pub output_format: Option<String>,
+    pub markdown_remark_plugins: Option<Value>,
+    pub markdown_rehype_plugins: Option<Value>,
+    pub mdx_remark_plugins: Option<Value>,
+    pub mdx_rehype_plugins: Option<Value>,
 }
 
 #[napi(object)]
@@ -73,6 +77,10 @@ pub fn build(input: BuildInput) -> Result<BuildReport> {
         output_base: input.output_base,
         output_name: input.output_name,
         output_format: input.output_format,
+        markdown_remark_plugins: input.markdown_remark_plugins,
+        markdown_rehype_plugins: input.markdown_rehype_plugins,
+        mdx_remark_plugins: input.mdx_remark_plugins,
+        mdx_rehype_plugins: input.mdx_rehype_plugins,
         collections: input
             .collections
             .into_iter()

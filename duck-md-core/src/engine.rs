@@ -33,6 +33,14 @@ pub struct EngineConfig {
     pub output_name: Option<String>,
     #[serde(default)]
     pub output_format: Option<String>,
+    #[serde(default)]
+    pub markdown_remark_plugins: Option<Value>,
+    #[serde(default)]
+    pub markdown_rehype_plugins: Option<Value>,
+    #[serde(default)]
+    pub mdx_remark_plugins: Option<Value>,
+    #[serde(default)]
+    pub mdx_rehype_plugins: Option<Value>,
 }
 
 #[derive(Debug, Default)]
@@ -103,7 +111,12 @@ fn process_collection(
             Ok(s) => s,
             Err(e) => return (Value::Null, Some(EngineError { file: path.clone(), message: e.to_string() })),
         };
-        let compiled = compile(&source);
+        let mut compiled = compile(&source);
+        if has_js_plugins(cfg) {
+            if let Some(html) = run_sidecar(&compiled.content, cfg) {
+                compiled.html = html;
+            }
+        }
         let (validated_frontmatter, err) = match (&collection_schema, &compiled.frontmatter) {
             (Some(schema), fm) if !fm.is_null() => {
                 let ctx = build_schema_ctx(path, &cfg.root, &compiled, cfg);
@@ -274,8 +287,37 @@ fn build_velite_record(
     Value::Object(map)
 }
 
-// matches velite: `path.replace(/^.*<collection_dir>\//, '').replace(/\.mdx?$/, '')`
-// where <collection_dir> defaults to the lowercased collection name.
+fn has_js_plugins(cfg: &EngineConfig) -> bool {
+    let any_filled = |v: &Option<Value>| v.as_ref()
+        .and_then(|x| x.as_array())
+        .map(|a| !a.is_empty())
+        .unwrap_or(false);
+    any_filled(&cfg.markdown_remark_plugins)
+        || any_filled(&cfg.markdown_rehype_plugins)
+        || any_filled(&cfg.mdx_remark_plugins)
+        || any_filled(&cfg.mdx_rehype_plugins)
+}
+
+fn run_sidecar(markdown: &str, cfg: &EngineConfig) -> Option<String> {
+    use std::io::Write;
+    use std::process::{Command, Stdio};
+    let entry = std::env::var("DUCK_MD_SIDECAR").ok()
+        .or_else(|| Some("duck-md-sidecar/index.mjs".into()))?;
+    let req = json!({
+        "markdown": markdown,
+        "remarkPlugins": cfg.markdown_remark_plugins.clone().unwrap_or(json!([])),
+        "rehypePlugins": cfg.markdown_rehype_plugins.clone().unwrap_or(json!([])),
+    });
+    let mut child = Command::new("node").arg(&entry)
+        .stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::null())
+        .spawn().ok()?;
+    child.stdin.as_mut()?.write_all(req.to_string().as_bytes()).ok()?;
+    let out = child.wait_with_output().ok()?;
+    if !out.status.success() { return None; }
+    let parsed: Value = serde_json::from_slice(&out.stdout).ok()?;
+    parsed.get("html").and_then(|v| v.as_str()).map(String::from)
+}
+
 fn velite_permalink(abs: &str, rel: &str, collection: &str) -> String {
     let lc = collection.to_lowercase();
     let needle = format!("/{lc}/");

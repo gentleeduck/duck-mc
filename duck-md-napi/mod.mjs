@@ -75,6 +75,10 @@ function adaptToBuildInput(input) {
     outputBase: input.output?.base,
     outputName: input.output?.name,
     outputFormat: input.output?.format,
+    markdownRemarkPlugins: input.markdown?.remarkPlugins,
+    markdownRehypePlugins: input.markdown?.rehypePlugins,
+    mdxRemarkPlugins: input.mdx?.remarkPlugins,
+    mdxRehypePlugins: input.mdx?.rehypePlugins,
   }
 }
 
