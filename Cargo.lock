@@ -605,6 +605,7 @@ dependencies = [
  "blake3",
  "duck-md-parser",
  "pretty_assertions",
+ "serde_json",
  "syntect",
  "tempfile",
 ]

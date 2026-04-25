@@ -2,6 +2,9 @@ pub mod builtin;
 pub mod pipeline;
 pub mod visit;
 
-pub use builtin::{AutolinkHeadings, BareUrlAutolink, CodeImport, ComponentSource, CopyLinkedFiles, Mermaid, NpmCommand, PrettyCode};
+pub use builtin::{
+    AutolinkHeadings, BareUrlAutolink, CodeImport, ComponentPreview, ComponentSource,
+    CopyLinkedFiles, Mermaid, NpmCommand, PrettyCode,
+};
 pub use pipeline::{Pipeline, Transformer};
 pub use visit::{VisitFlow, Visitor, walk_mut};
