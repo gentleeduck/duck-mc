@@ -26,4 +26,5 @@ Format: `<ISO ts> | <task id> | <pass|fail|halt> | <one-line note>`
 2026-04-25T09:12:00Z | V1+V3 | pass | vendored 3 fixtures from apps/duck/content/docs (mdx, skills, whoiam); parity.rs 6/6 sanity assertions; total 82 tests
 2026-04-25T09:18:00Z | H1 | pass | clippy clean (-D warnings); 13 issues fixed across 13 files; 82 tests still green
 2026-04-25T09:24:00Z | T1+T5+T6+B9 | pass | duck-md-transform crate: Visitor + walk_mut + Pipeline + AutolinkHeadings transformer; pipeline.rs 3/3; total 85 tests; clippy clean
+2026-04-25T09:30:00Z | B2+B8 | pass | CodeImport + NpmCommand transformers; CodeBlock extended w/ raw + commands; +3 tests; total 88; clippy clean
 

@@ -26,7 +26,9 @@ impl Pipeline {
   }
 
   pub fn with_defaults() -> Self {
-    Self::new().add(crate::AutolinkHeadings::default())
+    Self::new()
+      .add(crate::AutolinkHeadings::default())
+      .add(crate::NpmCommand)
   }
 
   pub fn run(&self, doc: &mut Document) {

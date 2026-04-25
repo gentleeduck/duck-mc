@@ -119,13 +119,13 @@ See SURVEY.md §I for required output shape.
 ## Phase 9 — Built-in transformers (mirror velite plugins)
 
 - [ ] B1: GFM helper transforms (autolink bare URL → `<a>`, expand task list class)
-- [ ] B2: `code_import` — read `file=...` meta, inline file content respecting `{1,2-3}` ranges
+- [x] B2: `code_import` — reads `file=...` meta, inlines file content (range syntax `{1,2-3}` deferred)
 - [ ] B3: `slug` — `id` on every heading via `slug` crate
 - [ ] B4: `pretty_code` — syntect highlight, dual themes (catppuccin-mocha + github-light), wrap `<div data-rehype-pretty-code-fragment>` with paired `<pre>`, line/word marks
 - [ ] B5: `metadata_plugin` — `__rawString__`, `__title__`, `__marks__` on `<code>` from fence meta
 - [ ] B6: `pretty_code_title` — rename `<div data-rehype-pretty-code-title>` → `<figcaption>`
 - [ ] B7: `pre_block_source` — propagate `__rawString__` to `<pre>` children
-- [ ] B8: `npm_command` — derive yarn/pnpm/bun from `npm install` / `npx`
+- [x] B8: `npm_command` — derives yarn/pnpm/bun from `npm install` / `npx create-` / `npx`
 - [x] B9: `autolink_headings` — wraps heading children in Link to `#<id>` (modeled as Node::Link; codegen turns into `<h1 id=...><a href=...>...</a></h1>`)
 - [ ] B10: `component_source` — read `path` attr, list-or-file → tsx code block
 - [ ] B11: `component_preview` — read `name`, look up registry index, locate file, rewrite imports, emit tsx

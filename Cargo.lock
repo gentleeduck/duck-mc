@@ -295,6 +295,7 @@ dependencies = [
  "duck-md-ast",
  "duck-md-parser",
  "pretty_assertions",
+ "tempfile",
 ]
 
 [[package]]

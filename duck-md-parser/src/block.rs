@@ -139,6 +139,8 @@ fn parse_code_block(p: &mut Parser) -> Node {
         lang,
         meta,
         value,
+        raw: None,
+        commands: None,
         span: default_span(),
     })
 }

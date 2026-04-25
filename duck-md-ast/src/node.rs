@@ -104,8 +104,20 @@ pub struct CodeBlock {
   pub lang: Option<String>,
   pub meta: Option<String>,
   pub value: String,
+  #[serde(default)]
+  pub raw: Option<String>,
+  #[serde(default)]
+  pub commands: Option<crate::NpmCommands>,
   #[serde(skip, default = "crate::default_span")]
   pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+pub struct NpmCommands {
+  pub npm: String,
+  pub yarn: String,
+  pub pnpm: String,
+  pub bun: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
