@@ -52,13 +52,20 @@ impl<'engine> Lexer<'engine> {
   }
 
   fn emit(&mut self, kind: TokenKind) {
+    let length = self.current - self.start;
     if kind.is_trivia() {
-      self.start = self.current;
-      return;
+      // Preserve line-leading runs of 4+ spaces — indented code block marker.
+      let line_leading = matches!(kind, TokenKind::Whitespace)
+        && self.column == length
+        && length >= 4
+        && self.get_current_lexeme().chars().all(|c| c == ' ');
+      if !line_leading {
+        self.start = self.current;
+        return;
+      }
     }
 
-    let span = Span::new("index.mdx", self.line, self.column, self.current - self.start);
-
+    let span = Span::new("index.mdx", self.line, self.column, length);
     self.tokens.push(Token::new(kind, span, self.get_current_lexeme().to_string()));
     self.start = self.current;
   }

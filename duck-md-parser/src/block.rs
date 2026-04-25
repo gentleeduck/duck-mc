@@ -4,6 +4,13 @@ use crate::parser::Parser;
 use crate::inline::collect_inline_until_break;
 
 pub(crate) fn parse_block(p: &mut Parser) -> Option<Node> {
+    let is_indented = matches!(
+        p.peek(),
+        Some(t) if matches!(t.kind, TokenKind::Whitespace) && t.raw.starts_with("    ")
+    );
+    if is_indented {
+        return Some(parse_indented_code(p));
+    }
     match p.peek_kind()? {
         TokenKind::FrontmatterStart => Some(parse_frontmatter(p)),
         TokenKind::Import => Some(consume_import(p)),
@@ -212,6 +219,57 @@ fn parse_heading(p: &mut Parser) -> Node {
         level,
         id,
         children,
+        span: default_span(),
+    })
+}
+
+fn parse_indented_code(p: &mut Parser) -> Node {
+    let mut buf = String::new();
+    loop {
+        let starts_indent = matches!(
+            p.peek(),
+            Some(t) if matches!(t.kind, TokenKind::Whitespace) && t.raw.starts_with("    ")
+        );
+        if !starts_indent { break; }
+        let leading = p.peek().map(|t| t.raw[4..].to_string()).unwrap_or_default();
+        p.advance();
+        buf.push_str(&leading);
+        loop {
+            let next_kind = p.peek().map(|t| t.kind.clone());
+            match next_kind {
+                Some(TokenKind::SoftBreak) | Some(TokenKind::HardBreak) | None => break,
+                Some(_) => {
+                    let raw = p.peek().map(|t| t.raw.clone()).unwrap_or_default();
+                    buf.push_str(&raw);
+                    p.advance();
+                }
+            }
+        }
+        buf.push('\n');
+        let break_kind = p.peek().map(|t| t.kind.clone());
+        match break_kind {
+            Some(TokenKind::SoftBreak) => {
+                let saved = p.pos;
+                p.advance();
+                let next_is_indent = matches!(
+                    p.peek(),
+                    Some(t) if matches!(t.kind, TokenKind::Whitespace) && t.raw.starts_with("    ")
+                );
+                if !next_is_indent {
+                    p.pos = saved;
+                    break;
+                }
+            }
+            _ => break,
+        }
+    }
+    Node::CodeBlock(CodeBlock {
+        lang: None,
+        meta: None,
+        value: buf,
+        raw: None,
+        commands: None,
+        highlighted_html: None,
         span: default_span(),
     })
 }
