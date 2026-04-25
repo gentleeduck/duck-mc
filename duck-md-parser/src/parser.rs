@@ -7,11 +7,24 @@ use duck_md_lexer::Lexer;
 pub struct Parser {
     pub tokens: Vec<Token>,
     pub pos: usize,
+    pub diagnostics: Vec<ParseDiagnostic>,
 }
 
 impl Parser {
     pub fn new(tokens: Vec<Token>) -> Self {
-        Self { tokens, pos: 0 }
+        Self { tokens, pos: 0, diagnostics: Vec::new() }
+    }
+
+    pub(crate) fn warn(&mut self, message: impl Into<String>) {
+        let (line, column) = self.tokens.get(self.pos)
+            .map(|t| (t.span.line as u32, t.span.column as u32))
+            .unwrap_or((0, 0));
+        self.diagnostics.push(ParseDiagnostic {
+            message: message.into(),
+            line,
+            column,
+            severity: Severity::Warning,
+        });
     }
 
     pub(crate) fn peek(&self) -> Option<&Token> {
@@ -41,7 +54,8 @@ impl Parser {
                 self.advance();
             }
         }
-        Document { children, diagnostics: Vec::new(), span: default_span() }
+        let diagnostics = std::mem::take(&mut self.diagnostics);
+        Document { children, diagnostics, span: default_span() }
     }
 }
 

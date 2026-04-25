@@ -35,7 +35,7 @@ pub(crate) fn parse_jsx(p: &mut Parser) -> Node {
             p.advance();
         }
         _ => {
-            // Malformed; bail with empty self-closing
+            p.warn(format!("unterminated JSX open tag <{name}> — synthesizing self-close"));
             return Node::JsxSelfClosing(JsxSelfClosing {
                 name,
                 attrs,
