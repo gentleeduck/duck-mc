@@ -9,4 +9,5 @@ Format: `<ISO ts> | <task id> | <pass|fail|halt> | <one-line note>`
 2026-04-25T07:59:00Z | L4 | pass | image already covered: lex_image -> lex_link with L3 href parsing; no code change
 2026-04-25T08:04:30Z | scope | extend | added Velite parity scope (Phases 7-15) + Phase 16 continuous; SURVEY.md persisted; rules.md added
 2026-04-25T08:08:00Z | L5+L6 | pass | top-level import/export via lex_statement w/ brace-depth tracking; tests scaffold added (tests/common, tests/imports.rs, 5/5 pass)
+2026-04-25T08:10:00Z | L7 | pass | < dispatches JSX only on [A-Za-z/>]; lex_text refined; tests/jsx_boundary.rs 6/6 pass
 

@@ -52,8 +52,18 @@ impl<'engine> Lexer<'engine> {
         self.advance();
         continue;
       }
-      if c == '\n' || c == '`' || c == '<' || c == '{' || c == '[' || c == ']' || c == ')' {
+      if c == '\n' || c == '`' || c == '{' || c == '[' || c == ']' || c == ')' {
         break;
+      }
+      if c == '<' {
+        if let Some(nx) = self.peek_next() {
+          if nx.is_ascii_alphabetic() || nx == '/' || nx == '>' {
+            break;
+          }
+        }
+        // not JSX, treat `<` as text
+        self.advance();
+        continue;
       }
       if c == '/' && self.peek_next() == Some('>') {
         break;
