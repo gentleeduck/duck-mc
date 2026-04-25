@@ -124,7 +124,14 @@ impl MdxBodyEmitter {
 
   fn emit_link(&self, l: &Link) -> String {
     let kids = self.emit_owned_children_array(&l.children);
-    format!("jsxs(\"a\", {{ href: {}, children: {} }})", js_string(&l.href), kids)
+    let mut props = format!("href: {}", js_string(&l.href));
+    if let Some(class) = &l.class {
+      props.push_str(&format!(", className: {}", js_string(class)));
+    }
+    if let Some(title) = &l.title {
+      props.push_str(&format!(", \"aria-label\": {}", js_string(title)));
+    }
+    format!("jsxs(\"a\", {{ {}, children: {} }})", props, kids)
   }
 
   fn emit_image(&self, i: &Image) -> String {

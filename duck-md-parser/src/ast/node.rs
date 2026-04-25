@@ -126,6 +126,8 @@ pub struct NpmCommands {
 pub struct Link {
   pub href: String,
   pub title: Option<String>,
+  #[serde(default, skip_serializing_if = "Option::is_none")]
+  pub class: Option<String>,
   pub children: Vec<Node>,
   #[serde(skip, default = "crate::ast::default_span")]
   pub span: Span,

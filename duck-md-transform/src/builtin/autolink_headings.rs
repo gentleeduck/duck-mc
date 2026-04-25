@@ -31,7 +31,6 @@ impl Transformer for AutolinkHeadings {
 }
 
 struct Apply {
-  #[allow(dead_code)]
   class_name: Option<String>,
   aria_label: Option<String>,
 }
@@ -53,6 +52,7 @@ impl Visitor for Apply {
       let link = Node::Link(Link {
         href: format!("#{}", h.id),
         title: self.aria_label.clone(),
+        class: self.class_name.clone(),
         children: original,
         span: default_span(),
       });

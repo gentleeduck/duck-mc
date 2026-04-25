@@ -165,6 +165,7 @@ fn collect_inline(p: &mut Parser, stop: &dyn Fn(&TokenKind) -> bool) -> Vec<Node
                 out.push(Node::Link(Link {
                     href,
                     title: None,
+                    class: None,
                     children: inner,
                     span: default_span(),
                 }));

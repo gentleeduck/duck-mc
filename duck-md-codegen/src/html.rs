@@ -108,8 +108,11 @@ impl HtmlEmitter {
 
   fn emit_link(&mut self, l: &Link) {
     self.out.push_str(&format!("<a href=\"{}\"", escape_attr(&l.href)));
+    if let Some(class) = &l.class {
+      self.out.push_str(&format!(" class=\"{}\"", escape_attr(class)));
+    }
     if let Some(title) = &l.title {
-      self.out.push_str(&format!(" title=\"{}\"", escape_attr(title)));
+      self.out.push_str(&format!(" aria-label=\"{}\"", escape_attr(title)));
     }
     self.out.push('>');
     for c in &l.children {

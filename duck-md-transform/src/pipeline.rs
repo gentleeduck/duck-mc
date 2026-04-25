@@ -25,7 +25,7 @@ impl Pipeline {
 
   pub fn with_defaults() -> Self {
     Self::new()
-      .add(crate::AutolinkHeadings::default())
+      .add(crate::AutolinkHeadings::new())
       .add(crate::BareUrlAutolink)
       .add(crate::NpmCommand)
   }

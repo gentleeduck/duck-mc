@@ -51,6 +51,7 @@ fn rewrite_children(nodes: Vec<Node>) -> Vec<Node> {
           Piece::Url(url) => out.push(Node::Link(Link {
             href: url.clone(),
             title: None,
+            class: None,
             children: vec![Node::Text(Text { value: url, span: default_span() })],
             span: default_span(),
           })),

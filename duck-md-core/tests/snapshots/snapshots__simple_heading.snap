@@ -1,12 +1,13 @@
 ---
 source: duck-md-core/tests/snapshots.rs
+assertion_line: 16
 expression: out
 ---
 {
   "frontmatter": null,
   "frontmatter_raw": "",
   "content": "# Hello\n\nworld",
-  "html": "<h1 id=\"hello\"><a href=\"#hello\">Hello</a></h1><p>world</p>",
+  "html": "<h1 id=\"hello\"><a href=\"#hello\" class=\"subheading-anchor\" aria-label=\"Link to section\">Hello</a></h1><p>world</p>",
   "body": "[REDACTED_FACTORY_STRING]",
   "excerpt": "Hello world",
   "metadata": {
