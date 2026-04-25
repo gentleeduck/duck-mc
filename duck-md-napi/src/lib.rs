@@ -27,6 +27,9 @@ pub struct BuildInput {
     pub root: Option<String>,
     pub strict: Option<bool>,
     pub clean: Option<bool>,
+    pub output_assets: Option<String>,
+    pub output_base: Option<String>,
+    pub output_name: Option<String>,
 }
 
 #[napi(object)]
@@ -55,6 +58,9 @@ pub fn build(input: BuildInput) -> Result<BuildReport> {
         root: PathBuf::from(input.root.unwrap_or_else(|| ".".into())),
         strict: input.strict.unwrap_or(false),
         clean: input.clean.unwrap_or(false),
+        output_assets: input.output_assets.map(PathBuf::from),
+        output_base: input.output_base,
+        output_name: input.output_name,
         collections: input
             .collections
             .into_iter()

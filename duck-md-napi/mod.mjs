@@ -61,8 +61,19 @@ function adaptToBuildInput(input) {
     name: c.name ?? key,
     pattern: Array.isArray(c.pattern) ? c.pattern[0] : c.pattern,
     baseDir: c.baseDir ?? root,
+    schema: c.schema,
+    single: c.single,
   }))
-  return { outputDir, collections }
+  return {
+    outputDir,
+    collections,
+    root,
+    strict: input.strict,
+    clean: input.output?.clean,
+    outputAssets: input.output?.assets,
+    outputBase: input.output?.base,
+    outputName: input.output?.name,
+  }
 }
 
 export const compile = native.compile

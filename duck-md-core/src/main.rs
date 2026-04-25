@@ -57,15 +57,13 @@ fn cmd_build(config: PathBuf) -> std::io::Result<()> {
     let engine_cfg = EngineConfig {
         output_dir: cfg.output_dir,
         root: PathBuf::from("."),
-        strict: false,
-        clean: false,
         collections: cfg.collections.into_iter().map(|c| CollectionConfig {
             name: c.name,
             pattern: c.pattern,
             base_dir: c.base_dir,
-            schema: None,
-            single: false,
+            ..Default::default()
         }).collect(),
+        ..Default::default()
     };
     let report = run(&engine_cfg)?;
     for c in &report.collections {

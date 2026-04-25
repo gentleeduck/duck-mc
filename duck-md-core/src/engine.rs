@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
 use crate::compile;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct CollectionConfig {
     pub name: String,
     pub pattern: String,
@@ -14,7 +14,7 @@ pub struct CollectionConfig {
     pub single: bool,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct EngineConfig {
     pub collections: Vec<CollectionConfig>,
     pub output_dir: PathBuf,
@@ -24,6 +24,12 @@ pub struct EngineConfig {
     pub strict: bool,
     #[serde(default)]
     pub clean: bool,
+    #[serde(default)]
+    pub output_assets: Option<PathBuf>,
+    #[serde(default)]
+    pub output_base: Option<String>,
+    #[serde(default)]
+    pub output_name: Option<String>,
 }
 
 #[derive(Debug, Default)]
@@ -93,7 +99,7 @@ fn process_collection(
 
         let validated_frontmatter = match (&collection_schema, &compiled.frontmatter) {
             (Some(schema), fm) if !fm.is_null() => {
-                let ctx = build_schema_ctx(&path, &cfg.root, &compiled);
+                let ctx = build_schema_ctx(&path, &cfg.root, &compiled, cfg);
                 match schema.parse(fm, &ctx) {
                     Ok(v) => v,
                     Err(e) => {
@@ -133,7 +139,12 @@ fn process_collection(
     })
 }
 
-fn build_schema_ctx(path: &Path, root: &Path, compiled: &crate::CompileOutput) -> duck_md_schema::Ctx {
+fn build_schema_ctx(
+    path: &Path,
+    root: &Path,
+    compiled: &crate::CompileOutput,
+    cfg: &EngineConfig,
+) -> duck_md_schema::Ctx {
     let mut ctx = duck_md_schema::Ctx::new(
         path.to_path_buf(),
         root.to_path_buf(),
@@ -143,6 +154,11 @@ fn build_schema_ctx(path: &Path, root: &Path, compiled: &crate::CompileOutput) -
     ctx.mdx_body = Some(compiled.body.clone());
     ctx.toc = Some(serde_json::to_value(&compiled.toc).unwrap_or(Value::Array(vec![])));
     ctx.plain_text = Some(compiled.excerpt.clone());
+    if let (Some(dir), Some(base)) = (&cfg.output_assets, &cfg.output_base) {
+        let mut p = duck_md_schema::AssetPipeline::new(dir.clone(), base.clone());
+        if let Some(t) = &cfg.output_name { p.name_template = t.clone(); }
+        ctx.assets = Some(p);
+    }
     ctx
 }
 

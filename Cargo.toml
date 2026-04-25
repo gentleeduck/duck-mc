@@ -39,6 +39,10 @@ duck-md-parser = { path = "duck-md-parser" }
 duck-md-codegen = { path = "duck-md-codegen" }
 duck-md-transform = { path = "duck-md-transform" }
 duck-md-schema = { path = "duck-md-schema" }
+blake3 = "1"
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp", "gif"] }
+notify = "6"
+notify-debouncer-mini = "0.4"
 
 # Dev
 pretty_assertions = "1"

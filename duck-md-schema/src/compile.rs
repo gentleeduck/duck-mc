@@ -1,5 +1,5 @@
 use serde_json::Value;
-use crate::{markdown::*, modifiers::*, primitives::*, BoxSchema, Schema};
+use crate::{asset::*, markdown::*, modifiers::*, primitives::*, BoxSchema, Schema};
 
 pub fn compile_descriptor(d: &Value) -> Result<Box<dyn Schema>, String> {
   let kind = d.get("kind").and_then(Value::as_str)
@@ -101,6 +101,16 @@ pub fn compile_descriptor(d: &Value) -> Result<Box<dyn Schema>, String> {
       u.boxed()
     }
     "isodate" => IsodateSchema.boxed(),
+    "file" => {
+      let mut f = FileSchema::default();
+      if get_b("allowNonRelativePath") { f = f.allow_non_relative(); }
+      f.boxed()
+    }
+    "image" => {
+      let mut i = ImageSchema::default();
+      if let Some(r) = get_s("absoluteRoot") { i = i.absolute_root(r); }
+      i.boxed()
+    }
     other => return Err(format!("unknown schema kind: {other}")),
   })
 }

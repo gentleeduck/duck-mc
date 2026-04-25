@@ -16,15 +16,13 @@ fn cfg_for(out_dir: PathBuf, base: PathBuf) -> EngineConfig {
     EngineConfig {
         output_dir: out_dir,
         root: base.clone(),
-        strict: false,
-        clean: false,
         collections: vec![CollectionConfig {
             name: "docs".into(),
             pattern: "docs/**/*.mdx".into(),
             base_dir: base,
-            schema: None,
-            single: false,
+            ..Default::default()
         }],
+        ..Default::default()
     }
 }
 
@@ -93,15 +91,14 @@ fn engine_validates_frontmatter_against_schema() {
     let cfg = EngineConfig {
         output_dir: out_dir.clone(),
         root: dir.path().to_path_buf(),
-        strict: false,
-        clean: false,
         collections: vec![CollectionConfig {
             name: "docs".into(),
             pattern: "docs/**/*.mdx".into(),
             base_dir: dir.path().to_path_buf(),
             schema: Some(schema),
-            single: false,
+            ..Default::default()
         }],
+        ..Default::default()
     };
     let rep = run(&cfg).unwrap();
     assert_eq!(rep.errors.len(), 1, "expected 1 schema error, got {}", rep.errors.len());
@@ -128,14 +125,14 @@ fn engine_strict_mode_fails_on_validation_error() {
         output_dir: out_dir,
         root: dir.path().to_path_buf(),
         strict: true,
-        clean: false,
         collections: vec![CollectionConfig {
             name: "docs".into(),
             pattern: "docs/**/*.mdx".into(),
             base_dir: dir.path().to_path_buf(),
             schema: Some(schema),
-            single: false,
+            ..Default::default()
         }],
+        ..Default::default()
     };
     assert!(run(&cfg).is_err());
 }

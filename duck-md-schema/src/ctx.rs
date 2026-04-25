@@ -1,6 +1,24 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
+
+pub struct AssetPipeline {
+  pub assets_dir: PathBuf,
+  pub base_url: String,
+  pub name_template: String,
+  pub map: Arc<Mutex<HashMap<String, String>>>,
+}
+
+impl AssetPipeline {
+  pub fn new(assets_dir: PathBuf, base_url: String) -> Self {
+    Self {
+      assets_dir,
+      base_url,
+      name_template: "[name]-[hash:8].[ext]".into(),
+      map: Arc::new(Mutex::new(HashMap::new())),
+    }
+  }
+}
 
 pub struct Ctx {
   pub file_path: PathBuf,
@@ -11,6 +29,7 @@ pub struct Ctx {
   pub toc: Option<serde_json::Value>,
   pub plain_text: Option<String>,
   pub unique_cache: Mutex<HashSet<String>>,
+  pub assets: Option<AssetPipeline>,
 }
 
 impl Ctx {
@@ -24,6 +43,7 @@ impl Ctx {
       toc: None,
       plain_text: None,
       unique_cache: Mutex::new(HashSet::new()),
+      assets: None,
     }
   }
 

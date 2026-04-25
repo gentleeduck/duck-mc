@@ -14,6 +14,7 @@
 //! assert_eq!(out["draft"], false);
 //! ```
 
+mod asset;
 mod compile;
 mod ctx;
 mod error;
@@ -21,8 +22,9 @@ mod markdown;
 mod modifiers;
 mod primitives;
 
+pub use asset::*;
 pub use compile::compile_descriptor;
-pub use ctx::Ctx;
+pub use ctx::{AssetPipeline, Ctx};
 pub use error::ValidationError;
 pub use markdown::*;
 pub use modifiers::*;
@@ -74,6 +76,8 @@ pub mod s {
   pub fn slug() -> SlugSchema { SlugSchema::default() }
   pub fn unique() -> UniqueSchema { UniqueSchema::default() }
   pub fn isodate() -> IsodateSchema { IsodateSchema }
+  pub fn file() -> FileSchema { FileSchema::default() }
+  pub fn image() -> ImageSchema { ImageSchema::default() }
 }
 
 pub trait BoxSchema: Schema + Sized + 'static {
