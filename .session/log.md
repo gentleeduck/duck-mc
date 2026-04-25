@@ -23,4 +23,5 @@ Format: `<ISO ts> | <task id> | <pass|fail|halt> | <one-line note>`
 2026-04-25T08:58:00Z | M1+M2+M3+M4+M5+M6+S2 | pass | render_mdx_body emits JS factory string; CompileOutput.body wired; mdx_body.rs 6/6; total 70 tests
 2026-04-25T09:02:00Z | G1+G2+G3+G5+O1+O2+O3 | pass | engine module: globwalk + per-file pipeline + .duck-md output (json + index.js + index.d.ts); tests/engine.rs 2/2; total 72 tests
 2026-04-25T09:08:00Z | U1+U2+U4+U5 | pass | duck-md CLI bin (clap): build/init/compile subcommands; tests/cli.rs 4/4; total 76 tests
+2026-04-25T09:12:00Z | V1+V3 | pass | vendored 3 fixtures from apps/duck/content/docs (mdx, skills, whoiam); parity.rs 6/6 sanity assertions; total 82 tests
 

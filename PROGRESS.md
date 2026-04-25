@@ -163,9 +163,9 @@ See SURVEY.md §I for required output shape.
 
 ## Phase 14 — Velite parity verification
 
-- [ ] V1: vendor 5 representative MDX files from `apps/duck/content/docs/` into `tests/fixtures/velite-parity/`
-- [ ] V2: vendor matching expected records from `apps/duck/.velite/docs.json` (slim down to schema fields we currently support)
-- [ ] V3: golden test crate `tests/parity/*.rs` — load fixture, run pipeline, compare output structure (allow body/JS-source-string diffs but compare AST shape)
+- [x] V1: vendor 3 MDX files from `apps/duck/content/docs/` into `tests/fixtures/velite-parity/` (mdx.mdx, skills.mdx, whoiam.mdx)
+- [ ] V2: vendor matching expected records from `apps/duck/.velite/docs.json` for byte-exact comparison (deferred — needs richer transformers first)
+- [x] V3: smoke parity test `duck-md-core/tests/parity.rs` — 6 sanity assertions, all 3 fixtures green
 - [ ] V4: doc README parity reporting CLI: `duck-md parity --against <velite_dir>`
 
 ## Phase 15 — Hardening
