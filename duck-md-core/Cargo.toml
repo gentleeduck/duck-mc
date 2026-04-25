@@ -29,6 +29,7 @@ duck-md-schema = { path = "../duck-md-schema" }
 serde_yaml.workspace = true
 notify = { workspace = true, optional = true }
 notify-debouncer-mini = { workspace = true, optional = true }
+rayon.workspace = true
 tempfile.workspace = true
 serde.workspace = true
 serde_json.workspace = true

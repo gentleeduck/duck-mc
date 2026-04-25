@@ -1,4 +1,5 @@
 use std::path::{Path, PathBuf};
+use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
 use crate::compile;
@@ -79,7 +80,6 @@ fn process_collection(
     cfg: &EngineConfig,
     errors: &mut Vec<EngineError>,
 ) -> std::io::Result<CollectionReport> {
-    let mut records: Vec<Value> = Vec::new();
     let walker = globwalk::GlobWalkerBuilder::from_patterns(&c.base_dir, &[c.pattern.as_str()])
         .build()
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidInput, e.to_string()))?
@@ -93,36 +93,36 @@ fn process_collection(
             });
         }).ok());
 
-    for entry in walker {
-        let path = entry.path().to_path_buf();
-        if !path.is_file() { continue; }
-        let source = std::fs::read_to_string(&path)?;
-        let compiled = compile(&source);
+    let paths: Vec<PathBuf> = walker
+        .map(|e| e.path().to_path_buf())
+        .filter(|p| p.is_file())
+        .collect();
 
-        let validated_frontmatter = match (&collection_schema, &compiled.frontmatter) {
+    let outcomes: Vec<(Value, Option<EngineError>)> = paths.par_iter().map(|path| {
+        let source = match std::fs::read_to_string(path) {
+            Ok(s) => s,
+            Err(e) => return (Value::Null, Some(EngineError { file: path.clone(), message: e.to_string() })),
+        };
+        let compiled = compile(&source);
+        let (validated_frontmatter, err) = match (&collection_schema, &compiled.frontmatter) {
             (Some(schema), fm) if !fm.is_null() => {
-                let ctx = build_schema_ctx(&path, &cfg.root, &compiled, cfg);
+                let ctx = build_schema_ctx(path, &cfg.root, &compiled, cfg);
                 match schema.parse(fm, &ctx) {
-                    Ok(v) => v,
-                    Err(e) => {
-                        errors.push(EngineError {
-                            file: path.clone(),
-                            message: e.to_string(),
-                        });
-                        compiled.frontmatter.clone()
-                    }
+                    Ok(v) => (v, None),
+                    Err(e) => (compiled.frontmatter.clone(),
+                        Some(EngineError { file: path.clone(), message: e.to_string() })),
                 }
             }
-            _ => compiled.frontmatter.clone(),
+            _ => (compiled.frontmatter.clone(), None),
         };
+        let rec = build_velite_record(compiled, validated_frontmatter, path, &c.base_dir, &c.name);
+        (rec, err)
+    }).collect();
 
-        records.push(build_velite_record(
-            compiled,
-            validated_frontmatter,
-            &path,
-            &c.base_dir,
-            &c.name,
-        ));
+    let mut records: Vec<Value> = Vec::with_capacity(outcomes.len());
+    for (rec, err) in outcomes {
+        if let Some(e) = err { errors.push(e); }
+        if !rec.is_null() { records.push(rec); }
     }
 
     let out_path = cfg.output_dir.join(format!("{}.json", c.name));

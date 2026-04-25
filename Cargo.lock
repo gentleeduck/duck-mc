@@ -539,6 +539,7 @@ dependencies = [
  "notify-debouncer-mini",
  "predicates",
  "pretty_assertions",
+ "rayon",
  "serde",
  "serde_json",
  "serde_yaml",
