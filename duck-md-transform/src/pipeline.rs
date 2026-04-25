@@ -29,6 +29,7 @@ impl Pipeline {
       .add(crate::NpmCommand)
       .add(crate::BareUrlAutolink)
       .add(crate::AutolinkHeadings::new())
+      .add(crate::Mermaid::default())
       .add(crate::PrettyCode::default())
   }
 
