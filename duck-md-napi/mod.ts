@@ -247,6 +247,26 @@ export const defineCollection = <S>(c: CollectionConfig<S>): CollectionConfig<S>
 export const defineLoader = <L>(l: L): L => l
 export const defineSchema = <S>(sch: S): S => sch
 
+export interface CustomLoader<T = unknown> {
+  test: RegExp | string
+  load: (file: { path: string; value: string }) => T | Promise<T>
+}
+
+export async function applyLoaders<T>(
+  loaders: CustomLoader<T>[] | undefined,
+  filePath: string,
+  content: string,
+): Promise<T | null> {
+  if (!loaders || loaders.length === 0) return null
+  for (const loader of loaders) {
+    const re = loader.test instanceof RegExp ? loader.test : new RegExp(loader.test)
+    if (re.test(filePath)) {
+      return await loader.load({ path: filePath, value: content })
+    }
+  }
+  return null
+}
+
 interface PendingCallback {
   path: string[]
   kind: 'transform' | 'refine'
@@ -409,6 +429,7 @@ export default {
   defineCollection,
   defineLoader,
   defineSchema,
+  applyLoaders,
   s,
   SchemaBuilder,
 }

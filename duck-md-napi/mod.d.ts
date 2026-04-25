@@ -145,6 +145,14 @@ export declare const defineConfig: (config: UserConfig) => UserConfig;
 export declare const defineCollection: <S>(c: CollectionConfig<S>) => CollectionConfig<S>;
 export declare const defineLoader: <L>(l: L) => L;
 export declare const defineSchema: <S>(sch: S) => S;
+export interface CustomLoader<T = unknown> {
+    test: RegExp | string;
+    load: (file: {
+        path: string;
+        value: string;
+    }) => T | Promise<T>;
+}
+export declare function applyLoaders<T>(loaders: CustomLoader<T>[] | undefined, filePath: string, content: string): Promise<T | null>;
 export declare function compile(source: string): CompileOutput;
 export declare function compileMany(sources: string[]): CompileOutput[];
 export declare function build(input: UserConfig): Promise<BuildReport>;
@@ -156,6 +164,7 @@ declare const _default: {
     defineCollection: <S>(c: CollectionConfig<S>) => CollectionConfig<S>;
     defineLoader: <L>(l: L) => L;
     defineSchema: <S>(sch: S) => S;
+    applyLoaders: typeof applyLoaders;
     s: SBuilders;
     SchemaBuilder: typeof SchemaBuilder;
 };

@@ -81,6 +81,17 @@ export const defineConfig = (config) => config;
 export const defineCollection = (c) => c;
 export const defineLoader = (l) => l;
 export const defineSchema = (sch) => sch;
+export async function applyLoaders(loaders, filePath, content) {
+    if (!loaders || loaders.length === 0)
+        return null;
+    for (const loader of loaders) {
+        const re = loader.test instanceof RegExp ? loader.test : new RegExp(loader.test);
+        if (re.test(filePath)) {
+            return await loader.load({ path: filePath, value: content });
+        }
+    }
+    return null;
+}
 function collectCallbacks(descriptor, base = []) {
     if (!descriptor || typeof descriptor !== 'object')
         return [];
@@ -243,6 +254,7 @@ export default {
     defineCollection,
     defineLoader,
     defineSchema,
+    applyLoaders,
     s,
     SchemaBuilder,
 };
