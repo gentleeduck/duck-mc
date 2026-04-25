@@ -70,8 +70,8 @@ Goal: drop-in Rust replacement for Velite's role in `apps/duck` (see `SURVEY.md`
 
 ## Phase 4 — Public API
 
-- [ ] X1: convert `duck-md-core` from binary to library + binary. `lib.rs` exposes `parse(source) -> Result<Document, Diagnostics>`
-- [ ] X2: `compile(source, opts) -> CompileOutput { body, content, excerpt, metadata, toc, frontmatter }`
+- [x] X1: convert `duck-md-core` from binary to library + binary. `lib.rs` exposes `parse(source) -> Document`
+- [x] X2: `compile(source) -> CompileOutput { frontmatter, frontmatter_raw, content, html, excerpt, metadata, toc, imports, exports }`
 - [ ] X3: integration fixtures `duck-md-core/tests/fixtures/*.mdx` + golden JSON outputs
 - [ ] X4: `duck-md-core/tests/integration.rs` — golden diff per fixture
 
