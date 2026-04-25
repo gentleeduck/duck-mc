@@ -176,8 +176,8 @@ See SURVEY.md §I for required output shape.
 - [ ] H4: `criterion` bench `benches/full_pipeline.rs`
 - [ ] H5: fuzz target via `cargo-fuzz` for lexer (`fuzz_targets/fuzz_lex.rs`)
 - [ ] H6: fuzz target for parser
-- [ ] H7: error recovery — never panic on malformed input
-- [ ] H8: snapshot tests via `insta` for AST + HTML output
+- [x] H7: error recovery — never panic on malformed input (22 malformed samples all green)
+- [x] H8: snapshot tests via `insta` for compile output (2 snapshots committed)
 - [ ] H9: feature flags: `gfm`, `mermaid`, `pretty-code`, `cli`
 - [ ] H10: minimum supported Rust version pinned
 

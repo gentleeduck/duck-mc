@@ -1,0 +1,25 @@
+---
+source: duck-md-core/tests/snapshots.rs
+expression: out
+---
+{
+  "frontmatter": null,
+  "frontmatter_raw": "",
+  "content": "# Hello\n\nworld",
+  "html": "<h1 id=\"hello\"><a href=\"#hello\">Hello</a></h1><p>world</p>",
+  "body": "[REDACTED_FACTORY_STRING]",
+  "excerpt": "Hello world",
+  "metadata": {
+    "reading_time": 1,
+    "word_count": 2
+  },
+  "toc": [
+    {
+      "title": "Hello",
+      "url": "#hello",
+      "items": []
+    }
+  ],
+  "imports": [],
+  "exports": []
+}
