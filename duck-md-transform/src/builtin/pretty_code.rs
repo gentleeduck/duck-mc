@@ -26,7 +26,7 @@ impl PrettyCode {
     Self { syntax_set, theme, theme_name: theme_name.to_string() }
   }
 
-  fn highlight(&self, lang: Option<&str>, code: &str) -> Option<String> {
+  fn highlight(&self, lang: Option<&str>, code: &str, marks: &[(usize, usize)]) -> Option<String> {
     let syntax = lang
       .and_then(|l| self.syntax_set.find_syntax_by_token(l))
       .unwrap_or_else(|| self.syntax_set.find_syntax_plain_text());
@@ -41,15 +41,55 @@ impl PrettyCode {
       out.push('"');
     }
     out.push_str("><code>");
-    for line in code.lines() {
+    for (idx, line) in code.lines().enumerate() {
+      let line_no = idx + 1;
+      let highlighted = marks.iter().any(|(a, b)| line_no >= *a && line_no <= *b);
+      out.push_str(if highlighted {
+        "<span class=\"line line--highlighted\">"
+      } else {
+        "<span class=\"line\">"
+      });
       let regions: Vec<(Style, &str)> = h.highlight_line(line, &self.syntax_set).ok()?;
       let html_line = styled_line_to_highlighted_html(&regions, IncludeBackground::No).ok()?;
       out.push_str(&html_line);
-      out.push('\n');
+      out.push_str("</span>\n");
     }
     out.push_str("</code></pre>");
     Some(out)
   }
+}
+
+fn parse_marks_meta(meta: Option<&str>) -> Vec<(usize, usize)> {
+  let Some(s) = meta else { return Vec::new() };
+  let mut out = Vec::new();
+  let mut depth = 0i32;
+  let mut buf = String::new();
+  let mut in_braces = false;
+  for ch in s.chars() {
+    match ch {
+      '{' if depth == 0 => { in_braces = true; depth += 1; }
+      '{' => { depth += 1; buf.push(ch); }
+      '}' if depth == 1 => {
+        for token in buf.split(',') {
+          let token = token.trim();
+          if let Some((a, b)) = token.split_once('-') {
+            if let (Ok(a), Ok(b)) = (a.trim().parse::<usize>(), b.trim().parse::<usize>()) {
+              if a >= 1 && b >= a { out.push((a, b)); }
+            }
+          } else if let Ok(n) = token.parse::<usize>() {
+            if n >= 1 { out.push((n, n)); }
+          }
+        }
+        depth = 0;
+        in_braces = false;
+        buf.clear();
+      }
+      '}' => { depth -= 1; buf.push(ch); }
+      c if in_braces => buf.push(c),
+      _ => {}
+    }
+  }
+  out
 }
 
 impl Transformer for PrettyCode {
@@ -74,7 +114,8 @@ impl<'a> crate::visit::Visitor for Walker<'a> {
     if let Node::CodeBlock(cb) = node
       && cb.highlighted_html.is_none()
     {
-      cb.highlighted_html = self.pretty.highlight(cb.lang.as_deref(), &cb.value);
+      let marks = parse_marks_meta(cb.meta.as_deref());
+      cb.highlighted_html = self.pretty.highlight(cb.lang.as_deref(), &cb.value, &marks);
     }
     crate::visit::VisitFlow::Continue
   }
