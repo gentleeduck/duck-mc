@@ -26,7 +26,13 @@ impl PrettyCode {
     Self { syntax_set, theme, theme_name: theme_name.to_string() }
   }
 
-  fn highlight(&self, lang: Option<&str>, code: &str, marks: &[(usize, usize)]) -> Option<String> {
+  fn highlight(
+    &self,
+    lang: Option<&str>,
+    code: &str,
+    marks: &[(usize, usize)],
+    word_marks: &[String],
+  ) -> Option<String> {
     let syntax = lang
       .and_then(|l| self.syntax_set.find_syntax_by_token(l))
       .unwrap_or_else(|| self.syntax_set.find_syntax_plain_text());
@@ -51,12 +57,46 @@ impl PrettyCode {
       });
       let regions: Vec<(Style, &str)> = h.highlight_line(line, &self.syntax_set).ok()?;
       let html_line = styled_line_to_highlighted_html(&regions, IncludeBackground::No).ok()?;
-      out.push_str(&html_line);
+      let with_words = apply_word_marks(&html_line, word_marks);
+      out.push_str(&with_words);
       out.push_str("</span>\n");
     }
     out.push_str("</code></pre>");
     Some(out)
   }
+}
+
+fn apply_word_marks(html: &str, words: &[String]) -> String {
+  if words.is_empty() { return html.to_string(); }
+  let mut s = html.to_string();
+  for w in words {
+    if w.is_empty() { continue; }
+    let needle = w;
+    let replacement = format!("<span class=\"word--highlighted\">{needle}</span>");
+    s = s.replace(needle, &replacement);
+  }
+  s
+}
+
+fn parse_word_marks_meta(meta: Option<&str>) -> Vec<String> {
+  let Some(s) = meta else { return Vec::new() };
+  let mut out = Vec::new();
+  let mut chars = s.chars().peekable();
+  let mut buf = String::new();
+  let mut inside = false;
+  while let Some(c) = chars.next() {
+    if c == '/' {
+      if inside {
+        if !buf.is_empty() { out.push(std::mem::take(&mut buf)); }
+        inside = false;
+      } else if matches!(chars.peek(), Some(p) if !p.is_whitespace()) {
+        inside = true;
+      }
+    } else if inside {
+      buf.push(c);
+    }
+  }
+  out
 }
 
 fn parse_marks_meta(meta: Option<&str>) -> Vec<(usize, usize)> {
@@ -115,7 +155,8 @@ impl<'a> crate::visit::Visitor for Walker<'a> {
       && cb.highlighted_html.is_none()
     {
       let marks = parse_marks_meta(cb.meta.as_deref());
-      cb.highlighted_html = self.pretty.highlight(cb.lang.as_deref(), &cb.value, &marks);
+      let words = parse_word_marks_meta(cb.meta.as_deref());
+      cb.highlighted_html = self.pretty.highlight(cb.lang.as_deref(), &cb.value, &marks, &words);
     }
     crate::visit::VisitFlow::Continue
   }
