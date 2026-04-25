@@ -1,0 +1,86 @@
+name: napi-prebuilds
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+          - os: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
+          - os: macos-latest
+            target: x86_64-apple-darwin
+          - os: macos-latest
+            target: aarch64-apple-darwin
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+          - os: windows-latest
+            target: aarch64-pc-windows-msvc
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 10
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - name: install deps
+        working-directory: duck-md-napi
+        run: pnpm install --frozen-lockfile=false
+      - name: napi build
+        working-directory: duck-md-napi
+        run: pnpm exec napi build --platform --release --target ${{ matrix.target }}
+      - name: tsc
+        working-directory: duck-md-napi
+        run: pnpm exec tsc -p tsconfig.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bindings-${{ matrix.target }}
+          path: duck-md-napi/*.node
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: 'https://registry.npmjs.org'
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 10
+      - uses: actions/download-artifact@v4
+        with:
+          path: duck-md-napi/artifacts
+      - name: collect prebuilds
+        working-directory: duck-md-napi
+        run: |
+          mkdir -p npm
+          for dir in artifacts/bindings-*; do
+            cp $dir/*.node npm/ || true
+          done
+          ls -la npm/
+      - name: install deps + tsc
+        working-directory: duck-md-napi
+        run: pnpm install --frozen-lockfile=false && pnpm exec tsc -p tsconfig.json
+      - name: publish
+        working-directory: duck-md-napi
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: pnpm publish --access public --no-git-checks
