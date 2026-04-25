@@ -1,5 +1,5 @@
 use crate::parser::Parser;
-use duck_md_ast::*;
+use crate::ast::*;
 use duck_md_lexer::token::TokenKind;
 
 /// Accumulate inline nodes until a top-level break (HardBreak, SoftBreak, Eof,

@@ -1,6 +1,6 @@
 use std::cell::RefCell;
 use duck_diagnostic::DiagnosticEngine;
-use duck_md_ast::*;
+use crate::ast::*;
 use duck_md_lexer::token::{Token, TokenKind};
 use duck_md_lexer::Lexer;
 

@@ -1,6 +1,6 @@
 use crate::pipeline::Transformer;
 use crate::visit::{VisitFlow, Visitor, walk_mut};
-use duck_md_ast::*;
+use duck_md_parser::ast::*;
 
 #[derive(Default)]
 pub struct AutolinkHeadings {

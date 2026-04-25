@@ -4,10 +4,9 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-duck-md-ast = { path = "../duck-md-ast" }
+duck-md-parser = { path = "../duck-md-parser" }
 syntect.workspace = true
 
 [dev-dependencies]
-duck-md-parser = { path = "../duck-md-parser" }
 pretty_assertions.workspace = true
 tempfile.workspace = true

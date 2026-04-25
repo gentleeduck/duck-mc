@@ -1,4 +1,4 @@
-use duck_md_ast::*;
+use duck_md_parser::ast::*;
 use pretty_assertions::assert_eq;
 
 fn sp() -> duck_diagnostic::Span {

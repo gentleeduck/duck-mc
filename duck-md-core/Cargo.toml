@@ -14,7 +14,6 @@ path = "src/main.rs"
 [dependencies]
 duck-md-lexer.workspace = true
 duck-diagnostic.workspace = true
-duck-md-ast = { path = "../duck-md-ast" }
 duck-md-parser = { path = "../duck-md-parser" }
 duck-md-codegen = { path = "../duck-md-codegen" }
 duck-md-transform = { path = "../duck-md-transform" }

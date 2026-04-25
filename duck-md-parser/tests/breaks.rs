@@ -1,6 +1,6 @@
 mod common;
 use common::*;
-use duck_md_ast::*;
+use duck_md_parser::ast::*;
 
 #[test]
 fn thematic_break_emits_node() {

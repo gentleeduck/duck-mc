@@ -1,5 +1,5 @@
 use crate::escape::{escape_attr, escape_text};
-use duck_md_ast::*;
+use duck_md_parser::ast::*;
 
 #[derive(Default)]
 pub struct HtmlEmitter {

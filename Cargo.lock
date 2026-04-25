@@ -428,20 +428,9 @@ dependencies = [
 ]
 
 [[package]]
-name = "duck-md-ast"
-version = "0.1.0"
-dependencies = [
- "duck-diagnostic",
- "pretty_assertions",
- "serde",
- "serde_json",
-]
-
-[[package]]
 name = "duck-md-codegen"
 version = "0.1.0"
 dependencies = [
- "duck-md-ast",
  "duck-md-parser",
  "duck-md-transform",
  "pretty_assertions",
@@ -455,7 +444,6 @@ dependencies = [
  "clap",
  "criterion",
  "duck-diagnostic",
- "duck-md-ast",
  "duck-md-codegen",
  "duck-md-lexer",
  "duck-md-parser",
@@ -497,7 +485,6 @@ name = "duck-md-parser"
 version = "0.1.0"
 dependencies = [
  "duck-diagnostic",
- "duck-md-ast",
  "duck-md-lexer",
  "pretty_assertions",
  "serde",
@@ -510,7 +497,6 @@ dependencies = [
 name = "duck-md-transform"
 version = "0.1.0"
 dependencies = [
- "duck-md-ast",
  "duck-md-parser",
  "pretty_assertions",
  "syntect",

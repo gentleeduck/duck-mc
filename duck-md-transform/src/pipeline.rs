@@ -1,4 +1,4 @@
-use duck_md_ast::Document;
+use duck_md_parser::ast::Document;
 
 pub trait Transformer {
   fn name(&self) -> &str {

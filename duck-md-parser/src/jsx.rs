@@ -1,4 +1,4 @@
-use duck_md_ast::*;
+use crate::ast::*;
 use duck_md_lexer::token::TokenKind;
 use crate::parser::Parser;
 

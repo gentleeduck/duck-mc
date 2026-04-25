@@ -1,3 +1,4 @@
+pub mod ast;
 mod block;
 mod inline;
 mod jsx;

@@ -1,4 +1,4 @@
-use duck_md_ast::*;
+use duck_md_parser::ast::*;
 
 pub fn render_mdx_body(doc: &Document) -> String {
   let mut e = MdxBodyEmitter::default();

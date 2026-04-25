@@ -1,5 +1,5 @@
 use crate::pipeline::Transformer;
-use duck_md_ast::*;
+use duck_md_parser::ast::*;
 use syntect::easy::HighlightLines;
 use syntect::highlighting::{Style, ThemeSet};
 use syntect::html::{IncludeBackground, styled_line_to_highlighted_html};

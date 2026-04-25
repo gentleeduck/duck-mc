@@ -1,4 +1,4 @@
-use duck_md_ast::*;
+use duck_md_parser::ast::*;
 use duck_md_transform::Pipeline;
 use serde::{Deserialize, Serialize};
 
