@@ -4,7 +4,7 @@ Atomic tasks, ordered by priority. Tick `[x]` when done, `[⚠]` when blocked. R
 
 ## Phase 1 — Lexer gaps
 
-- [ ] L1: add `Token::HardBreak` + `Token::SoftBreak` variants and emit them in `lex_newline` (two newlines = HardBreak, single = SoftBreak)
+- [x] L1: add `Token::HardBreak` + `Token::SoftBreak` variants and emit them in `lex_newline` (two newlines = HardBreak, single = SoftBreak)
 - [ ] L2: handle escape sequences `\*`, `\_`, `\` `\``, `\<`, `\{` in `lex_text` — emit raw char as Text, do not break out
 - [ ] L3: parse link target `](href)` after `]` in `lex_link` — emit Text(href) inside ParenOpen/ParenClose
 - [ ] L4: parse image `![alt](src)` fully — alt text + src
