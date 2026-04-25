@@ -60,6 +60,10 @@ fn main() -> std::io::Result<()> {
 }
 
 fn load_engine_cfg(config: &PathBuf) -> std::io::Result<EngineConfig> {
+    let ext = config.extension().and_then(|s| s.to_str()).unwrap_or("");
+    if matches!(ext, "ts" | "js" | "mjs") {
+        return load_ts_config(config);
+    }
     let raw = std::fs::read_to_string(config)?;
     let cfg: ConfigFile = toml::from_str(&raw)
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e.to_string()))?;
@@ -74,6 +78,45 @@ fn load_engine_cfg(config: &PathBuf) -> std::io::Result<EngineConfig> {
         }).collect(),
         ..Default::default()
     })
+}
+
+fn load_ts_config(config: &PathBuf) -> std::io::Result<EngineConfig> {
+    use std::io::Write;
+    let abs = std::fs::canonicalize(config)?;
+    let script = include_str!("../scripts/load-config.mjs");
+    let mut tmp = tempfile::Builder::new().suffix(".mjs").tempfile()?;
+    tmp.write_all(script.as_bytes())?;
+    tmp.flush()?;
+    let tmp_path = tmp.path().to_path_buf();
+
+    let attempts: &[(&str, &[&str])] = &[
+        ("bun", &[]),
+        ("node", &["--import", "tsx"]),
+    ];
+    let mut last_err: Option<String> = None;
+    for (cmd, prefix_args) in attempts {
+        let mut c = std::process::Command::new(cmd);
+        c.args(*prefix_args).arg(&tmp_path).arg(&abs);
+        match c.output() {
+            Ok(out) if out.status.success() => {
+                let json = String::from_utf8(out.stdout).map_err(|e|
+                    std::io::Error::new(std::io::ErrorKind::InvalidData, e.to_string()))?;
+                let cfg: EngineConfig = serde_json::from_str(&json).map_err(|e|
+                    std::io::Error::new(std::io::ErrorKind::InvalidData,
+                        format!("ts config: {e}\n--- output ---\n{json}")))?;
+                return Ok(cfg);
+            }
+            Ok(out) => {
+                last_err = Some(format!("{cmd} exit {}: {}",
+                    out.status, String::from_utf8_lossy(&out.stderr)));
+            }
+            Err(e) => last_err = Some(format!("{cmd}: {e}")),
+        }
+    }
+    Err(std::io::Error::new(std::io::ErrorKind::NotFound, format!(
+        "ts config requires `bun` or `node` w/ tsx on PATH ({})",
+        last_err.unwrap_or_default(),
+    )))
 }
 
 fn cmd_dev(config: PathBuf) -> std::io::Result<()> {
@@ -126,22 +169,9 @@ fn print_build_result(report: duck_md::EngineReport) {
 }
 
 fn cmd_build(config: PathBuf, strict: bool, clean: bool) -> std::io::Result<()> {
-    let raw = std::fs::read_to_string(&config)?;
-    let cfg: ConfigFile = toml::from_str(&raw)
-        .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e.to_string()))?;
-    let engine_cfg = EngineConfig {
-        output_dir: cfg.output_dir,
-        root: PathBuf::from("."),
-        strict,
-        clean,
-        collections: cfg.collections.into_iter().map(|c| CollectionConfig {
-            name: c.name,
-            pattern: c.pattern,
-            base_dir: c.base_dir,
-            ..Default::default()
-        }).collect(),
-        ..Default::default()
-    };
+    let mut engine_cfg = load_engine_cfg(&config)?;
+    if strict { engine_cfg.strict = true; }
+    if clean { engine_cfg.clean = true; }
     let report = run(&engine_cfg)?;
     for c in &report.collections {
         println!("✓ {} — {} records → {}", c.name, c.records, c.output_path.display());
