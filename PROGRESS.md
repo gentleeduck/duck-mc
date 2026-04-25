@@ -22,8 +22,8 @@ Goal: drop-in Rust replacement for Velite's role in `apps/duck` (see `SURVEY.md`
 - [ ] L14: JSX fragment `<>...</>`
 - [ ] L15: lexer test crate `tests/lexer/*.rs` covering every TokenKind via `pretty_assertions` + table-driven tests
 - [ ] L16: GFM table pipe `|` row detection (block-start)
-- [ ] L17: GFM task list `- [ ] / - [x]`
-- [ ] L18: GFM strikethrough `~~text~~`
+- [x] L17: GFM task list `- [ ] / - [x]` (parser-side; lexer unchanged)
+- [x] L18: GFM strikethrough `~~text~~` (Token::Strike + lex_strike + lex_text break)
 - [ ] L19: GFM autolink `<https://...>` and bare URL detection
 - [ ] L20: setext headings `===` / `---` underline
 - [ ] L21: indented code block (4-space)
@@ -63,8 +63,8 @@ Goal: drop-in Rust replacement for Velite's role in `apps/duck` (see `SURVEY.md`
 - [x] P19: parse JSX expression `{expr}`
 - [x] P20: parse JSX fragment
 - [ ] P21: parse GFM table
-- [ ] P22: parse GFM task list item
-- [ ] P23: parse GFM strikethrough
+- [x] P22: parse GFM task list item (Bracket/Text/Bracket detection inside list)
+- [x] P23: parse GFM strikethrough (Strike token mirrored after Bold/Italic)
 - [ ] P24: parser test suite — `duck-md-parser/tests/*.rs` per construct
 - [ ] P25: error recovery — synthesize missing-close on unterminated JSX, continue; collect into `Diagnostic`s
 

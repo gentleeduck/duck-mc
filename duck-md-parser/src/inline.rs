@@ -85,6 +85,21 @@ fn collect_inline(p: &mut Parser, stop: &dyn Fn(&TokenKind) -> bool) -> Vec<Node
                     span: default_span(),
                 }));
             }
+            TokenKind::Strike(n) => {
+                let open_n = *n;
+                p.advance(); // opener
+                let inner = collect_inline(p, &|k| {
+                    is_top_level_break(k)
+                        || matches!(k, TokenKind::Strike(m) if *m == open_n)
+                });
+                if matches!(p.peek_kind(), Some(TokenKind::Strike(m)) if *m == open_n) {
+                    p.advance();
+                }
+                out.push(Node::Strikethrough(Inline {
+                    children: inner,
+                    span: default_span(),
+                }));
+            }
             TokenKind::CodeStart(n) => {
                 let open_n = *n;
                 p.advance(); // opener

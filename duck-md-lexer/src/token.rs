@@ -41,6 +41,7 @@ pub enum TokenKind {
   Text,       // plain text content
   Bold(u8),   // ** or __ — carries the delimiter count
   Italic(u8), // * or _ — carries the delimiter count
+  Strike(u8), // ~~ — carries the delimiter count
 
   // JSX
   JsxOpenTagStart,   //
@@ -106,6 +107,7 @@ impl fmt::Display for TokenKind {
       TokenKind::Text => "Text",
       TokenKind::Bold(_) => "Bold",
       TokenKind::Italic(_) => "Italic",
+      TokenKind::Strike(_) => "Strike",
       TokenKind::JsxOpenTagStart => "JsxOpenTagStart",
       TokenKind::JsxCloseTagStart => "JsxCloseTagStart",
       TokenKind::JsxCloseTagEnd => "JsxCloseTagEnd",

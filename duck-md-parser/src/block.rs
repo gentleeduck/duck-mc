@@ -67,11 +67,7 @@ fn parse_list(p: &mut Parser, ordered: bool) -> Node {
             }
         }
 
-        let inline = crate::inline::collect_inline_for_list_item(p);
-        items.push(Node::ListItem(ListItem {
-            children: inline,
-            span: default_span(),
-        }));
+        items.push(parse_one_list_item(p, ordered));
 
         // Consume one separator break between items so the next iteration sees
         // the next list marker (or some other block) at the start of the line.
@@ -87,6 +83,50 @@ fn parse_list(p: &mut Parser, ordered: bool) -> Node {
         ordered,
         start,
         children: items,
+        span: default_span(),
+    })
+}
+
+fn parse_one_list_item(p: &mut Parser, ordered: bool) -> Node {
+    // The marker has already been consumed by the caller. Detect a GFM
+    // task-list prefix `[ ]` / `[x]` / `[X]` for unordered lists by peeking at
+    // the upcoming token sequence; if present, consume it and emit a
+    // `TaskListItem`. Otherwise fall through to a plain `ListItem`.
+    if !ordered {
+        let pre = p.pos;
+        // Optional leading whitespace token between marker and `[`.
+        if matches!(p.peek_kind(), Some(TokenKind::Whitespace)) {
+            p.advance();
+        }
+        if matches!(p.peek_kind(), Some(TokenKind::Bracket)) {
+            p.advance();
+            let text_raw = p.peek().map(|t| t.raw.clone()).unwrap_or_default();
+            let kind = p.peek_kind().cloned();
+            if matches!(kind, Some(TokenKind::Text))
+                && (text_raw == " " || text_raw.eq_ignore_ascii_case("x"))
+            {
+                p.advance();
+                if matches!(p.peek_kind(), Some(TokenKind::Bracket)) {
+                    p.advance();
+                    let checked = text_raw.eq_ignore_ascii_case("x");
+                    let inline = crate::inline::collect_inline_for_list_item(p);
+                    return Node::TaskListItem(TaskListItem {
+                        checked,
+                        children: inline,
+                        span: default_span(),
+                    });
+                }
+            }
+            // not a task list — roll back
+            p.pos = pre;
+        } else {
+            p.pos = pre;
+        }
+    }
+
+    let inline = crate::inline::collect_inline_for_list_item(p);
+    Node::ListItem(ListItem {
+        children: inline,
         span: default_span(),
     })
 }

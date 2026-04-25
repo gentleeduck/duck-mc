@@ -17,6 +17,7 @@ impl<'engine> Lexer<'engine> {
       '#' => self.lex_heading(),
       '*' => self.lex_bold(),
       '_' => self.lex_italic(),
+      '~' if self.peek() == Some('~') => self.lex_strike(),
       '<' if self.peek() == Some('!') => self.lex_comment(),
       '<' if matches!(self.peek(), Some(c) if c.is_ascii_alphabetic() || c == '/' || c == '>') => self.lex_jsx_tag(),
       '<' => self.lex_text(),

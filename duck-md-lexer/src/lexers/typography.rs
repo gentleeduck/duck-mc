@@ -72,6 +72,9 @@ impl<'engine> Lexer<'engine> {
         // Unescaped because we already consumed escape pairs above.
         break;
       }
+      if c == '~' && self.peek_next() == Some('~') {
+        break;
+      }
       self.advance();
     }
 
@@ -90,6 +93,17 @@ impl<'engine> Lexer<'engine> {
       "***" if at_line_end => self.emit(TokenKind::ThematicBreak),
       "***" => self.emit(TokenKind::Bold(3)),
       _ => self.emit(TokenKind::Text),
+    }
+  }
+
+  pub(crate) fn lex_strike(&mut self) {
+    // first '~' already consumed by caller
+    self.consume_while(|c, _| c == '~');
+    let lex = self.get_current_lexeme();
+    if lex.len() == 2 {
+      self.emit(TokenKind::Strike(2));
+    } else {
+      self.emit(TokenKind::Text);
     }
   }
 
