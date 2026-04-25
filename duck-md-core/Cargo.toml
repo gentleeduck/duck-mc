@@ -19,6 +19,8 @@ duck-md-codegen = { path = "../duck-md-codegen" }
 duck-md-transform = { path = "../duck-md-transform" }
 duck-md-schema = { path = "../duck-md-schema" }
 serde_yaml.workspace = true
+notify.workspace = true
+notify-debouncer-mini.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 globwalk.workspace = true
