@@ -24,13 +24,21 @@ impl Pipeline {
   }
 
   pub fn with_defaults() -> Self {
-    Self::new()
+    #[allow(unused_mut)]
+    let mut p = Self::new()
       .add(crate::CodeImport::default())
       .add(crate::NpmCommand)
       .add(crate::BareUrlAutolink)
-      .add(crate::AutolinkHeadings::new())
-      .add(crate::Mermaid::default())
-      .add(crate::PrettyCode::default())
+      .add(crate::AutolinkHeadings::new());
+    #[cfg(feature = "mermaid")]
+    {
+      p = p.add(crate::Mermaid::default());
+    }
+    #[cfg(feature = "pretty-code")]
+    {
+      p = p.add(crate::PrettyCode::default());
+    }
+    p
   }
 
   pub fn run(&self, doc: &mut Document) {
