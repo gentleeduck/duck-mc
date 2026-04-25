@@ -28,4 +28,5 @@ Format: `<ISO ts> | <task id> | <pass|fail|halt> | <one-line note>`
 2026-04-25T09:24:00Z | T1+T5+T6+B9 | pass | duck-md-transform crate: Visitor + walk_mut + Pipeline + AutolinkHeadings transformer; pipeline.rs 3/3; total 85 tests; clippy clean
 2026-04-25T09:30:00Z | B2+B8 | pass | CodeImport + NpmCommand transformers; CodeBlock extended w/ raw + commands; +3 tests; total 88; clippy clean
 2026-04-25T09:34:00Z | H7+H8 | pass | robustness.rs 2/2 (22 malformed samples no panic); snapshots.rs 2/2 (insta with redactions); total 92; clippy clean
+2026-04-25T09:42:00Z | P12+P13 | pass | parser unordered + ordered lists (flat); start number from digit lexeme; lists.rs 3/3 + html.rs 2 new; total 97; clippy clean
 

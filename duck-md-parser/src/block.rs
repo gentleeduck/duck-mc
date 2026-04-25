@@ -16,12 +16,79 @@ pub(crate) fn parse_block(p: &mut Parser) -> Option<Node> {
             crate::jsx::skip_md_comment(p);
             None
         }
+        TokenKind::UnorderedListItem => Some(parse_list(p, false)),
+        TokenKind::OrderedListItem => Some(parse_list(p, true)),
         TokenKind::HardBreak | TokenKind::SoftBreak => {
             p.advance();
             None
         }
         _ => Some(parse_paragraph(p)),
     }
+}
+
+fn parse_list(p: &mut Parser, ordered: bool) -> Node {
+    let mut items: Vec<Node> = Vec::new();
+    let start: Option<u32> = if ordered {
+        p.peek()
+            .and_then(|t| t.raw.trim_end_matches('.').parse::<u32>().ok())
+    } else {
+        None
+    };
+
+    while let Some(kind) = p.peek_kind() {
+        let want_marker = if ordered {
+            matches!(kind, TokenKind::OrderedListItem)
+        } else {
+            matches!(kind, TokenKind::UnorderedListItem)
+        };
+        if !want_marker {
+            break;
+        }
+        p.advance(); // consume marker
+
+        // For ordered list items the lexer leaves the trailing `.` (and any
+        // following space) inside the next Text token (e.g. ". three"). Trim
+        // a single leading `.` and any leading ASCII whitespace from that
+        // first Text token so the inline content starts with the actual body.
+        if ordered
+            && let Some(t) = p.peek()
+            && matches!(t.kind, TokenKind::Text)
+        {
+            let raw = t.raw.clone();
+            let trimmed = raw.strip_prefix('.').unwrap_or(&raw);
+            let trimmed = trimmed.trim_start_matches([' ', '\t']);
+            if trimmed.is_empty() {
+                // skip the `.` text token entirely
+                p.advance();
+            } else if trimmed.len() != raw.len() {
+                // rewrite the token's raw payload in place
+                let pos = p.pos;
+                p.tokens[pos].raw = trimmed.to_string();
+            }
+        }
+
+        let inline = crate::inline::collect_inline_for_list_item(p);
+        items.push(Node::ListItem(ListItem {
+            children: inline,
+            span: default_span(),
+        }));
+
+        // Consume one separator break between items so the next iteration sees
+        // the next list marker (or some other block) at the start of the line.
+        if matches!(
+            p.peek_kind(),
+            Some(TokenKind::SoftBreak) | Some(TokenKind::HardBreak)
+        ) {
+            p.advance();
+        }
+    }
+
+    Node::List(List {
+        ordered,
+        start,
+        children: items,
+        span: default_span(),
+    })
 }
 
 fn parse_frontmatter(p: &mut Parser) -> Node {

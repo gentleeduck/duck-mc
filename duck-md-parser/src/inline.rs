@@ -20,6 +20,14 @@ pub(crate) fn collect_inline_until_break(p: &mut Parser) -> Vec<Node> {
     })
 }
 
+/// Accumulate inline nodes for the body of a single list item. Terminates on
+/// the same conditions as `collect_inline_until_break` — list parsing relies
+/// on SoftBreak/HardBreak (already in the break set) to delimit one item per
+/// line, and the outer list loop handles the next-marker case naturally.
+pub(crate) fn collect_inline_for_list_item(p: &mut Parser) -> Vec<Node> {
+    collect_inline_until_break(p)
+}
+
 /// Collect inline nodes until `stop(kind)` returns true. The stopping token
 /// itself is left on the stream (caller decides whether to consume it).
 fn collect_inline(p: &mut Parser, stop: &dyn Fn(&TokenKind) -> bool) -> Vec<Node> {

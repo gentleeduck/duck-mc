@@ -74,3 +74,17 @@ fn escape_text_special_chars() {
     // > may stay or be escaped — both fine, but text content should not contain raw ampersands
     assert!(!h.contains(" & "));
 }
+
+#[test]
+fn unordered_list_renders() {
+    let h = render_html(&duck_md_parser::parse("- a\n- b\n"));
+    assert!(h.contains("<ul>"));
+    assert!(h.contains("<li>"));
+    assert!(h.matches("<li>").count() >= 2);
+}
+
+#[test]
+fn ordered_list_with_start_renders() {
+    let h = render_html(&duck_md_parser::parse("5. e\n6. f\n"));
+    assert!(h.contains("<ol start=\"5\""));
+}

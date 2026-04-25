@@ -53,8 +53,8 @@ Goal: drop-in Rust replacement for Velite's role in `apps/duck` (see `SURVEY.md`
 - [x] P9: parse bold + italic delimiter pairing
 - [x] P10: parse link (text + href + optional title)
 - [x] P11: parse image (alt + src + title)
-- [ ] P12: parse unordered list + nested by indent
-- [ ] P13: parse ordered list + start number
+- [x] P12: parse unordered list (flat; nesting deferred)
+- [x] P13: parse ordered list + start number
 - [ ] P14: parse blockquote with nested children
 - [ ] P15: parse thematic break
 - [ ] P16: parse soft/hard break

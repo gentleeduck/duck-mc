@@ -14,7 +14,7 @@ expression: out
   "excerpt": "Agent skills are markdown instruction files that teach AI coding assistants the APIs, patterns, and conventions of a codebase so they produce correct code on the first try. Overview gentleduck/ui ships agent skills that teach AI coding assistants how to work w…",
   "metadata": {
     "reading_time": 3,
-    "word_count": 451
+    "word_count": 434
   },
   "toc": [
     {
