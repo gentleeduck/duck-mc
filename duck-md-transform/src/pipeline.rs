@@ -14,9 +14,7 @@ pub struct Pipeline {
 
 impl Pipeline {
   pub fn new() -> Self {
-    Self {
-      transformers: Vec::new(),
-    }
+    Self { transformers: Vec::new() }
   }
 
   #[allow(clippy::should_implement_trait)]

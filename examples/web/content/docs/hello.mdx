@@ -1,0 +1,40 @@
+---
+title: Hello, Duck-MD
+description: First MDX page rendered through duck-md
+tags: [intro, demo]
+---
+
+import { Callout } from './callout'
+
+# Hello from **duck-md**
+
+Rust-built MDX compiler. Output runs in the browser.
+
+## Why
+
+- fast
+- typed
+- one binary
+
+## Code sample
+
+```rust title="hi.rs"
+fn main() {
+    println!("hello, world");
+}
+```
+
+## Custom component
+
+<Callout type="info">
+  Component injected from React, content authored as **markdown**.
+</Callout>
+
+## Table
+
+| Lang | Year |
+| :--- | ---: |
+| Rust | 2010 |
+| MDX  | 2018 |
+
+> Block quotes work too.

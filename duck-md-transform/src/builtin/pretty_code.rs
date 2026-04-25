@@ -2,7 +2,7 @@ use crate::pipeline::Transformer;
 use duck_md_ast::*;
 use syntect::easy::HighlightLines;
 use syntect::highlighting::{Style, ThemeSet};
-use syntect::html::{styled_line_to_highlighted_html, IncludeBackground};
+use syntect::html::{IncludeBackground, styled_line_to_highlighted_html};
 use syntect::parsing::SyntaxSet;
 
 pub struct PrettyCode {
@@ -21,16 +21,9 @@ impl PrettyCode {
   pub fn new(theme_name: &str) -> Self {
     let syntax_set = SyntaxSet::load_defaults_newlines();
     let ts = ThemeSet::load_defaults();
-    let theme = ts
-      .themes
-      .get(theme_name)
-      .cloned()
-      .unwrap_or_else(|| ts.themes["base16-ocean.dark"].clone());
-    Self {
-      syntax_set,
-      theme,
-      theme_name: theme_name.to_string(),
-    }
+    let theme =
+      ts.themes.get(theme_name).cloned().unwrap_or_else(|| ts.themes["base16-ocean.dark"].clone());
+    Self { syntax_set, theme, theme_name: theme_name.to_string() }
   }
 
   fn highlight(&self, lang: Option<&str>, code: &str) -> Option<String> {

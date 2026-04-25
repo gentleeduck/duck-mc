@@ -46,9 +46,7 @@ fn defaults_pipeline_includes_autolink() {
 #[test]
 fn npm_command_derives_yarn_pnpm_bun() {
   let mut d = duck_md_parser::parse("```\nnpm install lodash\n```\n");
-  duck_md_transform::Pipeline::new()
-    .add(NpmCommand)
-    .run(&mut d);
+  duck_md_transform::Pipeline::new().add(NpmCommand).run(&mut d);
   let cb = d
     .children
     .iter()
@@ -67,9 +65,7 @@ fn npm_command_derives_yarn_pnpm_bun() {
 #[test]
 fn npm_command_handles_npx_create() {
   let mut d = duck_md_parser::parse("```\nnpx create-next-app my-app\n```\n");
-  duck_md_transform::Pipeline::new()
-    .add(NpmCommand)
-    .run(&mut d);
+  duck_md_transform::Pipeline::new().add(NpmCommand).run(&mut d);
   let cb = d
     .children
     .iter()
@@ -100,9 +96,5 @@ fn code_import_reads_file() {
       _ => None,
     })
     .expect("cb");
-  assert!(
-    cb.value.contains("export const x = 1"),
-    "got {:?}",
-    cb.value
-  );
+  assert!(cb.value.contains("export const x = 1"), "got {:?}", cb.value);
 }

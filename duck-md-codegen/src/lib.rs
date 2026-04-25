@@ -1,5 +1,5 @@
 mod escape;
 pub mod html;
 pub mod mdx;
-pub use html::{render_html, HtmlEmitter};
-pub use mdx::{render_mdx_body, MdxBodyEmitter};
+pub use html::{HtmlEmitter, render_html};
+pub use mdx::{MdxBodyEmitter, render_mdx_body};

@@ -1,0 +1,6 @@
+output_dir = ".gentleduck"
+
+[[collections]]
+name = "docs"
+pattern = "docs/**/*.mdx"
+base_dir = "content"

@@ -1,5 +1,5 @@
 use crate::pipeline::Transformer;
-use crate::visit::{walk_mut, VisitFlow, Visitor};
+use crate::visit::{VisitFlow, Visitor, walk_mut};
 use duck_md_ast::*;
 
 #[derive(Default)]
@@ -23,10 +23,7 @@ impl Transformer for AutolinkHeadings {
   }
 
   fn transform(&self, doc: &mut Document) {
-    let mut v = Apply {
-      class_name: self.class_name.clone(),
-      aria_label: self.aria_label.clone(),
-    };
+    let mut v = Apply { class_name: self.class_name.clone(), aria_label: self.aria_label.clone() };
     for c in &mut doc.children {
       walk_mut(c, &mut v);
     }

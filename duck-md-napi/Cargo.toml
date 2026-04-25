@@ -1,0 +1,18 @@
+[package]
+name = "duck-md-napi"
+version.workspace = true
+edition.workspace = true
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+duck-md-core = { path = "../duck-md-core" }
+napi = { version = "2", default-features = false, features = ["napi9", "serde-json"] }
+napi-derive = "2"
+serde.workspace = true
+serde_json.workspace = true
+
+[build-dependencies]
+napi-build = "2"

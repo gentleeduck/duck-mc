@@ -1,3 +1,9 @@
 /target
 **/*.rs.bk
 Cargo.lock.bak
+node_modules
+**/node_modules
+**/.gentleduck
+**/.velite
+**/dist
+**/*.node

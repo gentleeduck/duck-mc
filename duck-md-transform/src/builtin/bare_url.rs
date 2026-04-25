@@ -1,5 +1,5 @@
 use crate::pipeline::Transformer;
-use crate::visit::{walk_mut, VisitFlow, Visitor};
+use crate::visit::{VisitFlow, Visitor, walk_mut};
 use duck_md_ast::*;
 
 #[derive(Default)]
@@ -44,18 +44,14 @@ fn rewrite_children(nodes: Vec<Node>) -> Vec<Node> {
       }
       for piece in pieces {
         match piece {
-          Piece::Text(s) if !s.is_empty() => out.push(Node::Text(Text {
-            value: s,
-            span: default_span(),
-          })),
+          Piece::Text(s) if !s.is_empty() => {
+            out.push(Node::Text(Text { value: s, span: default_span() }))
+          },
           Piece::Text(_) => {},
           Piece::Url(url) => out.push(Node::Link(Link {
             href: url.clone(),
             title: None,
-            children: vec![Node::Text(Text {
-              value: url,
-              span: default_span(),
-            })],
+            children: vec![Node::Text(Text { value: url, span: default_span() })],
             span: default_span(),
           })),
         }

@@ -1,5 +1,5 @@
 use crate::pipeline::Transformer;
-use crate::visit::{walk_mut, VisitFlow, Visitor};
+use crate::visit::{VisitFlow, Visitor, walk_mut};
 use duck_md_ast::*;
 use std::path::PathBuf;
 
@@ -10,9 +10,7 @@ pub struct CodeImport {
 
 impl CodeImport {
   pub fn with_base_dir(p: impl Into<PathBuf>) -> Self {
-    Self {
-      base_dir: Some(p.into()),
-    }
+    Self { base_dir: Some(p.into()) }
   }
 }
 
@@ -22,9 +20,7 @@ impl Transformer for CodeImport {
   }
 
   fn transform(&self, doc: &mut Document) {
-    let mut v = Apply {
-      base_dir: self.base_dir.clone(),
-    };
+    let mut v = Apply { base_dir: self.base_dir.clone() };
     for c in &mut doc.children {
       walk_mut(c, &mut v);
     }

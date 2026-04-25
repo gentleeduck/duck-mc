@@ -61,3 +61,5 @@ fn body_is_js_function() {
   assert!(out.body.contains("_createMdxContent"));
   assert!(out.body.contains("jsxs(\"h1\""));
 }
+
+// frontmatter validation test removed — duck-md-schema rebuilt in U2 with new API

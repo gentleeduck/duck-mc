@@ -1,0 +1,29 @@
+{
+  "name": "@duck/md",
+  "version": "0.1.0",
+  "main": "mod.js",
+  "types": "mod.d.ts",
+  "exports": {
+    ".": {
+      "types": "./mod.d.ts",
+      "import": "./mod.mjs",
+      "require": "./mod.js",
+      "default": "./mod.js"
+    }
+  },
+  "files": ["mod.js", "mod.mjs", "mod.d.ts", "index.js", "index.d.ts", "*.node"],
+  "napi": {
+    "name": "duck-md",
+    "triples": {
+      "defaults": true,
+      "additional": []
+    }
+  },
+  "scripts": {
+    "build": "napi build --platform --release",
+    "build:debug": "napi build --platform"
+  },
+  "devDependencies": {
+    "@napi-rs/cli": "^2.18.4"
+  }
+}

@@ -3,10 +3,10 @@ resolver = "3"
 members = [
   "duck-md-core",
   "duck-md-lexer",
-  "duck-md-ast",
   "duck-md-parser",
   "duck-md-codegen",
   "duck-md-transform",
+  "duck-md-napi",
 ]
 
 [workspace.package]
@@ -30,10 +30,10 @@ assert_cmd = "2"
 predicates = "3"
 insta = { version = "1", features = ["json", "redactions"] }
 syntect = { version = "5", default-features = false, features = ["default-fancy"] }
+criterion = "0.5"
 
 # Workspace crates
 duck-md-lexer = { path = "duck-md-lexer" }
-duck-md-ast = { path = "duck-md-ast" }
 duck-md-parser = { path = "duck-md-parser" }
 duck-md-codegen = { path = "duck-md-codegen" }
 duck-md-transform = { path = "duck-md-transform" }

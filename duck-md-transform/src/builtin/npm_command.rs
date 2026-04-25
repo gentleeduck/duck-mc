@@ -1,5 +1,5 @@
 use crate::pipeline::Transformer;
-use crate::visit::{walk_mut, VisitFlow, Visitor};
+use crate::visit::{VisitFlow, Visitor, walk_mut};
 use duck_md_ast::*;
 
 #[derive(Default)]
