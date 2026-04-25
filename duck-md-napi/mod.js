@@ -179,6 +179,7 @@ function adaptToBuildInput(input) {
         copyLinkedFiles: cfg.markdown?.copyLinkedFiles ?? cfg.mdx?.copyLinkedFiles,
         mdxOutputFormat: cfg.mdx?.outputFormat,
         mdxMinify: cfg.mdx?.minify,
+        markdownGfm: cfg.markdown?.gfm,
     };
 }
 export function compile(source) {
