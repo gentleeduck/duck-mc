@@ -24,9 +24,9 @@ Goal: drop-in Rust replacement for Velite's role in `apps/duck` (see `SURVEY.md`
 - [x] L16: GFM table — handled in parser via try_parse_table re-tokenization
 - [x] L17: GFM task list `- [ ] / - [x]` (parser-side; lexer unchanged)
 - [x] L18: GFM strikethrough `~~text~~` (Token::Strike + lex_strike + lex_text break)
-- [ ] L19: GFM autolink `<https://...>` and bare URL detection
-- [ ] L20: setext headings `===` / `---` underline
-- [ ] L21: indented code block (4-space)
+- [~] L19: GFM autolink — bare URL via `BareUrlAutolink` transformer; `<url>` syntax deferred
+- [x] L20: setext headings `===` / `---` underline
+- [ ] L21: indented code block (4-space) (deferred)
 - [ ] L22: HTML inline tag passthrough (lowercase tags as raw HTML when not JSX)
 - [ ] L23: Span column tracking — fix `column` to count graphemes, not bytes; track utf8 width
 - [x] L24: bug fix — `lex_jsx_tag` after attrs now emits `JsxSelfClosingEnd` cleanly; parser workaround removed
@@ -118,7 +118,7 @@ See SURVEY.md §I for required output shape.
 
 ## Phase 9 — Built-in transformers (mirror velite plugins)
 
-- [ ] B1: GFM helper transforms (autolink bare URL → `<a>`, expand task list class)
+- [x] B1: GFM `BareUrlAutolink` transformer (in defaults pipeline)
 - [x] B2: `code_import` — reads `file=...` meta, inlines file content (range syntax `{1,2-3}` deferred)
 - [ ] B3: `slug` — `id` on every heading via `slug` crate
 - [~] B4: `pretty_code` — syntect highlight (single theme `base16-ocean.dark`); dual-theme + line/word marks deferred

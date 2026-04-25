@@ -218,10 +218,85 @@ fn parse_heading(p: &mut Parser) -> Node {
 
 fn parse_paragraph(p: &mut Parser) -> Node {
     let children = collect_inline_until_break(p);
+    // Setext heading: a paragraph followed by a SoftBreak and then a line of
+    // pure `=` (level 1) or `-` (level 2) characters. The lexer emits each
+    // `=` as an Eq token (raw == "="), and a run of `-` is emitted as a
+    // single `ThematicBreak` token (raw is the dashes).
+    if matches!(p.peek_kind(), Some(TokenKind::SoftBreak)) {
+        let saved = p.pos;
+        p.advance();
+        if let Some(lvl) = peek_setext_underline(p) {
+            consume_setext_underline(p);
+            let plain = plain_text(&children);
+            let id = slug::slugify(plain);
+            return Node::Heading(Heading {
+                level: lvl,
+                id,
+                children,
+                span: default_span(),
+            });
+        }
+        p.pos = saved;
+    }
     Node::Paragraph(Paragraph {
         children,
         span: default_span(),
     })
+}
+
+/// Return Some(1) for an `=` underline, Some(2) for `-` underline, else None.
+/// The position is left untouched.
+fn peek_setext_underline(p: &Parser) -> Option<u8> {
+    let t = p.tokens.get(p.pos)?;
+    match &t.kind {
+        TokenKind::Eq => {
+            // run of consecutive Eq tokens, then SoftBreak/HardBreak/Eof
+            let mut i = p.pos;
+            while let Some(tt) = p.tokens.get(i) {
+                if matches!(tt.kind, TokenKind::Eq) {
+                    i += 1;
+                } else {
+                    break;
+                }
+            }
+            let next = p.tokens.get(i).map(|t| &t.kind);
+            if matches!(
+                next,
+                Some(TokenKind::SoftBreak) | Some(TokenKind::HardBreak) | Some(TokenKind::Eof) | None
+            ) {
+                Some(1)
+            } else {
+                None
+            }
+        }
+        TokenKind::ThematicBreak => {
+            // `--` (2+ dashes) on its own line ends up as ThematicBreak with
+            // raw == "---..." (all dashes). Only treat as setext h2 when raw
+            // is purely `-` characters.
+            if !t.raw.is_empty() && t.raw.chars().all(|c| c == '-') {
+                Some(2)
+            } else {
+                None
+            }
+        }
+        _ => None,
+    }
+}
+
+fn consume_setext_underline(p: &mut Parser) {
+    if let Some(t) = p.tokens.get(p.pos) {
+        match t.kind {
+            TokenKind::Eq => {
+                while matches!(p.peek_kind(), Some(TokenKind::Eq)) {
+                    p.advance();
+                }
+            }
+            TokenKind::ThematicBreak => {
+                p.advance();
+            }
+            _ => {}
+        }
+    }
 }
 
 fn parse_code_block(p: &mut Parser) -> Node {

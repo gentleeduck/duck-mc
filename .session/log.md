@@ -33,4 +33,5 @@ Format: `<ISO ts> | <task id> | <pass|fail|halt> | <one-line note>`
 2026-04-25T09:54:00Z | P14+P15+P16 | pass | parser blockquote (multi-line) + thematic break + breaks; breaks.rs 5/5 + 2 html; total 108; clippy clean
 2026-04-25T09:58:00Z | B4-basic | pass | PrettyCode transformer via syntect (single theme); CodeBlock.highlighted_html field; codegen prefers highlighted; pretty_code.rs 3/3 + 1 html; total 112; clippy clean
 2026-04-25T10:04:00Z | L16+P21+C4 | pass | GFM tables: parser re-tokenization, alignments, html emission; tables.rs 3/3 + html 1; total 116; clippy clean
+2026-04-25T10:09:00Z | B1+L20 | pass | BareUrlAutolink transformer in defaults; setext headings (=/-) via Eq runs + ThematicBreak; bare_url.rs 2/2 + setext.rs 2/2; total 120; clippy clean
 
