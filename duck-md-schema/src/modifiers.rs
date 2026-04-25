@@ -68,3 +68,20 @@ impl Schema for RefineSchema {
     Ok(parsed)
   }
 }
+
+pub struct SuperRefineSchema {
+  pub inner: Box<dyn Schema>,
+  pub predicate: Box<dyn Fn(&Value, &mut Vec<String>) + Send + Sync>,
+}
+
+impl Schema for SuperRefineSchema {
+  fn parse(&self, value: &Value, ctx: &Ctx) -> Result<Value, ValidationError> {
+    let parsed = self.inner.parse(value, ctx)?;
+    let mut errors = Vec::new();
+    (self.predicate)(&parsed, &mut errors);
+    if !errors.is_empty() {
+      return Err(ValidationError::root(errors.join("; ")));
+    }
+    Ok(parsed)
+  }
+}

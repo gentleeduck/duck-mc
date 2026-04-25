@@ -116,6 +116,35 @@ pub fn compile_descriptor(d: &Value) -> Result<Box<dyn Schema>, String> {
       if let Some(r) = get_s("absoluteRoot") { i = i.absolute_root(r); }
       i.boxed()
     }
+    "record" => {
+      let v = compile_descriptor(d.get("value").ok_or("record missing 'value'".to_string())?)?;
+      RecordSchema { value: v }.boxed()
+    }
+    "tuple" => {
+      let items = d.get("items").and_then(Value::as_array)
+        .ok_or("tuple missing 'items'".to_string())?;
+      let inner: Result<Vec<_>, _> = items.iter().map(compile_descriptor).collect();
+      TupleSchema { items: inner? }.boxed()
+    }
+    "intersection" => {
+      let left = compile_descriptor(d.get("left").ok_or("intersection missing 'left'".to_string())?)?;
+      let right = compile_descriptor(d.get("right").ok_or("intersection missing 'right'".to_string())?)?;
+      IntersectionSchema { left, right }.boxed()
+    }
+    "discriminatedUnion" => {
+      let disc = get_s("discriminator").ok_or("discriminatedUnion missing 'discriminator'".to_string())?;
+      let variants = d.get("variants").and_then(Value::as_array)
+        .ok_or("discriminatedUnion missing 'variants'".to_string())?;
+      let inner: Result<Vec<_>, _> = variants.iter().map(compile_descriptor).collect();
+      DiscriminatedUnionSchema { discriminator: disc, variants: inner? }.boxed()
+    }
+    "coerce.string" => CoerceSchema { target: CoerceTarget::String }.boxed(),
+    "coerce.number" => CoerceSchema { target: CoerceTarget::Number }.boxed(),
+    "coerce.boolean" => CoerceSchema { target: CoerceTarget::Boolean }.boxed(),
+    "coerce.date" => CoerceSchema { target: CoerceTarget::Date }.boxed(),
+    "superRefine" | "super_refine" => {
+      compile_descriptor(d.get("inner").ok_or("superRefine missing 'inner'".to_string())?)?
+    }
     other => return Err(format!("unknown schema kind: {other}")),
   })
 }

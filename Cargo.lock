@@ -590,6 +590,7 @@ dependencies = [
  "blake3",
  "image",
  "pretty_assertions",
+ "regex",
  "serde",
  "serde_json",
  "slug",

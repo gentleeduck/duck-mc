@@ -51,6 +51,18 @@ pub mod s {
   pub fn enum_(variants: Vec<Value>) -> EnumSchema { EnumSchema { variants } }
   pub fn literal(expected: Value) -> LiteralSchema { LiteralSchema { expected } }
   pub fn union(variants: Vec<Box<dyn Schema>>) -> UnionSchema { UnionSchema { variants } }
+  pub fn record(value: Box<dyn Schema>) -> RecordSchema { RecordSchema { value } }
+  pub fn tuple(items: Vec<Box<dyn Schema>>) -> TupleSchema { TupleSchema { items } }
+  pub fn intersection(left: Box<dyn Schema>, right: Box<dyn Schema>) -> IntersectionSchema {
+    IntersectionSchema { left, right }
+  }
+  pub fn discriminated_union(discriminator: impl Into<String>, variants: Vec<Box<dyn Schema>>) -> DiscriminatedUnionSchema {
+    DiscriminatedUnionSchema { discriminator: discriminator.into(), variants }
+  }
+  pub fn coerce_string() -> CoerceSchema { CoerceSchema { target: CoerceTarget::String } }
+  pub fn coerce_number() -> CoerceSchema { CoerceSchema { target: CoerceTarget::Number } }
+  pub fn coerce_boolean() -> CoerceSchema { CoerceSchema { target: CoerceTarget::Boolean } }
+  pub fn coerce_date() -> CoerceSchema { CoerceSchema { target: CoerceTarget::Date } }
 
   pub fn optional(inner: Box<dyn Schema>) -> OptionalSchema { OptionalSchema { inner } }
   pub fn nullable(inner: Box<dyn Schema>) -> NullableSchema { NullableSchema { inner } }
@@ -64,6 +76,10 @@ pub mod s {
   pub fn refine<F>(inner: Box<dyn Schema>, predicate: F) -> RefineSchema
   where F: Fn(&Value) -> Result<(), String> + Send + Sync + 'static {
     RefineSchema { inner, predicate: Box::new(predicate) }
+  }
+  pub fn super_refine<F>(inner: Box<dyn Schema>, predicate: F) -> SuperRefineSchema
+  where F: Fn(&Value, &mut Vec<String>) + Send + Sync + 'static {
+    SuperRefineSchema { inner, predicate: Box::new(predicate) }
   }
 
   pub fn raw() -> RawSchema { RawSchema }

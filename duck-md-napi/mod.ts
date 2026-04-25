@@ -30,9 +30,10 @@ export interface CompileOutput {
 
 export type SchemaKind =
   | 'string' | 'number' | 'boolean'
-  | 'array' | 'object'
-  | 'enum' | 'literal' | 'union'
-  | 'optional' | 'nullable' | 'default' | 'transform' | 'refine'
+  | 'array' | 'object' | 'record' | 'tuple' | 'intersection'
+  | 'enum' | 'literal' | 'union' | 'discriminatedUnion'
+  | 'optional' | 'nullable' | 'default' | 'transform' | 'refine' | 'superRefine'
+  | 'coerce.string' | 'coerce.number' | 'coerce.boolean' | 'coerce.date'
   | 'raw' | 'markdown' | 'mdx' | 'toc' | 'metadata' | 'excerpt'
   | 'path' | 'slug' | 'unique' | 'isodate' | 'file' | 'image'
 
@@ -168,9 +169,19 @@ export interface SBuilders {
   boolean(): SchemaBuilder<boolean>
   array<I>(item: SchemaBuilder<I>): SchemaBuilder<I[]>
   object<S extends Record<string, SchemaBuilder>>(fields: S): SchemaBuilder
+  record<V>(value: SchemaBuilder<V>): SchemaBuilder<Record<string, V>>
+  tuple(items: SchemaBuilder[]): SchemaBuilder<unknown[]>
+  intersection<A, B>(a: SchemaBuilder<A>, b: SchemaBuilder<B>): SchemaBuilder<A & B>
   enum<T>(variants: T[]): SchemaBuilder<T>
   literal<T>(value: T): SchemaBuilder<T>
   union<T>(variants: SchemaBuilder<T>[]): SchemaBuilder<T>
+  discriminatedUnion<T>(discriminator: string, variants: SchemaBuilder<T>[]): SchemaBuilder<T>
+  coerce: {
+    string(): SchemaBuilder<string>
+    number(): SchemaBuilder<number>
+    boolean(): SchemaBuilder<boolean>
+    date(): SchemaBuilder<string>
+  }
   raw(): SchemaBuilder<string>
   markdown(): SchemaBuilder<string>
   mdx(): SchemaBuilder<string>
@@ -196,9 +207,23 @@ export const s: SBuilders = {
       Object.entries(fields).map(([k, v]) => [k, (v as SchemaBuilder).toJSON()]),
     ),
   }),
+  record: (value) => sb({ kind: 'record', value: (value as SchemaBuilder).toJSON() }),
+  tuple: (items) => sb({ kind: 'tuple', items: items.map((v) => (v as SchemaBuilder).toJSON()) }),
+  intersection: (a, b) => sb({ kind: 'intersection', left: (a as SchemaBuilder).toJSON(), right: (b as SchemaBuilder).toJSON() }),
   enum: (variants) => sb({ kind: 'enum', variants }),
   literal: (expected) => sb({ kind: 'literal', expected }),
   union: (variants) => sb({ kind: 'union', variants: variants.map((v) => (v as SchemaBuilder).toJSON()) }),
+  discriminatedUnion: (discriminator, variants) => sb({
+    kind: 'discriminatedUnion',
+    discriminator,
+    variants: variants.map((v) => (v as SchemaBuilder).toJSON()),
+  }),
+  coerce: {
+    string: () => sb({ kind: 'coerce.string' }),
+    number: () => sb({ kind: 'coerce.number' }),
+    boolean: () => sb({ kind: 'coerce.boolean' }),
+    date: () => sb({ kind: 'coerce.date' }),
+  },
   raw: () => sb({ kind: 'raw' }),
   markdown: () => sb({ kind: 'markdown' }),
   mdx: () => sb({ kind: 'mdx' }),

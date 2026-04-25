@@ -46,6 +46,7 @@ notify = "6"
 notify-debouncer-mini = "0.4"
 rayon = "1"
 base64 = "0.22"
+regex = "1"
 
 # Dev
 pretty_assertions = "1"

@@ -31,7 +31,137 @@ impl Schema for StringSchema {
     if let Some(l) = self.length { if len != l {
       return Err(ValidationError::root(format!("length {l} required (got {len})")));
     }}
+    if let Some(pat) = &self.regex {
+      let re = regex::Regex::new(pat)
+        .map_err(|e| ValidationError::root(format!("invalid regex {pat}: {e}")))?;
+      if !re.is_match(s) {
+        return Err(ValidationError::root(format!("does not match /{pat}/")));
+      }
+    }
     Ok(Value::String(s.to_string()))
+  }
+}
+
+pub struct RecordSchema {
+  pub value: Box<dyn Schema>,
+}
+
+impl Schema for RecordSchema {
+  fn parse(&self, value: &Value, ctx: &Ctx) -> Result<Value, ValidationError> {
+    let obj = value.as_object().ok_or_else(|| ValidationError::root(format!(
+      "expected object, got {}", json_kind(value),
+    )))?;
+    let mut out = serde_json::Map::new();
+    for (k, v) in obj {
+      let parsed = self.value.parse(v, ctx).map_err(|e| e.at(k))?;
+      out.insert(k.clone(), parsed);
+    }
+    Ok(Value::Object(out))
+  }
+}
+
+pub struct TupleSchema {
+  pub items: Vec<Box<dyn Schema>>,
+}
+
+impl Schema for TupleSchema {
+  fn parse(&self, value: &Value, ctx: &Ctx) -> Result<Value, ValidationError> {
+    let arr = value.as_array().ok_or_else(|| ValidationError::root(format!(
+      "expected tuple, got {}", json_kind(value),
+    )))?;
+    if arr.len() != self.items.len() {
+      return Err(ValidationError::root(format!(
+        "tuple length mismatch: expected {}, got {}", self.items.len(), arr.len(),
+      )));
+    }
+    let mut out = Vec::with_capacity(arr.len());
+    for (i, (schema, v)) in self.items.iter().zip(arr.iter()).enumerate() {
+      out.push(schema.parse(v, ctx).map_err(|e| e.at_index(i))?);
+    }
+    Ok(Value::Array(out))
+  }
+}
+
+pub struct IntersectionSchema {
+  pub left: Box<dyn Schema>,
+  pub right: Box<dyn Schema>,
+}
+
+impl Schema for IntersectionSchema {
+  fn parse(&self, value: &Value, ctx: &Ctx) -> Result<Value, ValidationError> {
+    let a = self.left.parse(value, ctx)?;
+    let b = self.right.parse(value, ctx)?;
+    match (a, b) {
+      (Value::Object(mut ma), Value::Object(mb)) => {
+        for (k, v) in mb { ma.insert(k, v); }
+        Ok(Value::Object(ma))
+      }
+      (a, _) => Ok(a),
+    }
+  }
+}
+
+pub struct DiscriminatedUnionSchema {
+  pub discriminator: String,
+  pub variants: Vec<Box<dyn Schema>>,
+}
+
+impl Schema for DiscriminatedUnionSchema {
+  fn parse(&self, value: &Value, ctx: &Ctx) -> Result<Value, ValidationError> {
+    let obj = value.as_object().ok_or_else(|| ValidationError::root(
+      "discriminatedUnion expects object",
+    ))?;
+    let tag = obj.get(&self.discriminator).ok_or_else(|| ValidationError::root(format!(
+      "missing discriminator field '{}'", self.discriminator,
+    )))?;
+    for v in &self.variants {
+      if let Ok(parsed) = v.parse(value, ctx) {
+        return Ok(parsed);
+      }
+    }
+    Err(ValidationError::root(format!(
+      "no discriminatedUnion variant matched for {}={}", self.discriminator, tag,
+    )))
+  }
+}
+
+pub struct CoerceSchema {
+  pub target: CoerceTarget,
+}
+
+#[derive(Clone, Copy)]
+pub enum CoerceTarget { String, Number, Boolean, Date }
+
+impl Schema for CoerceSchema {
+  fn parse(&self, value: &Value, _ctx: &Ctx) -> Result<Value, ValidationError> {
+    match self.target {
+      CoerceTarget::String => match value {
+        Value::String(s) => Ok(Value::String(s.clone())),
+        Value::Number(n) => Ok(Value::String(n.to_string())),
+        Value::Bool(b) => Ok(Value::String(b.to_string())),
+        Value::Null => Ok(Value::String(String::new())),
+        _ => Err(ValidationError::root(format!("cannot coerce {} to string", json_kind(value)))),
+      },
+      CoerceTarget::Number => match value {
+        Value::Number(_) => Ok(value.clone()),
+        Value::String(s) => s.parse::<f64>()
+          .map(|n| serde_json::json!(n))
+          .map_err(|_| ValidationError::root(format!("cannot coerce '{s}' to number"))),
+        Value::Bool(b) => Ok(serde_json::json!(if *b { 1 } else { 0 })),
+        _ => Err(ValidationError::root(format!("cannot coerce {} to number", json_kind(value)))),
+      },
+      CoerceTarget::Boolean => match value {
+        Value::Bool(_) => Ok(value.clone()),
+        Value::String(s) => Ok(Value::Bool(!s.is_empty() && s != "false" && s != "0")),
+        Value::Number(n) => Ok(Value::Bool(n.as_f64().is_some_and(|f| f != 0.0))),
+        Value::Null => Ok(Value::Bool(false)),
+        _ => Ok(Value::Bool(true)),
+      },
+      CoerceTarget::Date => match value {
+        Value::String(s) => Ok(Value::String(s.clone())),
+        _ => Err(ValidationError::root("date coerce requires string")),
+      },
+    }
   }
 }
 
