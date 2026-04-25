@@ -47,6 +47,7 @@ notify-debouncer-mini = "0.4"
 rayon = "1"
 base64 = "0.22"
 regex = "1"
+unicode-segmentation = "1"
 
 # Dev
 pretty_assertions = "1"

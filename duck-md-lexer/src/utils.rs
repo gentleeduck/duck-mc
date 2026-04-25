@@ -96,7 +96,14 @@ impl<'engine> Lexer<'engine> {
       self.current = self.source.len();
     }
 
-    self.column += 1;
+    use unicode_segmentation::UnicodeSegmentation;
+    self.column += if ch.is_ascii() {
+      1
+    } else {
+      let mut buf = [0u8; 4];
+      let encoded = ch.encode_utf8(&mut buf);
+      encoded.graphemes(true).count().max(1)
+    };
     ch
   }
 

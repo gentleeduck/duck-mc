@@ -7,6 +7,7 @@ edition.workspace = true
 duck-diagnostic.workspace = true
 serde_yaml.workspace = true
 serde.workspace = true
+unicode-segmentation.workspace = true
 
 [dev-dependencies]
 pretty_assertions.workspace = true
