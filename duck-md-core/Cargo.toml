@@ -19,6 +19,8 @@ duck-md-parser = { path = "../duck-md-parser" }
 duck-md-codegen = { path = "../duck-md-codegen" }
 serde.workspace = true
 serde_json.workspace = true
+globwalk.workspace = true
 
 [dev-dependencies]
 pretty_assertions.workspace = true
+tempfile.workspace = true

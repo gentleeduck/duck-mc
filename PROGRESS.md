@@ -140,11 +140,11 @@ See SURVEY.md §I for required output shape.
 
 ## Phase 11 — Collections + globs
 
-- [ ] G1: `Collection { name, pattern, schema, transform }` type
-- [ ] G2: glob walk via `globwalk` (or `walkdir` + `globset`)
-- [ ] G3: per-file pipeline: read → frontmatter → parse body → schema validate → transformers → emit record
-- [ ] G4: parallelism via `rayon`
-- [ ] G5: tests — fixture dir → expected record list
+- [x] G1: `CollectionConfig { name, pattern, base_dir }` type in `duck-md-core::engine`
+- [x] G2: glob walk via `globwalk`
+- [x] G3: per-file pipeline: read → compile → record
+- [ ] G4: parallelism via `rayon` (deferred)
+- [x] G5: tests — `tests/engine.rs` 2/2
 
 ## Phase 12 — CLI
 
@@ -156,9 +156,9 @@ See SURVEY.md §I for required output shape.
 
 ## Phase 13 — Output
 
-- [ ] O1: write `.duck-md/<collection>.json` (array of records)
-- [ ] O2: write `.duck-md/index.js` mirroring velite's `export { default as <name> } from './...json' with { type: 'json' }`
-- [ ] O3: write `.duck-md/index.d.ts` with derived types
+- [x] O1: write `.duck-md/<collection>.json` (array of records)
+- [x] O2: write `.duck-md/index.js` mirroring velite's `export { default as <name> } from './...json' with { type: 'json' }`
+- [x] O3: write `.duck-md/index.d.ts` (minimal `any[]`; richer types deferred)
 - [ ] O4: tests — diff `.duck-md/docs.json` against `apps/duck/.velite/docs.json` on shared fixtures (sample subset)
 
 ## Phase 14 — Velite parity verification
