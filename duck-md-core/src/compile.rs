@@ -20,6 +20,7 @@ pub struct CompileOutput {
   pub frontmatter_raw: String,
   pub content: String, // raw markdown body (without frontmatter)
   pub html: String,    // rendered HTML
+  pub body: String,    // MDX JS factory function source
   pub excerpt: String, // first ~260 chars of plain text
   pub metadata: Metadata,
   pub toc: Vec<TocItem>,
@@ -49,6 +50,7 @@ pub fn compile(source: &str) -> CompileOutput {
 
   let content = strip_frontmatter(source).to_string();
   let html = duck_md_codegen::render_html(&doc);
+  let body = duck_md_codegen::render_mdx_body(&doc);
   let plain = plain_text(&doc);
   let excerpt = build_excerpt(&plain, 260);
   let metadata = build_metadata(&plain);
@@ -59,6 +61,7 @@ pub fn compile(source: &str) -> CompileOutput {
     frontmatter_raw,
     content,
     html,
+    body,
     excerpt,
     metadata,
     toc,

@@ -20,4 +20,5 @@ Format: `<ISO ts> | <task id> | <pass|fail|halt> | <one-line note>`
 2026-04-25T08:42:00Z | L24 | pass | lex_jsx_tag self-close after attrs fixed; parser workaround removed; +2 lexer tests; total 49 tests
 2026-04-25T08:48:00Z | C1+C2+C3+C5+C6 | pass | duck-md-codegen crate added: HtmlEmitter + escape; tests/html.rs 9/9; total 58 tests
 2026-04-25T08:55:00Z | X1+X2+S3+S4+S5+S6 | pass | core converted to lib+bin; compile() produces CompileOutput with frontmatter/content/html/excerpt/metadata/toc/imports/exports; compile_basic.rs 5/5; total 63 tests
+2026-04-25T08:58:00Z | M1+M2+M3+M4+M5+M6+S2 | pass | render_mdx_body emits JS factory string; CompileOutput.body wired; mdx_body.rs 6/6; total 70 tests
 

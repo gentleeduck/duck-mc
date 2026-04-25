@@ -88,17 +88,17 @@ Goal: drop-in Rust replacement for Velite's role in `apps/duck` (see `SURVEY.md`
 
 See SURVEY.md §I for required output shape.
 
-- [ ] M1: `MdxBodyEmitter` struct producing the `function _createMdxContent(props) { ... }` shell
-- [ ] M2: emit Heading/Paragraph/Text/Bold/etc as `jsx("h1", {id, children: [...]})`
-- [ ] M3: emit JSX elements as `jsx(ComponentName, { ...props, children: [...] })`
-- [ ] M4: emit JSX expressions as embedded JS expressions in children arrays (passed through verbatim)
-- [ ] M5: emit Imports/Exports at module scope of the body
-- [ ] M6: tests — `duck-md-codegen/tests/mdx_body.rs` golden vs hand-checked snippets
+- [x] M1: `MdxBodyEmitter` struct producing the `function _createMdxContent(props) { ... }` shell
+- [x] M2: emit Heading/Paragraph/Text/Bold/etc as `jsx("h1", {id, children: [...]})`
+- [x] M3: emit JSX elements as `jsx(ComponentName, { ...props, children: [...] })`
+- [x] M4: emit JSX expressions as embedded JS expressions in children arrays (passed through verbatim)
+- [x] M5: emit Imports/Exports at module scope of the body
+- [x] M6: tests — `duck-md-codegen/tests/mdx_body.rs` golden vs hand-checked snippets
 
 ## Phase 7 — Schema (Velite primitive parity)
 
 - [ ] S1: new crate `duck-md-schema`. Type-level builder: `string(), boolean(), number(), object(map), array(item), optional(), default(value), max(N), min(N), regex(pat), enum_(["a","b"])`
-- [ ] S2: `mdx()` validator — runs MdxBodyEmitter, returns body string
+- [x] S2: `mdx()` — `CompileOutput.body` populated via `render_mdx_body`
 - [x] S3: `markdown()` — provided as `CompileOutput.content` (raw md sans frontmatter)
 - [x] S4: `excerpt(opts)` — provided as `CompileOutput.excerpt` (strip MD, truncate 260)
 - [x] S5: `metadata()` — provided as `CompileOutput.metadata` (200 wpm)

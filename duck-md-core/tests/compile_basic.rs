@@ -54,3 +54,10 @@ fn excerpt_truncates_long_text() {
     out.excerpt.chars().count()
   );
 }
+
+#[test]
+fn body_is_js_function() {
+  let out = duck_md::compile("# H");
+  assert!(out.body.contains("_createMdxContent"));
+  assert!(out.body.contains("jsxs(\"h1\""));
+}
