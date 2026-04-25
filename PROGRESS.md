@@ -29,7 +29,7 @@ Goal: drop-in Rust replacement for Velite's role in `apps/duck` (see `SURVEY.md`
 - [ ] L21: indented code block (4-space)
 - [ ] L22: HTML inline tag passthrough (lowercase tags as raw HTML when not JSX)
 - [ ] L23: Span column tracking — fix `column` to count graphemes, not bytes; track utf8 width
-- [ ] L24: bug fix — `lex_jsx_tag` after attrs emits `JsxOpenTagEnd("/")` + `BlockQuote(">")` instead of `JsxSelfClosingEnd` when self-closing follows attributes (e.g. `<Btn color="red" />`). Parser currently works around it; remove workaround once fixed.
+- [x] L24: bug fix — `lex_jsx_tag` after attrs now emits `JsxSelfClosingEnd` cleanly; parser workaround removed
 
 ## Phase 2 — AST
 

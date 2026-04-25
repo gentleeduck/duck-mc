@@ -22,13 +22,6 @@ impl<'engine> Lexer<'engine> {
 
     self.consume_whitespaces();
 
-    let c = self.source[self.current..].chars().next();
-    if c == Some('/') {
-      self.advance(); // consume the /
-      self.advance(); // consume the >
-      return self.emit(TokenKind::JsxSelfClosingEnd);
-    }
-
     while let Some(cc) = self.get_current_char()
       && (cc.is_alphabetic() || cc == '_')
     {
@@ -38,6 +31,16 @@ impl<'engine> Lexer<'engine> {
       }
     }
 
+    // self-close: />
+    if self.get_current_char() == Some('/') {
+      self.advance(); // /
+      if self.get_current_char() == Some('>') {
+        self.advance(); // >
+      }
+      return self.emit(TokenKind::JsxSelfClosingEnd);
+    }
+
+    // regular close: >
     self.advance();
     if is_close_tag {
       return self.emit(TokenKind::JsxCloseTagEnd);

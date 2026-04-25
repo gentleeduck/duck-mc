@@ -56,3 +56,18 @@ fn aria_attr_with_dash() {
     let kinds = lex_kinds("<div aria-label=\"x\" />");
     assert!(kinds.contains(&TokenKind::JsxAttributeName), "got {:?}", kinds);
 }
+
+#[test]
+fn self_closing_after_attrs_emits_self_closing_end() {
+    let kinds = lex_kinds("<Btn color=\"red\" />");
+    assert!(kinds.contains(&TokenKind::JsxSelfClosingEnd),
+        "expected JsxSelfClosingEnd; got {:?}", kinds);
+    assert!(!kinds.iter().any(|k| matches!(k, TokenKind::BlockQuote)),
+        "stray BlockQuote means / > were tokenized separately; got {:?}", kinds);
+}
+
+#[test]
+fn self_closing_no_attrs_still_works() {
+    let kinds = lex_kinds("<Foo />");
+    assert!(kinds.contains(&TokenKind::JsxSelfClosingEnd), "got {:?}", kinds);
+}

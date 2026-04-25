@@ -32,27 +32,7 @@ pub(crate) fn parse_jsx(p: &mut Parser) -> Node {
             });
         }
         Some(TokenKind::JsxOpenTagEnd) => {
-            // Workaround for lexer quirk: when an attributed self-closing tag
-            // ends with `/>`, the lexer emits JsxOpenTagEnd("/") followed by
-            // a stray `>` token (BlockQuote). Detect and treat as self-close.
-            let raw = p.peek().map(|t| t.raw.clone()).unwrap_or_default();
             p.advance();
-            if raw == "/" {
-                if matches!(
-                    p.peek_kind(),
-                    Some(TokenKind::BlockQuote) | Some(TokenKind::JsxOpenTagEnd)
-                ) {
-                    let next_raw = p.peek().map(|t| t.raw.clone()).unwrap_or_default();
-                    if next_raw == ">" {
-                        p.advance();
-                    }
-                }
-                return Node::JsxSelfClosing(JsxSelfClosing {
-                    name,
-                    attrs,
-                    span: default_span(),
-                });
-            }
         }
         _ => {
             // Malformed; bail with empty self-closing
