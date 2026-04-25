@@ -602,6 +602,7 @@ dependencies = [
 name = "duck-md-transform"
 version = "0.1.0"
 dependencies = [
+ "blake3",
  "duck-md-parser",
  "pretty_assertions",
  "syntect",

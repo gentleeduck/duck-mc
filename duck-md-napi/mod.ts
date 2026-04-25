@@ -122,6 +122,7 @@ interface NativeBuildInput {
   markdownRehypePlugins?: unknown
   mdxRemarkPlugins?: unknown
   mdxRehypePlugins?: unknown
+  copyLinkedFiles?: boolean
 }
 
 const cbRegistry = new Map<number, (v: unknown) => unknown>()
@@ -335,6 +336,7 @@ function adaptToBuildInput(input: UserConfig | NativeBuildInput): NativeBuildInp
     markdownRehypePlugins: cfg.markdown?.rehypePlugins,
     mdxRemarkPlugins: cfg.mdx?.remarkPlugins,
     mdxRehypePlugins: cfg.mdx?.rehypePlugins,
+    copyLinkedFiles: cfg.markdown?.copyLinkedFiles ?? cfg.mdx?.copyLinkedFiles,
   }
 }
 

@@ -41,6 +41,8 @@ pub struct EngineConfig {
     pub mdx_remark_plugins: Option<Value>,
     #[serde(default)]
     pub mdx_rehype_plugins: Option<Value>,
+    #[serde(default)]
+    pub copy_linked_files: bool,
 }
 
 #[derive(Debug, Default)]
@@ -111,7 +113,20 @@ fn process_collection(
             Ok(s) => s,
             Err(e) => return (Value::Null, Some(EngineError { file: path.clone(), message: e.to_string() })),
         };
-        let mut compiled = compile(&source);
+        let mut compiled = if cfg.copy_linked_files
+            && cfg.output_assets.is_some() && cfg.output_base.is_some()
+        {
+            let pipeline = duck_md_transform::Pipeline::with_defaults().add(
+                duck_md_transform::CopyLinkedFiles::new(
+                    path.parent().unwrap_or(std::path::Path::new(".")).to_path_buf(),
+                    cfg.output_assets.clone().unwrap(),
+                    cfg.output_base.clone().unwrap(),
+                ),
+            );
+            crate::compile_with_pipeline(&source, &pipeline)
+        } else {
+            compile(&source)
+        };
         if has_js_plugins(cfg) {
             if let Some(html) = run_sidecar(&compiled.content, cfg) {
                 compiled.html = html;
