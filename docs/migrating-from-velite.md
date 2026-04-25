@@ -37,15 +37,26 @@ the import and you're done.
 | Dual themes                 | shiki paired output                       | syntect paired output ✅            |
 | Mermaid                     | headless Chromium                         | shells out to `mmdc` if on PATH ✅  |
 | `<ComponentSource path=>`   | reads + emits tsx code block              | same ✅                             |
-| `<ComponentPreview name=>`  | registry lookup + tsx                     | deferred (registry-specific)        |
+| `<ComponentPreview name=>`  | registry lookup + tsx                     | yes ✅ (accepts JSON registry index)|
 | Indented code blocks        | yes                                       | yes ✅                              |
-| `<email>` autolinks         | yes                                       | yes ✅                              |
-| `.transform()` / `.refine()` (JS callback) | runs during JS build      | Rust callbacks work; JS callbacks accepted but not invoked across FFI |
+| `<email>` autolinks         | yes                                       | yes ✅ (auto-prefixes mailto:)      |
+| `.transform()` / `.refine()` (JS callback) | runs during JS build      | yes ✅ (FFI bridge via callback registry) |
+| `s.regex()` enforcement     | yes                                       | yes ✅ (regex crate)                |
+| `s.record / tuple / intersection / discriminatedUnion` | yes (zod fork) | yes ✅                       |
+| `s.coerce.{string,number,boolean,date}` | yes                          | yes ✅                              |
+| `.superRefine()`            | yes                                       | yes ✅                              |
 | `prepare()` / `complete()` hooks | runs (async)                        | runs (async via JS adapter) ✅      |
 | Custom JS plugins (remark/rehype) | run inline                          | spawns `duck-md-sidecar` ✅         |
 | Watch mode                  | chokidar                                  | notify ✅                           |
 | Per-file compile parallelism | sequential                               | rayon parallel ✅                   |
 | `build()` return            | `Promise<Report>`                         | `Promise<Report>` ✅                |
+| `markdown.copyLinkedFiles`  | yes                                       | yes ✅ (asset hash + rewrite)       |
+| `mdx.outputFormat: 'module'`| yes                                       | yes ✅ (ESM module wrap)            |
+| `mdx.minify`                | yes (terser)                              | yes ✅ (whitespace collapse)        |
+| Grapheme-aware columns      | n/a                                       | yes ✅ (unicode-segmentation)       |
+| Parser error recovery       | yes (vfile-reporter messages)             | yes ✅ (Document.diagnostics)       |
+| Multi-platform binaries     | n/a (pure JS)                             | 7 targets via napi-rs ✅            |
+| Fuzz targets                | n/a                                       | yes ✅ (cargo-fuzz)                 |
 
 ## Plugin compatibility
 
