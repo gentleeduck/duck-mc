@@ -7,8 +7,10 @@ use syntect::parsing::SyntaxSet;
 
 pub struct PrettyCode {
   syntax_set: SyntaxSet,
-  theme: syntect::highlighting::Theme,
-  theme_name: String,
+  light_theme: syntect::highlighting::Theme,
+  light_theme_name: String,
+  dark_theme: Option<syntect::highlighting::Theme>,
+  dark_theme_name: Option<String>,
 }
 
 impl Default for PrettyCode {
@@ -23,7 +25,27 @@ impl PrettyCode {
     let ts = ThemeSet::load_defaults();
     let theme =
       ts.themes.get(theme_name).cloned().unwrap_or_else(|| ts.themes["base16-ocean.dark"].clone());
-    Self { syntax_set, theme, theme_name: theme_name.to_string() }
+    Self {
+      syntax_set,
+      light_theme: theme,
+      light_theme_name: theme_name.to_string(),
+      dark_theme: None,
+      dark_theme_name: None,
+    }
+  }
+
+  pub fn dual(light_name: &str, dark_name: &str) -> Self {
+    let syntax_set = SyntaxSet::load_defaults_newlines();
+    let ts = ThemeSet::load_defaults();
+    let pick = |n: &str| ts.themes.get(n).cloned()
+      .unwrap_or_else(|| ts.themes["base16-ocean.dark"].clone());
+    Self {
+      syntax_set,
+      light_theme: pick(light_name),
+      light_theme_name: light_name.to_string(),
+      dark_theme: Some(pick(dark_name)),
+      dark_theme_name: Some(dark_name.to_string()),
+    }
   }
 
   fn highlight(
@@ -33,13 +55,36 @@ impl PrettyCode {
     marks: &[(usize, usize)],
     word_marks: &[String],
   ) -> Option<String> {
+    let light = self.render_one(lang, code, marks, word_marks, &self.light_theme, &self.light_theme_name, "light")?;
+    if let (Some(t), Some(name)) = (&self.dark_theme, &self.dark_theme_name) {
+      let dark = self.render_one(lang, code, marks, word_marks, t, name, "dark")?;
+      Some(format!(
+        "<div data-rehype-pretty-code-fragment>{light}{dark}</div>"
+      ))
+    } else {
+      Some(light)
+    }
+  }
+
+  fn render_one(
+    &self,
+    lang: Option<&str>,
+    code: &str,
+    marks: &[(usize, usize)],
+    word_marks: &[String],
+    theme: &syntect::highlighting::Theme,
+    theme_name: &str,
+    appearance: &str,
+  ) -> Option<String> {
     let syntax = lang
       .and_then(|l| self.syntax_set.find_syntax_by_token(l))
       .unwrap_or_else(|| self.syntax_set.find_syntax_plain_text());
-    let mut h = HighlightLines::new(syntax, &self.theme);
+    let mut h = HighlightLines::new(syntax, theme);
     let mut out = String::new();
     out.push_str("<pre class=\"pretty-code\" data-theme=\"");
-    out.push_str(&self.theme_name);
+    out.push_str(theme_name);
+    out.push_str("\" data-appearance=\"");
+    out.push_str(appearance);
     out.push('"');
     if let Some(l) = lang {
       out.push_str(" data-lang=\"");
