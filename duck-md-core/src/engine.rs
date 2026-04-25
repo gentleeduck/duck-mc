@@ -183,7 +183,8 @@ fn process_collection(
             }
             _ => (compiled.frontmatter.clone(), None),
         };
-        let rec = build_velite_record(compiled, validated_frontmatter, path, &c.base_dir, &c.name);
+        let include_html = has_js_plugins(cfg);
+        let rec = build_velite_record(compiled, validated_frontmatter, path, &c.base_dir, &c.name, include_html);
         (rec, err)
     }).collect();
 
@@ -194,13 +195,17 @@ fn process_collection(
     }
 
     let out_path = cfg.output_dir.join(format!("{}.json", c.name));
+    let count = if c.single {
+        if records.is_empty() { 0 } else { 1 }
+    } else {
+        records.len()
+    };
     let json = if c.single {
         let single = records.into_iter().next().unwrap_or(Value::Null);
         serde_json::to_string_pretty(&single).unwrap()
     } else {
         serde_json::to_string_pretty(&records).unwrap()
     };
-    let count = if c.single { 1 } else { json.matches("\"sourceFilePath\"").count() };
     std::fs::write(&out_path, json)?;
     Ok(CollectionReport {
         name: c.name.clone(),
@@ -286,6 +291,7 @@ fn build_velite_record(
     path: &Path,
     base: &Path,
     collection: &str,
+    include_html: bool,
 ) -> Value {
     let rel = path.strip_prefix(base).unwrap_or(path);
     let rel_str = rel.to_string_lossy().to_string();
@@ -328,6 +334,9 @@ fn build_velite_record(
 
     map.insert("body".into(), Value::String(compiled.body));
     map.insert("content".into(), Value::String(compiled.content));
+    if include_html {
+        map.insert("html".into(), Value::String(compiled.html.clone()));
+    }
     map.insert("excerpt".into(), Value::String(compiled.excerpt));
     map.insert("metadata".into(), serde_json::to_value(&compiled.metadata).unwrap_or(json!({})));
     map.insert("toc".into(), serde_json::to_value(&compiled.toc).unwrap_or(Value::Array(vec![])));
@@ -343,37 +352,91 @@ fn build_velite_record(
 }
 
 fn wrap_mdx_module(body: &str, imports: &[String]) -> String {
+    // Strip user imports from the body — they re-emit at module scope.
+    let mut stripped = body.to_string();
+    for imp in imports {
+        let trimmed = imp.trim_end_matches('\n');
+        if !trimmed.is_empty() {
+            stripped = stripped.replacen(trimmed, "", 1);
+        }
+    }
+    // Strip the trailing factory invocation; we'll re-call it ourselves.
+    let stripped = stripped
+        .trim_end_matches('\n')
+        .trim_end_matches("return _createMdxContent(arguments[0]);")
+        .trim_end_matches("return _createMdxContent(arguments[0])")
+        .trim_end()
+        .to_string();
+    // Replace `arguments[0]` references inside the function body with the
+    // module-scoped __runtime constant.
+    let stripped = stripped.replace("arguments[0]", "__runtime");
+
     let mut out = String::new();
     out.push_str("import { Fragment as _Fragment, jsx as _jsx, jsxs as _jsxs } from 'react/jsx-runtime'\n");
     for i in imports {
         out.push_str(i);
         if !i.ends_with('\n') { out.push('\n'); }
     }
-    out.push_str("export default function MDXContent(props) {\n");
-    out.push_str("  const __runtime = { Fragment: _Fragment, jsx: _jsx, jsxs: _jsxs };\n");
-    out.push_str("  return (function() { ");
-    out.push_str(body);
-    out.push_str(" }).call(undefined);\n");
-    out.push_str("}\n");
+    out.push_str("const __runtime = { Fragment: _Fragment, jsx: _jsx, jsxs: _jsxs };\n");
+    out.push_str(&stripped);
+    out.push_str("\nexport default function MDXContent(props) { return _createMdxContent(props); }\n");
     out
 }
 
 fn minify_js(src: &str) -> String {
+    #[derive(Clone, Copy, PartialEq)]
+    enum St { Code, Squote, Dquote, Btick, LineComment, BlockComment }
     let mut out = String::with_capacity(src.len());
-    let mut prev_space = false;
-    for c in src.chars() {
-        if c == '\n' || c == '\t' {
-            if !prev_space { out.push(' '); prev_space = true; }
-            continue;
+    let mut st = St::Code;
+    let mut prev_ws = false;
+    let mut chars = src.chars().peekable();
+    while let Some(c) = chars.next() {
+        match st {
+            St::Code => {
+                if c == '/' {
+                    if matches!(chars.peek(), Some('/')) {
+                        chars.next(); st = St::LineComment; continue;
+                    }
+                    if matches!(chars.peek(), Some('*')) {
+                        chars.next(); st = St::BlockComment; continue;
+                    }
+                }
+                if c == '"' { st = St::Dquote; out.push(c); prev_ws = false; continue; }
+                if c == '\'' { st = St::Squote; out.push(c); prev_ws = false; continue; }
+                if c == '`' { st = St::Btick; out.push(c); prev_ws = false; continue; }
+                if c == '\n' || c == '\t' || c == ' ' {
+                    if prev_ws { continue; }
+                    prev_ws = true;
+                    out.push(' ');
+                    continue;
+                }
+                prev_ws = false;
+                out.push(c);
+            }
+            St::Squote => {
+                out.push(c);
+                if c == '\\' { if let Some(n) = chars.next() { out.push(n); } continue; }
+                if c == '\'' { st = St::Code; }
+            }
+            St::Dquote => {
+                out.push(c);
+                if c == '\\' { if let Some(n) = chars.next() { out.push(n); } continue; }
+                if c == '"' { st = St::Code; }
+            }
+            St::Btick => {
+                out.push(c);
+                if c == '\\' { if let Some(n) = chars.next() { out.push(n); } continue; }
+                if c == '`' { st = St::Code; }
+            }
+            St::LineComment => {
+                if c == '\n' { st = St::Code; }
+            }
+            St::BlockComment => {
+                if c == '*' && matches!(chars.peek(), Some('/')) {
+                    chars.next(); st = St::Code;
+                }
+            }
         }
-        if c == ' ' {
-            if prev_space { continue; }
-            prev_space = true;
-            out.push(' ');
-            continue;
-        }
-        prev_space = false;
-        out.push(c);
     }
     out
 }
@@ -394,10 +457,19 @@ fn run_sidecar(markdown: &str, cfg: &EngineConfig) -> Option<String> {
     use std::process::{Command, Stdio};
     let entry = std::env::var("DUCK_MD_SIDECAR").ok()
         .or_else(|| Some("duck-md-sidecar/index.mjs".into()))?;
+    let merge = |a: &Option<Value>, b: &Option<Value>| -> Value {
+        let mut out = Vec::new();
+        for v in [a, b].iter() {
+            if let Some(arr) = v.as_ref().and_then(|x| x.as_array()) {
+                out.extend(arr.iter().cloned());
+            }
+        }
+        Value::Array(out)
+    };
     let req = json!({
         "markdown": markdown,
-        "remarkPlugins": cfg.markdown_remark_plugins.clone().unwrap_or(json!([])),
-        "rehypePlugins": cfg.markdown_rehype_plugins.clone().unwrap_or(json!([])),
+        "remarkPlugins": merge(&cfg.markdown_remark_plugins, &cfg.mdx_remark_plugins),
+        "rehypePlugins": merge(&cfg.markdown_rehype_plugins, &cfg.mdx_rehype_plugins),
     });
     let mut child = Command::new("node").arg(&entry)
         .stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::null())

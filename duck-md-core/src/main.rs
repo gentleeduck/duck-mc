@@ -140,15 +140,31 @@ fn cmd_dev(config: PathBuf) -> std::io::Result<()> {
     }
     println!("👀 watching {} root(s) — Ctrl-C to stop", roots.len());
     while let Ok(events) = rx.recv() {
-        if events.is_err() { continue; }
+        let Ok(events) = events else { continue };
         let start = Instant::now();
         let cfg = match load_engine_cfg(&config) {
             Ok(c) => c,
             Err(e) => { eprintln!("config reload failed: {e}"); continue; }
         };
-        match duck_md::run(&cfg) {
+        // Determine which collections were affected. If config file changed, rebuild all.
+        let touched_paths: Vec<_> = events.iter().map(|e| e.path.clone()).collect();
+        let config_changed = touched_paths.iter().any(|p| p.canonicalize().ok() == config.canonicalize().ok());
+        let scoped: Vec<_> = if config_changed {
+            cfg.collections.iter().cloned().collect()
+        } else {
+            cfg.collections.iter().filter(|c| {
+                let base = c.base_dir.canonicalize().unwrap_or_else(|_| c.base_dir.clone());
+                touched_paths.iter().any(|p| {
+                    let p_abs = p.canonicalize().unwrap_or_else(|_| p.clone());
+                    p_abs.starts_with(&base)
+                })
+            }).cloned().collect()
+        };
+        if scoped.is_empty() { continue; }
+        let scoped_cfg = duck_md::EngineConfig { collections: scoped, ..cfg };
+        match duck_md::run(&scoped_cfg) {
             Ok(rep) => {
-                println!("\n↻ rebuilt in {:?}", start.elapsed());
+                println!("\n↻ rebuilt {} collection(s) in {:?}", rep.collections.len(), start.elapsed());
                 print_build_result(rep);
             }
             Err(e) => eprintln!("build error: {e}"),
