@@ -6,7 +6,20 @@ fn html(src: &str) -> String { render_html(&parse(src)) }
 
 #[test]
 fn h1_with_id() {
-    assert_eq!(html("# Hello"), "<h1 id=\"hello\">Hello</h1>");
+    // codegen does NOT include autolink — that's the transformer's job.
+    // Test the codegen alone here, separate from the pipeline.
+    use duck_md_ast::*;
+    let doc = Document {
+        span: duck_md_ast::default_span(),
+        children: vec![Node::Heading(Heading {
+            level: 1,
+            id: "hello".into(),
+            children: vec![Node::Text(Text { value: "Hello".into(), span: duck_md_ast::default_span() })],
+            span: duck_md_ast::default_span(),
+        })],
+    };
+    let html = duck_md_codegen::render_html(&doc);
+    assert_eq!(html, "<h1 id=\"hello\">Hello</h1>");
 }
 
 #[test]

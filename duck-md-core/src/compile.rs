@@ -1,4 +1,5 @@
 use duck_md_ast::*;
+use duck_md_transform::Pipeline;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -29,8 +30,18 @@ pub struct CompileOutput {
 }
 
 pub fn compile(source: &str) -> CompileOutput {
-  let doc = duck_md_parser::parse(source);
+  let mut doc = duck_md_parser::parse(source);
+  Pipeline::with_defaults().run(&mut doc);
+  finalize(source, doc)
+}
 
+pub fn compile_with_pipeline(source: &str, pipeline: &Pipeline) -> CompileOutput {
+  let mut doc = duck_md_parser::parse(source);
+  pipeline.run(&mut doc);
+  finalize(source, doc)
+}
+
+fn finalize(source: &str, doc: Document) -> CompileOutput {
   let mut frontmatter = serde_json::Value::Null;
   let mut frontmatter_raw = String::new();
   let mut imports = Vec::new();

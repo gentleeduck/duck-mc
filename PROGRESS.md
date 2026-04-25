@@ -109,12 +109,12 @@ See SURVEY.md §I for required output shape.
 
 ## Phase 8 — Transform pipeline
 
-- [ ] T1: new crate `duck-md-transform`. `MdastVisitor` trait + `walk_mdast` + mutate-in-place
-- [ ] T2: `HastVisitor` trait + `walk_hast` + mutate-in-place (we'll synthesize hast from our AST first)
-- [ ] T3: hast node types (Element, Text, Comment, Root) in `duck-md-ast` or here
-- [ ] T4: ordering API matching velite's `before`/`after` hook split
-- [ ] T5: pipeline runner: source → lex → parse → mdast transforms → hast → hast transforms → emit
-- [ ] T6: tests — `duck-md-transform/tests/walk.rs` for visitor mutation correctness
+- [x] T1: new crate `duck-md-transform`. `Visitor` trait + `walk_mut` + mutate-in-place
+- [ ] T2: `HastVisitor` trait + `walk_hast` (deferred — current pipeline operates on mdast/AST directly)
+- [ ] T3: hast node types (deferred — see T2)
+- [ ] T4: ordering API for before/after hooks (deferred — current Pipeline runs sequentially)
+- [x] T5: pipeline runner: source → lex → parse → transforms → emit (`Pipeline::with_defaults` wired into `compile()`)
+- [x] T6: tests — `duck-md-transform/tests/pipeline.rs` 3/3
 
 ## Phase 9 — Built-in transformers (mirror velite plugins)
 
@@ -126,7 +126,7 @@ See SURVEY.md §I for required output shape.
 - [ ] B6: `pretty_code_title` — rename `<div data-rehype-pretty-code-title>` → `<figcaption>`
 - [ ] B7: `pre_block_source` — propagate `__rawString__` to `<pre>` children
 - [ ] B8: `npm_command` — derive yarn/pnpm/bun from `npm install` / `npx`
-- [ ] B9: `autolink_headings` — wrap with `<a class="subheading-anchor" aria-label="Link to section">`
+- [x] B9: `autolink_headings` — wraps heading children in Link to `#<id>` (modeled as Node::Link; codegen turns into `<h1 id=...><a href=...>...</a></h1>`)
 - [ ] B10: `component_source` — read `path` attr, list-or-file → tsx code block
 - [ ] B11: `component_preview` — read `name`, look up registry index, locate file, rewrite imports, emit tsx
 - [ ] B12: `mermaid` — feature-gated; shell out to `mmdc` if present; otherwise pass-through

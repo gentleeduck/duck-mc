@@ -254,6 +254,7 @@ dependencies = [
  "duck-md-codegen",
  "duck-md-lexer",
  "duck-md-parser",
+ "duck-md-transform",
  "globwalk",
  "predicates",
  "pretty_assertions",
@@ -285,6 +286,15 @@ dependencies = [
  "serde_json",
  "serde_yaml",
  "slug",
+]
+
+[[package]]
+name = "duck-md-transform"
+version = "0.1.0"
+dependencies = [
+ "duck-md-ast",
+ "duck-md-parser",
+ "pretty_assertions",
 ]
 
 [[package]]
