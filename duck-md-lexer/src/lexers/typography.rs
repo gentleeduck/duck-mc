@@ -23,18 +23,43 @@ impl<'engine> Lexer<'engine> {
 
   pub(crate) fn lex_text(&mut self) {
     while let Some(c) = self.peek() {
-      if c == '\n'
-        || c == '`'
-        || c == '<'
-        || (c == '/' && self.peek_next() == Some('>'))
-        || c == ')'
-        || c == '*'
-          && !self.is_eof()
-          && self.source[self.current - 1..].chars().next() != Some('\\')
-        || (c == '_'
-          && !self.is_eof()
-          && self.source[self.current - 1..].chars().next() != Some('\\'))
-      {
+      if c == '\\' {
+        // look at the next char; if escapable, swallow both and continue
+        if let Some(nx) = self.peek_next() {
+          if matches!(
+            nx,
+            '\\' | '*'
+              | '_'
+              | '`'
+              | '<'
+              | '>'
+              | '{'
+              | '}'
+              | '['
+              | ']'
+              | '('
+              | ')'
+              | '!'
+              | '#'
+              | '-'
+          ) {
+            self.advance(); // backslash
+            self.advance(); // escaped char
+            continue;
+          }
+        }
+        // lone backslash, treat as text
+        self.advance();
+        continue;
+      }
+      if c == '\n' || c == '`' || c == '<' || c == '{' || c == '[' || c == ']' || c == ')' {
+        break;
+      }
+      if c == '/' && self.peek_next() == Some('>') {
+        break;
+      }
+      if c == '*' || c == '_' {
+        // Unescaped because we already consumed escape pairs above.
         break;
       }
       self.advance();
