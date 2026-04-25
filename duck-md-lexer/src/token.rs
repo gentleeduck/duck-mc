@@ -72,6 +72,8 @@ pub enum TokenKind {
   HTMLCommentStart, // <!--
   HTMLCommentEnd,   //  -->
 
+  Autolink,         // <https://example.com>
+
   MarkdownCommentStart, // {/*
   MarkdownCommentEnd,   //  */}
 
@@ -129,6 +131,7 @@ impl fmt::Display for TokenKind {
       TokenKind::ParenClose => "ParenClose",
       TokenKind::HTMLCommentStart => "HTMLCommentStart",
       TokenKind::HTMLCommentEnd => "HTMLCommentEnd",
+      TokenKind::Autolink => "Autolink",
       TokenKind::MarkdownCommentStart => "MarkdownCommentStart",
       TokenKind::MarkdownCommentEnd => "MarkdownCommentEnd",
       TokenKind::Eq => "Eq",

@@ -47,6 +47,18 @@ fn collect_inline(p: &mut Parser, stop: &dyn Fn(&TokenKind) -> bool) -> Vec<Node
                     span: default_span(),
                 }));
             }
+            TokenKind::Autolink => {
+                let raw = t.raw.clone();
+                p.advance();
+                let url = raw.trim_start_matches('<').trim_end_matches('>').to_string();
+                out.push(Node::Link(Link {
+                    href: url.clone(),
+                    title: None,
+                    class: None,
+                    children: vec![Node::Text(Text { value: url, span: default_span() })],
+                    span: default_span(),
+                }));
+            }
             TokenKind::Whitespace => {
                 let raw = t.raw.clone();
                 p.advance();

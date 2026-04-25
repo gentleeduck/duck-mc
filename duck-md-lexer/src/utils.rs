@@ -19,6 +19,7 @@ impl<'engine> Lexer<'engine> {
       '_' => self.lex_italic(),
       '~' if self.peek() == Some('~') => self.lex_strike(),
       '<' if self.peek() == Some('!') => self.lex_comment(),
+      '<' if self.is_angle_autolink() => self.lex_angle_autolink(),
       '<' if matches!(self.peek(), Some(c) if c.is_ascii_alphabetic() || c == '/' || c == '>') => self.lex_jsx_tag(),
       '<' => self.lex_text(),
       '>' => self.emit(TokenKind::BlockQuote),
@@ -33,6 +34,35 @@ impl<'engine> Lexer<'engine> {
 
   pub(crate) fn starts_with_at_start(&self, prefix: &str) -> bool {
     self.source.get(self.start..).is_some_and(|s| s.starts_with(prefix))
+  }
+
+  pub(crate) fn is_angle_autolink(&self) -> bool {
+    let rest = match self.source.get(self.current..) {
+      Some(s) => s,
+      None => return false,
+    };
+    let bytes = rest.as_bytes();
+    for (i, &b) in bytes.iter().enumerate() {
+      if b == b'>' {
+        let inner = &rest[..i];
+        return inner.contains("://") && inner.len() >= 5;
+      }
+      if matches!(b, b' ' | b'\n' | b'\t' | b'<') {
+        return false;
+      }
+    }
+    false
+  }
+
+  pub(crate) fn lex_angle_autolink(&mut self) {
+    while let Some(c) = self.get_current_char() {
+      if c == '>' { break; }
+      self.advance();
+    }
+    if self.get_current_char() == Some('>') {
+      self.advance();
+    }
+    self.emit(TokenKind::Autolink);
   }
 
   pub(crate) fn is_eof(&self) -> bool {
