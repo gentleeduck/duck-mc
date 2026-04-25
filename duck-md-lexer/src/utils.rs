@@ -21,8 +21,14 @@ impl<'engine> Lexer<'engine> {
       '<' => self.lex_jsx_tag(),
       '>' => self.emit(TokenKind::BlockQuote),
       '=' => self.emit(TokenKind::Eq),
+      'i' if self.column == 1 && self.starts_with_at_start("import") => self.lex_import(),
+      'e' if self.column == 1 && self.starts_with_at_start("export") => self.lex_export(),
       _ => self.lex_text(),
     };
+  }
+
+  pub(crate) fn starts_with_at_start(&self, prefix: &str) -> bool {
+    self.source.get(self.start..).is_some_and(|s| s.starts_with(prefix))
   }
 
   pub(crate) fn is_eof(&self) -> bool {
