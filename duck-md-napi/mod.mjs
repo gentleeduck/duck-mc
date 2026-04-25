@@ -4,6 +4,16 @@ import { readFileSync, writeFileSync, unlinkSync } from 'node:fs'
 const require = createRequire(import.meta.url)
 const native = require('./index.js')
 
+const __callbacks = new WeakMap()
+let __cbId = 0
+const __cbRegistry = new Map()
+
+function registerCallback(fn) {
+  const id = ++__cbId
+  __cbRegistry.set(id, fn)
+  return id
+}
+
 class SchemaBuilder {
   constructor(descriptor) {
     Object.assign(this, descriptor)
@@ -24,6 +34,66 @@ class SchemaBuilder {
   by(bucket) { return new SchemaBuilder({ ...this.toJSON(), bucket }) }
   reserved(list) { return new SchemaBuilder({ ...this.toJSON(), reserved: list }) }
   passthrough() { return new SchemaBuilder({ ...this.toJSON(), passthrough: true }) }
+  transform(fn) {
+    return new SchemaBuilder({ kind: 'transform', inner: this.toJSON(), __callbackId: registerCallback(fn) })
+  }
+  refine(fn, message) {
+    return new SchemaBuilder({ kind: 'refine', inner: this.toJSON(), __callbackId: registerCallback(fn), __message: message })
+  }
+}
+
+function collectCallbacks(descriptor, path = []) {
+  const found = []
+  if (!descriptor || typeof descriptor !== 'object') return found
+  if (descriptor.kind === 'transform' && descriptor.__callbackId) {
+    found.push({ path: [...path], kind: 'transform', fn: __cbRegistry.get(descriptor.__callbackId) })
+  }
+  if (descriptor.kind === 'refine' && descriptor.__callbackId) {
+    found.push({ path: [...path], kind: 'refine', fn: __cbRegistry.get(descriptor.__callbackId), message: descriptor.__message })
+  }
+  if (descriptor.inner) found.push(...collectCallbacks(descriptor.inner, path))
+  if (descriptor.kind === 'object' && descriptor.fields) {
+    for (const [k, v] of Object.entries(descriptor.fields)) {
+      found.push(...collectCallbacks(v, [...path, k]))
+    }
+  }
+  if (descriptor.kind === 'array' && descriptor.item) {
+    found.push(...collectCallbacks(descriptor.item, [...path, '*']))
+  }
+  return found
+}
+
+function applyCallbacks(record, callbacks, errors, file) {
+  for (const cb of callbacks) {
+    const targets = walkPath(record, cb.path)
+    for (const { parent, key } of targets) {
+      const v = parent[key]
+      if (cb.kind === 'transform') {
+        try { parent[key] = cb.fn(v) } catch (e) {
+          errors.push({ file, message: `${cb.path.join('.')}: transform threw: ${e.message ?? e}` })
+        }
+      } else if (cb.kind === 'refine') {
+        let ok = false
+        try { ok = !!cb.fn(v) } catch (e) {
+          errors.push({ file, message: `${cb.path.join('.')}: refine threw: ${e.message ?? e}` })
+          continue
+        }
+        if (!ok) errors.push({ file, message: `${cb.path.join('.')}: ${cb.message ?? 'failed refinement'}` })
+      }
+    }
+  }
+}
+
+function walkPath(obj, path) {
+  if (path.length === 0) return [{ parent: { _: obj }, key: '_' }]
+  if (path[0] === '*') {
+    if (!Array.isArray(obj)) return []
+    return obj.flatMap((_, i) => walkPath(obj[i], path.slice(1)).map(t => t))
+  }
+  const key = path[0]
+  if (obj == null || typeof obj !== 'object' || !(key in obj)) return []
+  if (path.length === 1) return [{ parent: obj, key }]
+  return walkPath(obj[key], path.slice(1))
 }
 
 const sb = (d) => new SchemaBuilder(d)
@@ -82,26 +152,53 @@ function adaptToBuildInput(input) {
   }
 }
 
+export { collectCallbacks, applyCallbacks }
 export const compile = native.compile
 export const compileMany = native.compileMany
 
 export async function build(input) {
+  const collectionCallbacks = new Map()
+  if (input?.collections) {
+    for (const [key, c] of Object.entries(input.collections)) {
+      if (c?.schema) {
+        const cbs = collectCallbacks(c.schema.toJSON ? c.schema.toJSON() : c.schema)
+        if (cbs.length) collectionCallbacks.set(c.name ?? key, cbs)
+      }
+    }
+  }
+
   const report = native.build(adaptToBuildInput(input))
-  if (input?.prepare || input?.complete) {
+
+  const needPostprocess = collectionCallbacks.size > 0 || input?.prepare || input?.complete
+  if (needPostprocess) {
     const data = {}
     for (const c of report.collections) {
       data[c.name] = JSON.parse(readFileSync(c.outputPath, 'utf8'))
     }
+
+    if (collectionCallbacks.size > 0) {
+      for (const c of report.collections) {
+        const cbs = collectionCallbacks.get(c.name)
+        if (!cbs) continue
+        const records = Array.isArray(data[c.name]) ? data[c.name] : [data[c.name]]
+        for (const record of records) {
+          applyCallbacks(record, cbs, report.errors, c.outputPath)
+        }
+      }
+    }
+
     if (input.prepare) {
       const ret = await input.prepare(data, { config: input })
       if (ret === false) {
         for (const c of report.collections) try { unlinkSync(c.outputPath) } catch {}
         return report
       }
-      for (const c of report.collections) {
-        writeFileSync(c.outputPath, JSON.stringify(data[c.name], null, 2))
-      }
     }
+
+    for (const c of report.collections) {
+      writeFileSync(c.outputPath, JSON.stringify(data[c.name], null, 2))
+    }
+
     if (input.complete) await input.complete(data, { config: input })
   }
   return report
