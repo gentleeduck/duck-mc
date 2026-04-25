@@ -1,0 +1,14 @@
+/run/media/wildduck/duck/wildduck/@duck/@duck-md/target/debug/deps/serde-dcea86c0a8efc1ac.d: /home/wildduck/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs /home/wildduck/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs /home/wildduck/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs /home/wildduck/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs /home/wildduck/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs /run/media/wildduck/duck/wildduck/@duck/@duck-md/target/debug/build/serde-c80382b27f70d824/out/private.rs
+
+/run/media/wildduck/duck/wildduck/@duck/@duck-md/target/debug/deps/libserde-dcea86c0a8efc1ac.rlib: /home/wildduck/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs /home/wildduck/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs /home/wildduck/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs /home/wildduck/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs /home/wildduck/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs /run/media/wildduck/duck/wildduck/@duck/@duck-md/target/debug/build/serde-c80382b27f70d824/out/private.rs
+
+/run/media/wildduck/duck/wildduck/@duck/@duck-md/target/debug/deps/libserde-dcea86c0a8efc1ac.rmeta: /home/wildduck/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs /home/wildduck/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs /home/wildduck/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs /home/wildduck/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs /home/wildduck/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs /run/media/wildduck/duck/wildduck/@duck/@duck-md/target/debug/build/serde-c80382b27f70d824/out/private.rs
+
+/home/wildduck/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs:
+/home/wildduck/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs:
+/home/wildduck/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs:
+/home/wildduck/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs:
+/home/wildduck/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs:
+/run/media/wildduck/duck/wildduck/@duck/@duck-md/target/debug/build/serde-c80382b27f70d824/out/private.rs:
+
+# env-dep:OUT_DIR=/run/media/wildduck/duck/wildduck/@duck/@duck-md/target/debug/build/serde-c80382b27f70d824/out
