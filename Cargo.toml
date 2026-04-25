@@ -3,6 +3,7 @@ resolver = "3"
 members = [
   "duck-md-core",
   "duck-md-lexer",
+  "duck-md-ast",
 ]
 
 [workspace.package]
@@ -21,6 +22,7 @@ duck-diagnostic = "0.1.0"
 
 # Workspace crates
 duck-md-lexer = { path = "duck-md-lexer" }
+duck-md-ast = { path = "duck-md-ast" }
 
 # Dev
 pretty_assertions = "1"

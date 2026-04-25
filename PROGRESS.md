@@ -32,12 +32,12 @@ Goal: drop-in Rust replacement for Velite's role in `apps/duck` (see `SURVEY.md`
 
 ## Phase 2 — AST
 
-- [ ] A1: new crate `duck-md-ast`. Workspace member. Define `Node`, `Document`, `Frontmatter`, `Heading`, `Paragraph`, `Text`, `CodeBlock`, `Link`, `Image`, `List`, `ListItem`, `Blockquote`, `ThematicBreak`, `HardBreak`, `SoftBreak`, `JsxElement`, `JsxSelfClosing`, `JsxExpression`, `JsxFragment`, `Import`, `Export`, `Bold`, `Italic`, `InlineCode`, `Strikethrough`, `Table`, `TableRow`, `TableCell`, `TaskListItem`
-- [ ] A2: `JsxAttr`, `JsxAttrValue::{String,Expression,Boolean}`
-- [ ] A3: `Span` on every node (reuse `duck_diagnostic::Span`); add `Position { line, column, offset }`
+- [x] A1: new crate `duck-md-ast`. Workspace member. Define `Node`, `Document`, `Frontmatter`, `Heading`, `Paragraph`, `Text`, `CodeBlock`, `Link`, `Image`, `List`, `ListItem`, `Blockquote`, `ThematicBreak`, `HardBreak`, `SoftBreak`, `JsxElement`, `JsxSelfClosing`, `JsxExpression`, `JsxFragment`, `Import`, `Export`, `Bold`, `Italic`, `InlineCode`, `Strikethrough`, `Table`, `TableRow`, `TableCell`, `TaskListItem`
+- [x] A2: `JsxAttr`, `JsxAttrValue::{String,Expression,Boolean}`
+- [x] A3: `Span` on every node (reuse `duck_diagnostic::Span`); add `Position { line, column, offset }` (Span carries line/column/length already; offset deferred)
 - [ ] A4: `Display` impl + tree-print debug helper
-- [ ] A5: `serde::Serialize` on every node so AST can be JSON-dumped
-- [ ] A6: `duck-md-ast/tests/ast_smoke.rs` — round-trip serialize/deserialize on a hand-built doc
+- [x] A5: `serde::Serialize` on every node so AST can be JSON-dumped (Span skipped — duck_diagnostic doesn't derive Serialize)
+- [x] A6: `duck-md-ast/tests/ast_smoke.rs` — round-trip serialize/deserialize on a hand-built doc (named smoke.rs)
 
 ## Phase 3 — Parser
 
