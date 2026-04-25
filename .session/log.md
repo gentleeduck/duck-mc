@@ -11,4 +11,5 @@ Format: `<ISO ts> | <task id> | <pass|fail|halt> | <one-line note>`
 2026-04-25T08:08:00Z | L5+L6 | pass | top-level import/export via lex_statement w/ brace-depth tracking; tests scaffold added (tests/common, tests/imports.rs, 5/5 pass)
 2026-04-25T08:10:00Z | L7 | pass | < dispatches JSX only on [A-Za-z/>]; lex_text refined; tests/jsx_boundary.rs 6/6 pass
 2026-04-25T08:13:00Z | L8+L9 | pass | jsx attr {expr} branch + boolean attrs + dash names + single-quote bug fix; tests/jsx_attrs.rs 7/7
+2026-04-25T08:16:00Z | L10+L13 | pass | { dispatched: {/* → lex_md_comment, else lex_expression; tests/expressions.rs 4/4 + tests/md_comments.rs 3/3
 

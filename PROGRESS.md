@@ -15,10 +15,10 @@ Goal: drop-in Rust replacement for Velite's role in `apps/duck` (see `SURVEY.md`
 - [x] L7: JSX boundary heuristic — `<` only enters JSX when next is `[A-Za-z/>]` (frag) else fall to text
 - [x] L8: JSX attribute expression value `prop={expr}` — balanced-brace consumer
 - [x] L9: JSX attribute boolean (no `=` value)
-- [ ] L10: markdown comment `{/* ... */}` — `MarkdownCommentStart` + `MarkdownCommentEnd`
+- [x] L10: markdown comment `{/* ... */}` — `MarkdownCommentStart` + `MarkdownCommentEnd`
 - [ ] L11: blockquote multi-line; nest `>>`
 - [ ] L12: thematic break `---|***|___` on own line (split from frontmatter path)
-- [ ] L13: dispatch `{` → `lex_expression` from main `lex_tokens`
+- [x] L13: dispatch `{` → `lex_expression` from main `lex_tokens`
 - [ ] L14: JSX fragment `<>...</>`
 - [ ] L15: lexer test crate `tests/lexer/*.rs` covering every TokenKind via `pretty_assertions` + table-driven tests
 - [ ] L16: GFM table pipe `|` row detection (block-start)

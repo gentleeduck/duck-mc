@@ -24,6 +24,8 @@ impl<'engine> Lexer<'engine> {
       '=' => self.emit(TokenKind::Eq),
       'i' if self.column == 1 && self.starts_with_at_start("import") => self.lex_import(),
       'e' if self.column == 1 && self.starts_with_at_start("export") => self.lex_export(),
+      '{' if self.peek() == Some('/') && self.peek_next() == Some('*') => self.lex_md_comment(),
+      '{' => self.lex_expression(),
       _ => self.lex_text(),
     };
   }

@@ -123,6 +123,65 @@ impl<'engine> Lexer<'engine> {
     }
   }
 
+  pub(crate) fn lex_md_comment(&mut self) {
+    // caller already consumed '{'. current points at '/'.
+    // Emit '{' as MarkdownCommentStart.
+    self.emit(TokenKind::MarkdownCommentStart);
+
+    // advance past '/' and '*'
+    self.advance(); // /
+    self.advance(); // *
+    // reset start so next emit's lexeme begins at the inner content
+    self.start = self.current;
+
+    // consume until `*/}` (in that order)
+    loop {
+      if self.is_eof() {
+        // emit the inner text we have so far
+        self.emit(TokenKind::Text);
+        self.emit_diagnostic(
+          Diagnostic::new(Code::UnterminatedExpression, "unterminated markdown comment")
+            .with_label(Label::primary(
+              Span::new("", self.line, self.column, 1),
+              Some("markdown comment not closed before end of file".to_string()),
+            ))
+            .with_help("close with `*/}`"),
+        );
+        return;
+      }
+
+      if self.peek() == Some('*')
+        && self.peek_next() == Some('/')
+      {
+        let content_end = self.current;
+        self.advance(); // *
+        self.advance(); // /
+        if self.peek() == Some('}') {
+          self.advance(); // }
+
+          // emit the inner content (before */})
+          let saved_current = self.current;
+          self.current = content_end;
+          self.emit(TokenKind::Text);
+
+          // emit the closing */}
+          self.start = content_end;
+          self.current = saved_current;
+          self.emit(TokenKind::MarkdownCommentEnd);
+          return;
+        }
+        // not */}, keep going
+        continue;
+      }
+
+      let c = self.advance();
+      if c == '\n' {
+        self.line += 1;
+        self.column = 0;
+      }
+    }
+  }
+
   pub(crate) fn lex_expression(&mut self) {
     // opening '{' already consumed by caller
     self.emit(TokenKind::ExpressionStart);
