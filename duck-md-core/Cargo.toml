@@ -2,6 +2,13 @@
 name = "duck-md-core"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
+
+[features]
+default = ["cli", "watch", "pretty-code"]
+cli = ["dep:clap", "dep:toml"]
+watch = ["dep:notify", "dep:notify-debouncer-mini"]
+pretty-code = []
 
 [lib]
 name = "duck_md"
@@ -10,6 +17,7 @@ path = "src/lib.rs"
 [[bin]]
 name = "duck-md"
 path = "src/main.rs"
+required-features = ["cli", "watch"]
 
 [dependencies]
 duck-md-lexer.workspace = true
@@ -19,14 +27,14 @@ duck-md-codegen = { path = "../duck-md-codegen" }
 duck-md-transform = { path = "../duck-md-transform" }
 duck-md-schema = { path = "../duck-md-schema" }
 serde_yaml.workspace = true
-notify.workspace = true
-notify-debouncer-mini.workspace = true
+notify = { workspace = true, optional = true }
+notify-debouncer-mini = { workspace = true, optional = true }
 tempfile.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 globwalk.workspace = true
-clap.workspace = true
-toml.workspace = true
+clap = { workspace = true, optional = true }
+toml = { workspace = true, optional = true }
 
 [dev-dependencies]
 pretty_assertions.workspace = true

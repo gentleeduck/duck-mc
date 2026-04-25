@@ -17,6 +17,9 @@ export interface BuildInput {
   root?: string
   strict?: boolean
   clean?: boolean
+  outputAssets?: string
+  outputBase?: string
+  outputName?: string
 }
 export interface BuildCollectionReport {
   name: string
