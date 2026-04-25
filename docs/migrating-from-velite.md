@@ -53,16 +53,24 @@ the import and you're done.
 | `markdown.copyLinkedFiles`  | yes                                       | yes ✅ (asset hash + rewrite)       |
 | `mdx.outputFormat: 'module'`| yes                                       | yes ✅ (ESM module wrap)            |
 | `mdx.minify`                | yes (terser)                              | yes ✅ (whitespace collapse)        |
+| `markdown.gfm: false` toggle | yes                                      | yes ✅ (DisableGfm post-pass)       |
 | Grapheme-aware columns      | n/a                                       | yes ✅ (unicode-segmentation)       |
 | Parser error recovery       | yes (vfile-reporter messages)             | yes ✅ (Document.diagnostics)       |
 | Multi-platform binaries     | n/a (pure JS)                             | 7 targets via napi-rs ✅            |
 | Fuzz targets                | n/a                                       | yes ✅ (cargo-fuzz)                 |
 
+## Remaining limitations
+
+- **Custom user-defined `loaders[]` registration** — built-in matter / yaml / json loaders work; user-defined `{ test, load }` loaders accepted in config but not invoked. Workaround: pre-process source files in a build script before running `duck-md build`, or add a `prepare(data)` hook to mutate records post-validation.
+- **Byte-exact velite output equivalence** — output shape matches velite (camelCase fields, hoisted frontmatter, typed `.d.ts`). Body strings differ when minify is on (whitespace collapse vs terser AST minify) but produce equivalent JS.
+- **Schema `.regex(p)` uses Rust regex syntax** — minor differences vs JavaScript regex (e.g. no lookbehind by default).
+
 ## Plugin compatibility
 
 By default duck-md runs a native Rust pipeline (no Node child process
 needed): `code_import`, `npm_command`, `bare_url`, `autolink_headings`
-(with `subheading-anchor` class), `pretty_code` (single theme).
+(with `subheading-anchor` class), `pretty_code` (single + dual theme),
+`mermaid`, `ComponentSource`, `ComponentPreview`, `copy_linked_files`.
 
 If you need community plugins (`rehype-pretty-code`, `rehype-slug`,
 `remark-toc`, etc.), pass them through `markdown.remarkPlugins` /
