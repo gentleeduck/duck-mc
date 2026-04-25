@@ -1,5 +1,3 @@
-// Run the duck-md compiler with the typed config from `duck-md.config.ts`.
-// Equivalent to running `velite build` — no toml file, all TS.
 import { build } from '@duck/md'
 import config from '../duck-md.config.js'
 

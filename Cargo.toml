@@ -6,6 +6,7 @@ members = [
   "duck-md-parser",
   "duck-md-codegen",
   "duck-md-transform",
+  "duck-md-schema",
   "duck-md-napi",
 ]
 
@@ -37,6 +38,7 @@ duck-md-lexer = { path = "duck-md-lexer" }
 duck-md-parser = { path = "duck-md-parser" }
 duck-md-codegen = { path = "duck-md-codegen" }
 duck-md-transform = { path = "duck-md-transform" }
+duck-md-schema = { path = "duck-md-schema" }
 
 # Dev
 pretty_assertions = "1"

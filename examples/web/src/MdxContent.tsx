@@ -28,8 +28,6 @@ function compileMdx(code: string) {
     ? `const __c = arguments[1] || {}; const { ${names.join(', ')} } = __c;\n`
     : ''
 
-  // body declares `function _createMdxContent` and ends with `return _createMdxContent(arguments[0])`
-  // we wrap it so `new Function(...)` returns the React tree.
   return new Function(header + stripped) as (
     rt: RuntimeArg,
     components: Record<string, ComponentType<unknown>>,

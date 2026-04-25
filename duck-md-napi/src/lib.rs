@@ -5,9 +5,6 @@ use napi_derive::napi;
 use serde_json::Value;
 use std::path::PathBuf;
 
-/// Compile a single MDX source string. Returns the full CompileOutput as a JS object:
-/// { body, content, html, excerpt, metadata, toc, frontmatter, frontmatter_raw, imports, exports }
-/// Field names are snake_case (matching serde Serialize on the Rust struct).
 #[napi]
 pub fn compile(source: String) -> Result<Value> {
     let out = duck_md::compile(&source);
@@ -39,8 +36,6 @@ pub struct BuildReport {
     pub collections: Vec<BuildCollectionReport>,
 }
 
-/// Run the full engine: walk globs, compile each MDX file, write velite-shape JSON.
-/// Equivalent to `duck-md build` CLI but driven by a JS object — no toml needed.
 #[napi]
 pub fn build(input: BuildInput) -> Result<BuildReport> {
     let cfg = duck_md::EngineConfig {

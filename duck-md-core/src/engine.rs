@@ -72,7 +72,6 @@ fn write_index(out_dir: &Path, report: &EngineReport) -> std::io::Result<()> {
     }
     std::fs::write(out_dir.join("index.js"), js)?;
 
-    // Minimal but useful: shape the type after the velite schema we emit.
     let mut dts = String::from(
         "export interface TocItem { title: string; url: string; items: TocItem[] }\n\
          export interface Metadata { readingTime: number; wordCount: number }\n\
@@ -102,8 +101,6 @@ fn write_index(out_dir: &Path, report: &EngineReport) -> std::io::Result<()> {
     Ok(())
 }
 
-/// Velite-parity record: camelCase keys, frontmatter hoisted to top level,
-/// `html`/`imports`/`exports`/`frontmatterRaw` dropped (not part of velite output).
 fn build_velite_record(
     compiled: crate::CompileOutput,
     path: &Path,
@@ -144,7 +141,6 @@ fn build_velite_record(
         format!("{}/{}", collection, permalink)
     };
 
-    // Hoist frontmatter object keys onto record root.
     let mut map: Map<String, Value> = Map::new();
     if let Value::Object(fm) = compiled.frontmatter {
         for (k, v) in fm {
@@ -173,8 +169,7 @@ fn build_velite_record(
     Value::Object(map)
 }
 
-/// Velite's permalink formula: `path.replace(/^.*docs\//, '').replace(/\.mdx?$/, '')`.
-/// We reproduce that, then fall back to base-relative path stripping if `docs/` isn't found.
+// matches velite: `path.replace(/^.*<collection>\//, '').replace(/\.mdx?$/, '')`
 fn velite_permalink(abs: &str, rel: &str, collection: &str) -> String {
     let needle = format!("{}/", collection);
     let after = if let Some(idx) = abs.rfind(&needle) {
