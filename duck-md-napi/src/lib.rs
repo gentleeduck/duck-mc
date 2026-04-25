@@ -48,6 +48,7 @@ pub struct BuildInput {
     pub copy_linked_files: Option<bool>,
     pub mdx_output_format: Option<String>,
     pub mdx_minify: Option<bool>,
+    pub markdown_gfm: Option<bool>,
 }
 
 #[napi(object)]
@@ -87,6 +88,7 @@ pub fn build(input: BuildInput) -> Result<BuildReport> {
         copy_linked_files: input.copy_linked_files.unwrap_or(false),
         mdx_output_format: input.mdx_output_format,
         mdx_minify: input.mdx_minify.unwrap_or(false),
+        markdown_gfm: input.markdown_gfm.unwrap_or(true),
         collections: input
             .collections
             .into_iter()

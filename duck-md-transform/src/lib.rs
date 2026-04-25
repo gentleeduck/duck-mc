@@ -4,7 +4,7 @@ pub mod visit;
 
 pub use builtin::{
   AutolinkHeadings, BareUrlAutolink, CodeImport, ComponentPreview, ComponentSource,
-  NpmCommand,
+  DisableGfm, NpmCommand,
 };
 #[cfg(feature = "assets")]
 pub use builtin::CopyLinkedFiles;

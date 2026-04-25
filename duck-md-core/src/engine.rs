@@ -15,7 +15,7 @@ pub struct CollectionConfig {
     pub single: bool,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EngineConfig {
     pub collections: Vec<CollectionConfig>,
     pub output_dir: PathBuf,
@@ -47,6 +47,34 @@ pub struct EngineConfig {
     pub mdx_output_format: Option<String>,
     #[serde(default)]
     pub mdx_minify: bool,
+    #[serde(default = "default_true")]
+    pub markdown_gfm: bool,
+}
+
+fn default_true() -> bool { true }
+
+impl Default for EngineConfig {
+    fn default() -> Self {
+        Self {
+            collections: Vec::new(),
+            output_dir: PathBuf::new(),
+            root: PathBuf::new(),
+            strict: false,
+            clean: false,
+            output_assets: None,
+            output_base: None,
+            output_name: None,
+            output_format: None,
+            markdown_remark_plugins: None,
+            markdown_rehype_plugins: None,
+            mdx_remark_plugins: None,
+            mdx_rehype_plugins: None,
+            copy_linked_files: false,
+            mdx_output_format: None,
+            mdx_minify: false,
+            markdown_gfm: true,
+        }
+    }
 }
 
 #[derive(Debug, Default)]
@@ -117,19 +145,21 @@ fn process_collection(
             Ok(s) => s,
             Err(e) => return (Value::Null, Some(EngineError { file: path.clone(), message: e.to_string() })),
         };
-        let mut compiled = if cfg.copy_linked_files
-            && cfg.output_assets.is_some() && cfg.output_base.is_some()
-        {
-            let pipeline = duck_md_transform::Pipeline::with_defaults().add(
-                duck_md_transform::CopyLinkedFiles::new(
+        let mut compiled = {
+            let mut pipeline = duck_md_transform::Pipeline::with_defaults();
+            if !cfg.markdown_gfm {
+                pipeline = pipeline.add(duck_md_transform::DisableGfm);
+            }
+            if cfg.copy_linked_files
+                && cfg.output_assets.is_some() && cfg.output_base.is_some()
+            {
+                pipeline = pipeline.add(duck_md_transform::CopyLinkedFiles::new(
                     path.parent().unwrap_or(std::path::Path::new(".")).to_path_buf(),
                     cfg.output_assets.clone().unwrap(),
                     cfg.output_base.clone().unwrap(),
-                ),
-            );
+                ));
+            }
             crate::compile_with_pipeline(&source, &pipeline)
-        } else {
-            compile(&source)
         };
         if has_js_plugins(cfg) {
             if let Some(html) = run_sidecar(&compiled.content, cfg) {

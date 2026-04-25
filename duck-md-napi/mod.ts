@@ -125,6 +125,7 @@ interface NativeBuildInput {
   copyLinkedFiles?: boolean
   mdxOutputFormat?: string
   mdxMinify?: boolean
+  markdownGfm?: boolean
 }
 
 const cbRegistry = new Map<number, (v: unknown) => unknown>()
@@ -341,6 +342,7 @@ function adaptToBuildInput(input: UserConfig | NativeBuildInput): NativeBuildInp
     copyLinkedFiles: cfg.markdown?.copyLinkedFiles ?? cfg.mdx?.copyLinkedFiles,
     mdxOutputFormat: cfg.mdx?.outputFormat,
     mdxMinify: cfg.mdx?.minify,
+    markdownGfm: cfg.markdown?.gfm,
   }
 }
 
