@@ -16,4 +16,5 @@ Format: `<ISO ts> | <task id> | <pass|fail|halt> | <one-line note>`
 2026-04-25T08:24:00Z | P1+P5+P6 | pass | duck-md-parser crate: Parser, parse(), heading + paragraph + inline accumulator; basic.rs 4/4; total 31 tests workspace-wide
 2026-04-25T08:30:00Z | P2+P3+P4 | pass | parser handles frontmatter (yaml→json), import, export; structure.rs 4/4
 2026-04-25T08:33:00Z | P7+P8+P9+P10+P11 | pass | parser inline: bold/italic/code/link/image + fenced code block; tests/inline.rs 6/6; total 41 tests
+2026-04-25T08:38:00Z | P17+P18+P19+P20 | pass | parser jsx (self-close, element, expression, fragment) + parse_attrs; tests/jsx.rs 6/6; total 47 tests; lexer bug L24 noted
 

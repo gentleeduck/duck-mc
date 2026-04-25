@@ -29,6 +29,7 @@ Goal: drop-in Rust replacement for Velite's role in `apps/duck` (see `SURVEY.md`
 - [ ] L21: indented code block (4-space)
 - [ ] L22: HTML inline tag passthrough (lowercase tags as raw HTML when not JSX)
 - [ ] L23: Span column tracking — fix `column` to count graphemes, not bytes; track utf8 width
+- [ ] L24: bug fix — `lex_jsx_tag` after attrs emits `JsxOpenTagEnd("/")` + `BlockQuote(">")` instead of `JsxSelfClosingEnd` when self-closing follows attributes (e.g. `<Btn color="red" />`). Parser currently works around it; remove workaround once fixed.
 
 ## Phase 2 — AST
 
@@ -57,10 +58,10 @@ Goal: drop-in Rust replacement for Velite's role in `apps/duck` (see `SURVEY.md`
 - [ ] P14: parse blockquote with nested children
 - [ ] P15: parse thematic break
 - [ ] P16: parse soft/hard break
-- [ ] P17: parse JSX self-closing
-- [ ] P18: parse JSX element (re-entrant block parse for children)
-- [ ] P19: parse JSX expression `{expr}`
-- [ ] P20: parse JSX fragment
+- [x] P17: parse JSX self-closing
+- [x] P18: parse JSX element (re-entrant block parse for children)
+- [x] P19: parse JSX expression `{expr}`
+- [x] P20: parse JSX fragment
 - [ ] P21: parse GFM table
 - [ ] P22: parse GFM task list item
 - [ ] P23: parse GFM strikethrough

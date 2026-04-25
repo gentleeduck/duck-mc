@@ -15,6 +15,7 @@ pub(crate) fn collect_inline_until_break(p: &mut Parser) -> Vec<Node> {
                 | TokenKind::FrontmatterStart
                 | TokenKind::Import
                 | TokenKind::Export
+                | TokenKind::JsxCloseTagStart
         )
     })
 }
@@ -196,6 +197,30 @@ fn collect_inline(p: &mut Parser, stop: &dyn Fn(&TokenKind) -> bool) -> Vec<Node
                     span: default_span(),
                 }));
             }
+            TokenKind::JsxOpenTagStart => {
+                out.push(crate::jsx::parse_jsx(p));
+                continue;
+            }
+            TokenKind::ExpressionStart => {
+                out.push(crate::jsx::parse_jsx_expression(p));
+                continue;
+            }
+            TokenKind::MarkdownCommentStart => {
+                // skip
+                while let Some(t) = p.peek() {
+                    match &t.kind {
+                        TokenKind::MarkdownCommentEnd => {
+                            p.advance();
+                            break;
+                        }
+                        TokenKind::Eof => break,
+                        _ => {
+                            p.advance();
+                        }
+                    }
+                }
+                continue;
+            }
             // unknown inline → consume as raw text fallback
             _ => {
                 let raw = t.raw.clone();
@@ -222,5 +247,6 @@ fn is_top_level_break(k: &TokenKind) -> bool {
             | TokenKind::FrontmatterStart
             | TokenKind::Import
             | TokenKind::Export
+            | TokenKind::JsxCloseTagStart
     )
 }

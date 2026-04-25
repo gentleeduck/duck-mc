@@ -10,6 +10,12 @@ pub(crate) fn parse_block(p: &mut Parser) -> Option<Node> {
         TokenKind::Export => Some(consume_export(p)),
         TokenKind::Heading(_) => Some(parse_heading(p)),
         TokenKind::CodeStart(n) if *n >= 3 => Some(parse_code_block(p)),
+        TokenKind::JsxOpenTagStart => Some(crate::jsx::parse_jsx(p)),
+        TokenKind::ExpressionStart => Some(crate::jsx::parse_jsx_expression(p)),
+        TokenKind::MarkdownCommentStart => {
+            crate::jsx::skip_md_comment(p);
+            None
+        }
         TokenKind::HardBreak | TokenKind::SoftBreak => {
             p.advance();
             None
