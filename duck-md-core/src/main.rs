@@ -13,9 +13,12 @@ struct Cli {
 enum Cmd {
     /// Build all collections from duck-md.toml.
     Build {
-        /// Path to config file
         #[arg(long, default_value = "duck-md.toml")]
         config: PathBuf,
+        #[arg(short, long)]
+        strict: bool,
+        #[arg(long)]
+        clean: bool,
     },
     /// Scaffold a default duck-md.toml in the current directory.
     Init {
@@ -44,19 +47,21 @@ struct CollectionEntry {
 fn main() -> std::io::Result<()> {
     let cli = Cli::parse();
     match cli.cmd {
-        Cmd::Build { config } => cmd_build(config),
+        Cmd::Build { config, strict, clean } => cmd_build(config, strict, clean),
         Cmd::Init { path } => cmd_init(path),
         Cmd::Compile { path } => cmd_compile(path),
     }
 }
 
-fn cmd_build(config: PathBuf) -> std::io::Result<()> {
+fn cmd_build(config: PathBuf, strict: bool, clean: bool) -> std::io::Result<()> {
     let raw = std::fs::read_to_string(&config)?;
     let cfg: ConfigFile = toml::from_str(&raw)
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e.to_string()))?;
     let engine_cfg = EngineConfig {
         output_dir: cfg.output_dir,
         root: PathBuf::from("."),
+        strict,
+        clean,
         collections: cfg.collections.into_iter().map(|c| CollectionConfig {
             name: c.name,
             pattern: c.pattern,
@@ -70,10 +75,12 @@ fn cmd_build(config: PathBuf) -> std::io::Result<()> {
         println!("✓ {} — {} records → {}", c.name, c.records, c.output_path.display());
     }
     if !report.errors.is_empty() {
-        eprintln!("\n{} validation error(s):", report.errors.len());
+        eprintln!();
         for e in &report.errors {
-            eprintln!("  {}: {}", e.file.display(), e.message);
+            eprintln!("  \x1b[31m✗\x1b[0m {}", e.file.display());
+            eprintln!("    \x1b[2m{}\x1b[0m", e.message);
         }
+        eprintln!("\n  \x1b[31m{}\x1b[0m validation error(s)", report.errors.len());
     }
     Ok(())
 }
