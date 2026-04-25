@@ -73,6 +73,7 @@ function adaptToBuildInput(input) {
     outputAssets: input.output?.assets,
     outputBase: input.output?.base,
     outputName: input.output?.name,
+    outputFormat: input.output?.format,
   }
 }
 

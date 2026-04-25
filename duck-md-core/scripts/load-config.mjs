@@ -25,6 +25,7 @@ const adapted = {
   output_assets: cfg.output?.assets ?? null,
   output_base: cfg.output?.base ?? null,
   output_name: cfg.output?.name ?? null,
+  output_format: cfg.output?.format ?? null,
   collections,
 }
 

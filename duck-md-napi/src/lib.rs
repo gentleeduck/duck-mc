@@ -30,6 +30,7 @@ pub struct BuildInput {
     pub output_assets: Option<String>,
     pub output_base: Option<String>,
     pub output_name: Option<String>,
+    pub output_format: Option<String>,
 }
 
 #[napi(object)]
@@ -61,6 +62,7 @@ pub fn build(input: BuildInput) -> Result<BuildReport> {
         output_assets: input.output_assets.map(PathBuf::from),
         output_base: input.output_base,
         output_name: input.output_name,
+        output_format: input.output_format,
         collections: input
             .collections
             .into_iter()

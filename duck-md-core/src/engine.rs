@@ -30,6 +30,8 @@ pub struct EngineConfig {
     pub output_base: Option<String>,
     #[serde(default)]
     pub output_name: Option<String>,
+    #[serde(default)]
+    pub output_format: Option<String>,
 }
 
 #[derive(Debug, Default)]
@@ -61,7 +63,7 @@ pub fn run(cfg: &EngineConfig) -> std::io::Result<EngineReport> {
         let r = process_collection(c, cfg, &mut report.errors)?;
         report.collections.push(r);
     }
-    write_index(&cfg.output_dir, &report)?;
+    write_index(&cfg.output_dir, &report, cfg.output_format.as_deref().unwrap_or("esm"))?;
     if cfg.strict && !report.errors.is_empty() {
         let first = &report.errors[0];
         return Err(std::io::Error::new(
@@ -162,13 +164,22 @@ fn build_schema_ctx(
     ctx
 }
 
-fn write_index(out_dir: &Path, report: &EngineReport) -> std::io::Result<()> {
+fn write_index(out_dir: &Path, report: &EngineReport, format: &str) -> std::io::Result<()> {
     let mut js = String::new();
-    for c in &report.collections {
-        js.push_str(&format!(
-            "export {{ default as {name} }} from './{name}.json' with {{ type: 'json' }}\n",
-            name = c.name
-        ));
+    if format == "cjs" {
+        for c in &report.collections {
+            js.push_str(&format!(
+                "exports.{name} = require('./{name}.json')\n",
+                name = c.name
+            ));
+        }
+    } else {
+        for c in &report.collections {
+            js.push_str(&format!(
+                "export {{ default as {name} }} from './{name}.json' with {{ type: 'json' }}\n",
+                name = c.name
+            ));
+        }
     }
     std::fs::write(out_dir.join("index.js"), js)?;
 
