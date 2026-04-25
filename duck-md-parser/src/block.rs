@@ -5,6 +5,9 @@ use crate::inline::collect_inline_until_break;
 
 pub(crate) fn parse_block(p: &mut Parser) -> Option<Node> {
     match p.peek_kind()? {
+        TokenKind::FrontmatterStart => Some(parse_frontmatter(p)),
+        TokenKind::Import => Some(consume_import(p)),
+        TokenKind::Export => Some(consume_export(p)),
         TokenKind::Heading(_) => Some(parse_heading(p)),
         TokenKind::HardBreak | TokenKind::SoftBreak => {
             p.advance();
@@ -12,6 +15,36 @@ pub(crate) fn parse_block(p: &mut Parser) -> Option<Node> {
         }
         _ => Some(parse_paragraph(p)),
     }
+}
+
+fn parse_frontmatter(p: &mut Parser) -> Node {
+    p.advance(); // start
+    let raw = match p.peek() {
+        Some(t) if matches!(t.kind, TokenKind::FrontmatterContent) => {
+            let raw = t.raw.clone();
+            p.advance();
+            raw
+        }
+        _ => String::new(),
+    };
+    if matches!(p.peek_kind(), Some(TokenKind::FrontmatterEnd)) {
+        p.advance();
+    }
+    let data = serde_yaml::from_str::<serde_json::Value>(&raw)
+        .unwrap_or(serde_json::Value::Null);
+    Node::Frontmatter(Frontmatter { raw, data, span: default_span() })
+}
+
+fn consume_import(p: &mut Parser) -> Node {
+    let raw = p.peek().map(|t| t.raw.clone()).unwrap_or_default();
+    p.advance();
+    Node::Import(Import { raw, span: default_span() })
+}
+
+fn consume_export(p: &mut Parser) -> Node {
+    let raw = p.peek().map(|t| t.raw.clone()).unwrap_or_default();
+    p.advance();
+    Node::Export(Export { raw, span: default_span() })
 }
 
 fn parse_heading(p: &mut Parser) -> Node {
