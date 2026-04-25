@@ -72,6 +72,49 @@ fn engine_records_have_velite_fields() {
 }
 
 #[test]
+fn engine_velite_shape_strict_types() {
+    // Asserts the output record matches velite's schema A point-by-point
+    // — not byte-exact JS body equivalence (impossible without vendoring real velite output)
+    // but every required field exists with the velite-documented type.
+    let dir = tmp_workspace();
+    let out_dir = dir.path().join(".velite");
+    let _ = run(&cfg_for(out_dir.clone(), dir.path().to_path_buf())).unwrap();
+    let json: serde_json::Value = serde_json::from_str(
+        &std::fs::read_to_string(out_dir.join("docs.json")).unwrap()
+    ).unwrap();
+    let arr = json.as_array().expect("array of records");
+    assert!(!arr.is_empty(), "expected at least one record");
+    for r in arr {
+        let r = r.as_object().expect("record is object");
+        // String fields
+        for f in &[
+            "body", "content", "excerpt",
+            "contentType", "flattenedPath", "permalink", "slug",
+            "sourceFileDir", "sourceFileName", "sourceFilePath",
+        ] {
+            assert!(r.get(*f).and_then(|v| v.as_str()).is_some(), "{f} must be string in {r:?}");
+        }
+        // Object fields
+        let meta = r.get("metadata").and_then(|v| v.as_object()).expect("metadata is object");
+        assert!(meta.get("readingTime").and_then(|v| v.as_u64()).is_some(), "metadata.readingTime");
+        assert!(meta.get("wordCount").and_then(|v| v.as_u64()).is_some(), "metadata.wordCount");
+        // Array field
+        let toc = r.get("toc").and_then(|v| v.as_array()).expect("toc is array");
+        for item in toc {
+            assert!(item.get("title").and_then(|v| v.as_str()).is_some());
+            assert!(item.get("url").and_then(|v| v.as_str()).is_some());
+            assert!(item.get("items").and_then(|v| v.as_array()).is_some());
+        }
+        // Hoisted frontmatter — title is required by tmp_workspace fixture
+        assert!(r.get("title").and_then(|v| v.as_str()).is_some(), "title hoisted from frontmatter");
+        // Velite-dropped fields (intentional differences in source-of-record retained internally)
+        for absent in &["html", "frontmatter", "frontmatterRaw", "imports", "exports"] {
+            assert!(r.get(*absent).is_none(), "field {absent} should not be in record");
+        }
+    }
+}
+
+#[test]
 fn engine_validates_frontmatter_against_schema() {
     let dir = tempfile::tempdir().unwrap();
     let docs = dir.path().join("docs");
