@@ -99,12 +99,10 @@ impl<'engine> Lexer<'engine> {
 
   pub(crate) fn lex_link(&mut self) {
     self.emit(TokenKind::Bracket);
-    self.consume_while(|c, _| c != ']');
+    self.consume_while(|c, _| c != ']' && c != '\n');
     self.emit(TokenKind::Text);
 
-    if let Some(c) = self.get_current_char()
-      && c != ']'
-    {
+    if self.get_current_char() != Some(']') {
       self.emit_diagnostic(
         Diagnostic::new(Code::UnterminatedExpression, "unterminated link")
           .with_label(Label::primary(
@@ -113,10 +111,32 @@ impl<'engine> Lexer<'engine> {
           ))
           .with_help("close the link with `]`"),
       );
+      return;
     }
 
     self.advance();
     self.emit(TokenKind::Bracket);
+
+    // optional `(href)`
+    if self.get_current_char() == Some('(') {
+      self.advance();
+      self.emit(TokenKind::ParenOpen);
+      self.consume_while(|c, _| c != ')' && c != '\n');
+      self.emit(TokenKind::Text);
+      if self.get_current_char() == Some(')') {
+        self.advance();
+        self.emit(TokenKind::ParenClose);
+      } else {
+        self.emit_diagnostic(
+          Diagnostic::new(Code::UnterminatedExpression, "unterminated link target")
+            .with_label(Label::primary(
+              Span::new("", self.line, self.column, 1),
+              Some("link target not closed".to_string()),
+            ))
+            .with_help("close the target with `)`"),
+        );
+      }
+    }
   }
 
   pub(crate) fn lex_image(&mut self) {

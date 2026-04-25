@@ -6,7 +6,7 @@ Atomic tasks, ordered by priority. Tick `[x]` when done, `[⚠]` when blocked. R
 
 - [x] L1: add `Token::HardBreak` + `Token::SoftBreak` variants and emit them in `lex_newline` (two newlines = HardBreak, single = SoftBreak)
 - [x] L2: handle escape sequences `\*`, `\_`, `\` `\``, `\<`, `\{` in `lex_text` — emit raw char as Text, do not break out
-- [ ] L3: parse link target `](href)` after `]` in `lex_link` — emit Text(href) inside ParenOpen/ParenClose
+- [x] L3: parse link target `](href)` after `]` in `lex_link` — emit Text(href) inside ParenOpen/ParenClose
 - [ ] L4: parse image `![alt](src)` fully — alt text + src
 - [ ] L5: detect top-level `import` keyword at column 0, emit `Token::Import` with full statement up to newline (handle multi-line via balanced brackets)
 - [ ] L6: detect top-level `export` keyword at column 0, emit `Token::Export` with full statement
