@@ -101,6 +101,14 @@ fn refine_and_transform() {
 }
 
 #[test]
+fn string_regex_with_lookbehind() {
+  // fancy-regex supports lookbehind (Rust regex crate doesn't)
+  let schema = s::string().regex("(?<=foo)bar");
+  assert!(schema.parse(&json!("foobar"), &ctx()).is_ok());
+  assert!(schema.parse(&json!("bazbar"), &ctx()).is_err());
+}
+
+#[test]
 fn isodate_validates() {
   let schema = s::isodate();
   assert_eq!(

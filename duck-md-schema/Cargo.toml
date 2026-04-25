@@ -12,6 +12,7 @@ blake3.workspace = true
 image.workspace = true
 base64.workspace = true
 regex.workspace = true
+fancy-regex.workspace = true
 
 [dev-dependencies]
 pretty_assertions.workspace = true

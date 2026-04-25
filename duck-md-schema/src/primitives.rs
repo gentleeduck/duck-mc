@@ -32,9 +32,11 @@ impl Schema for StringSchema {
       return Err(ValidationError::root(format!("length {l} required (got {len})")));
     }}
     if let Some(pat) = &self.regex {
-      let re = regex::Regex::new(pat)
+      let re = fancy_regex::Regex::new(pat)
         .map_err(|e| ValidationError::root(format!("invalid regex {pat}: {e}")))?;
-      if !re.is_match(s) {
+      let matched = re.is_match(s)
+        .map_err(|e| ValidationError::root(format!("regex match error: {e}")))?;
+      if !matched {
         return Err(ValidationError::root(format!("does not match /{pat}/")));
       }
     }
