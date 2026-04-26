@@ -445,10 +445,14 @@ fn minify_js(src: &str) -> String {
 }
 
 fn has_js_plugins(cfg: &EngineConfig) -> bool {
+    // Match velite: when output.html is requested, run the JS pipeline so
+    // user gets gfm + comment-strip + their plugins. Or when any plugin list
+    // is non-empty.
     let any_filled = |v: &Option<Value>| v.as_ref()
         .and_then(|x| x.as_array())
         .map(|a| !a.is_empty())
         .unwrap_or(false);
+    if cfg.include_html { return true; }
     any_filled(&cfg.markdown_remark_plugins)
         || any_filled(&cfg.markdown_rehype_plugins)
         || any_filled(&cfg.mdx_remark_plugins)
@@ -471,6 +475,8 @@ fn run_sidecar(markdown: &str, cfg: &EngineConfig) -> Option<String> {
     };
     let req = json!({
         "markdown": markdown,
+        "gfm": cfg.markdown_gfm,
+        "removeComments": true,
         "remarkPlugins": merge(&cfg.markdown_remark_plugins, &cfg.mdx_remark_plugins),
         "rehypePlugins": merge(&cfg.markdown_rehype_plugins, &cfg.mdx_rehype_plugins),
     });

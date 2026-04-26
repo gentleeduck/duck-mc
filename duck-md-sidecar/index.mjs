@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { unified } from 'unified'
 import remarkParse from 'remark-parse'
+import remarkGfm from 'remark-gfm'
 import remarkRehype from 'remark-rehype'
 import rehypeRaw from 'rehype-raw'
 import rehypeStringify from 'rehype-stringify'
@@ -9,9 +10,6 @@ import { createRequire } from 'node:module'
 import { pathToFileURL } from 'node:url'
 import { resolve } from 'node:path'
 
-// Resolve plugin imports relative to the user's project (process.cwd())
-// rather than this script's location, so plugins installed in the user's
-// node_modules are found.
 const userRequire = createRequire(resolve(process.cwd(), 'package.json'))
 
 async function main() {
@@ -19,8 +17,12 @@ async function main() {
   const req = JSON.parse(stdin)
   const remarkPlugins = await loadPlugins(req.remarkPlugins ?? [])
   const rehypePlugins = await loadPlugins(req.rehypePlugins ?? [])
+  const gfm = req.gfm ?? true
+  const removeComments = req.removeComments ?? true
 
   let proc = unified().use(remarkParse)
+  if (gfm) proc = proc.use(remarkGfm)
+  if (removeComments) proc = proc.use(stripHtmlComments)
   for (const [plugin, opts] of remarkPlugins) proc = proc.use(plugin, opts)
   proc = proc.use(remarkRehype, { allowDangerousHtml: true }).use(rehypeRaw)
   for (const [plugin, opts] of rehypePlugins) proc = proc.use(plugin, opts)
@@ -31,6 +33,19 @@ async function main() {
     reason: m.reason, line: m.line, column: m.column,
   })) }
   process.stdout.write(JSON.stringify(out))
+}
+
+function stripHtmlComments() {
+  return (tree) => {
+    const walk = (node) => {
+      if (!node) return
+      if (Array.isArray(node.children)) {
+        node.children = node.children.filter(c => c.type !== 'html' || !/^<!--[\s\S]*?-->$/.test(String(c.value ?? '')))
+        node.children.forEach(walk)
+      }
+    }
+    walk(tree)
+  }
 }
 
 async function importFromUser(name) {
