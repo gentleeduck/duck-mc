@@ -5,4 +5,4 @@ mod jsx;
 pub mod parser;
 mod table;
 
-pub use parser::{parse, Parser};
+pub use parser::{Parser, parse};

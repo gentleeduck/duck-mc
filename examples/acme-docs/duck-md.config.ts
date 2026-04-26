@@ -2,7 +2,6 @@ import { defineConfig, s } from '@duck/md'
 import remarkGfm from 'remark-gfm'
 import rehypeSlug from 'rehype-slug'
 import rehypeAutolinkHeadings from 'rehype-autolink-headings'
-// @ts-expect-error — rehype-pretty-code has no published type declarations
 import rehypePrettyCode from 'rehype-pretty-code'
 
 export default defineConfig({

@@ -1,5 +1,5 @@
-use serde_json::Value;
 use crate::{Ctx, Schema, ValidationError};
+use serde_json::Value;
 
 pub struct OptionalSchema {
   pub inner: Box<dyn Schema>,
@@ -7,11 +7,7 @@ pub struct OptionalSchema {
 
 impl Schema for OptionalSchema {
   fn parse(&self, value: &Value, ctx: &Ctx) -> Result<Value, ValidationError> {
-    if value.is_null() {
-      Ok(Value::Null)
-    } else {
-      self.inner.parse(value, ctx)
-    }
+    if value.is_null() { Ok(Value::Null) } else { self.inner.parse(value, ctx) }
   }
 }
 
@@ -21,11 +17,7 @@ pub struct NullableSchema {
 
 impl Schema for NullableSchema {
   fn parse(&self, value: &Value, ctx: &Ctx) -> Result<Value, ValidationError> {
-    if value.is_null() {
-      Ok(Value::Null)
-    } else {
-      self.inner.parse(value, ctx)
-    }
+    if value.is_null() { Ok(Value::Null) } else { self.inner.parse(value, ctx) }
   }
 }
 

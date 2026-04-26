@@ -1,5 +1,5 @@
-use serde_json::Value;
 use crate::{Ctx, Schema, ValidationError};
+use serde_json::Value;
 
 pub struct RawSchema;
 
@@ -13,9 +13,10 @@ pub struct MarkdownSchema;
 
 impl Schema for MarkdownSchema {
   fn parse(&self, _value: &Value, ctx: &Ctx) -> Result<Value, ValidationError> {
-    let html = ctx.html.clone().ok_or_else(||
-      ValidationError::root("markdown body not yet rendered (engine bug?)")
-    )?;
+    let html = ctx
+      .html
+      .clone()
+      .ok_or_else(|| ValidationError::root("markdown body not yet rendered (engine bug?)"))?;
     Ok(Value::String(html))
   }
 }
@@ -24,9 +25,10 @@ pub struct MdxSchema;
 
 impl Schema for MdxSchema {
   fn parse(&self, _value: &Value, ctx: &Ctx) -> Result<Value, ValidationError> {
-    let body = ctx.mdx_body.clone().ok_or_else(||
-      ValidationError::root("mdx body not yet rendered (engine bug?)")
-    )?;
+    let body = ctx
+      .mdx_body
+      .clone()
+      .ok_or_else(|| ValidationError::root("mdx body not yet rendered (engine bug?)"))?;
     Ok(Value::String(body))
   }
 }
@@ -58,11 +60,16 @@ pub struct ExcerptSchema {
 }
 
 impl ExcerptSchema {
-  pub fn length(mut self, n: usize) -> Self { self.length = n; self }
+  pub fn length(mut self, n: usize) -> Self {
+    self.length = n;
+    self
+  }
 }
 
 impl Default for ExcerptSchema {
-  fn default() -> Self { Self { length: 260 } }
+  fn default() -> Self {
+    Self { length: 260 }
+  }
 }
 
 impl Schema for ExcerptSchema {
@@ -84,11 +91,16 @@ pub struct PathSchema {
 }
 
 impl PathSchema {
-  pub fn remove_index(mut self) -> Self { self.remove_index = true; self }
+  pub fn remove_index(mut self) -> Self {
+    self.remove_index = true;
+    self
+  }
 }
 
 impl Default for PathSchema {
-  fn default() -> Self { Self { remove_index: false } }
+  fn default() -> Self {
+    Self { remove_index: false }
+  }
 }
 
 impl Schema for PathSchema {
@@ -109,30 +121,37 @@ pub struct SlugSchema {
 }
 
 impl SlugSchema {
-  pub fn by(mut self, bucket: impl Into<String>) -> Self { self.bucket = bucket.into(); self }
-  pub fn reserved(mut self, list: Vec<String>) -> Self { self.reserved = list; self }
+  pub fn by(mut self, bucket: impl Into<String>) -> Self {
+    self.bucket = bucket.into();
+    self
+  }
+  pub fn reserved(mut self, list: Vec<String>) -> Self {
+    self.reserved = list;
+    self
+  }
 }
 
 impl Default for SlugSchema {
-  fn default() -> Self { Self { bucket: "global".into(), reserved: Vec::new() } }
+  fn default() -> Self {
+    Self { bucket: "global".into(), reserved: Vec::new() }
+  }
 }
 
 impl Schema for SlugSchema {
   fn parse(&self, value: &Value, ctx: &Ctx) -> Result<Value, ValidationError> {
-    let s = value.as_str().ok_or_else(||
-      ValidationError::root("slug must be a string")
-    )?;
+    let s = value.as_str().ok_or_else(|| ValidationError::root("slug must be a string"))?;
     if s.len() < 3 || s.len() > 200 {
-      return Err(ValidationError::root(format!(
-        "slug length must be 3..=200 (got {})", s.len(),
-      )));
+      return Err(ValidationError::root(format!("slug length must be 3..=200 (got {})", s.len(),)));
     }
     let valid = !s.is_empty()
-      && !s.starts_with('-') && !s.ends_with('-')
+      && !s.starts_with('-')
+      && !s.ends_with('-')
       && !s.contains("--")
       && s.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-');
     if !valid {
-      return Err(ValidationError::root("slug must be kebab-case (lowercase letters, digits, single dashes)"));
+      return Err(ValidationError::root(
+        "slug must be kebab-case (lowercase letters, digits, single dashes)",
+      ));
     }
     if self.reserved.iter().any(|r| r == s) {
       return Err(ValidationError::root(format!("slug '{s}' is reserved")));
@@ -140,7 +159,10 @@ impl Schema for SlugSchema {
     let key = format!("{}::{s}", self.bucket);
     let mut cache = ctx.unique_cache.lock().unwrap();
     if cache.contains(&key) {
-      return Err(ValidationError::root(format!("slug '{s}' already used in bucket '{}'", self.bucket)));
+      return Err(ValidationError::root(format!(
+        "slug '{s}' already used in bucket '{}'",
+        self.bucket
+      )));
     }
     cache.insert(key);
     Ok(Value::String(s.to_string()))
@@ -152,22 +174,28 @@ pub struct UniqueSchema {
 }
 
 impl UniqueSchema {
-  pub fn by(mut self, bucket: impl Into<String>) -> Self { self.bucket = bucket.into(); self }
+  pub fn by(mut self, bucket: impl Into<String>) -> Self {
+    self.bucket = bucket.into();
+    self
+  }
 }
 
 impl Default for UniqueSchema {
-  fn default() -> Self { Self { bucket: "global".into() } }
+  fn default() -> Self {
+    Self { bucket: "global".into() }
+  }
 }
 
 impl Schema for UniqueSchema {
   fn parse(&self, value: &Value, ctx: &Ctx) -> Result<Value, ValidationError> {
-    let s = value.as_str().ok_or_else(||
-      ValidationError::root("unique value must be a string")
-    )?;
+    let s = value.as_str().ok_or_else(|| ValidationError::root("unique value must be a string"))?;
     let key = format!("{}::{s}", self.bucket);
     let mut cache = ctx.unique_cache.lock().unwrap();
     if cache.contains(&key) {
-      return Err(ValidationError::root(format!("'{s}' already used in unique bucket '{}'", self.bucket)));
+      return Err(ValidationError::root(format!(
+        "'{s}' already used in unique bucket '{}'",
+        self.bucket
+      )));
     }
     cache.insert(key);
     Ok(Value::String(s.to_string()))
@@ -178,17 +206,19 @@ pub struct IsodateSchema;
 
 impl Schema for IsodateSchema {
   fn parse(&self, value: &Value, _ctx: &Ctx) -> Result<Value, ValidationError> {
-    let s = value.as_str().ok_or_else(||
-      ValidationError::root("isodate must be a string")
-    )?;
+    let s = value.as_str().ok_or_else(|| ValidationError::root("isodate must be a string"))?;
     let bytes = s.as_bytes();
     if bytes.len() < 10
-      || !bytes[0].is_ascii_digit() || !bytes[1].is_ascii_digit()
-      || !bytes[2].is_ascii_digit() || !bytes[3].is_ascii_digit()
+      || !bytes[0].is_ascii_digit()
+      || !bytes[1].is_ascii_digit()
+      || !bytes[2].is_ascii_digit()
+      || !bytes[3].is_ascii_digit()
       || bytes[4] != b'-'
-      || !bytes[5].is_ascii_digit() || !bytes[6].is_ascii_digit()
+      || !bytes[5].is_ascii_digit()
+      || !bytes[6].is_ascii_digit()
       || bytes[7] != b'-'
-      || !bytes[8].is_ascii_digit() || !bytes[9].is_ascii_digit()
+      || !bytes[8].is_ascii_digit()
+      || !bytes[9].is_ascii_digit()
     {
       return Err(ValidationError::root(format!("'{s}' is not a valid ISO date")));
     }

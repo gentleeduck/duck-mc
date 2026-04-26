@@ -1,24 +1,27 @@
-use serde_json::{json, Value};
-use std::path::PathBuf;
 use crate::{Ctx, Schema, ValidationError};
+use serde_json::{Value, json};
+use std::path::PathBuf;
 
 pub struct FileSchema {
   pub allow_non_relative: bool,
 }
 
 impl FileSchema {
-  pub fn allow_non_relative(mut self) -> Self { self.allow_non_relative = true; self }
+  pub fn allow_non_relative(mut self) -> Self {
+    self.allow_non_relative = true;
+    self
+  }
 }
 
 impl Default for FileSchema {
-  fn default() -> Self { Self { allow_non_relative: false } }
+  fn default() -> Self {
+    Self { allow_non_relative: false }
+  }
 }
 
 impl Schema for FileSchema {
   fn parse(&self, value: &Value, ctx: &Ctx) -> Result<Value, ValidationError> {
-    let raw = value.as_str().ok_or_else(||
-      ValidationError::root("file path must be a string")
-    )?;
+    let raw = value.as_str().ok_or_else(|| ValidationError::root("file path must be a string"))?;
     let resolved = resolve_asset(ctx, raw, self.allow_non_relative)?;
     let url = ctx_publish_asset(ctx, &resolved)?;
     Ok(Value::String(url))
@@ -31,19 +34,20 @@ pub struct ImageSchema {
 
 impl ImageSchema {
   pub fn absolute_root(mut self, p: impl Into<PathBuf>) -> Self {
-    self.absolute_root = Some(p.into()); self
+    self.absolute_root = Some(p.into());
+    self
   }
 }
 
 impl Default for ImageSchema {
-  fn default() -> Self { Self { absolute_root: None } }
+  fn default() -> Self {
+    Self { absolute_root: None }
+  }
 }
 
 impl Schema for ImageSchema {
   fn parse(&self, value: &Value, ctx: &Ctx) -> Result<Value, ValidationError> {
-    let raw = value.as_str().ok_or_else(||
-      ValidationError::root("image path must be a string")
-    )?;
+    let raw = value.as_str().ok_or_else(|| ValidationError::root("image path must be a string"))?;
     let resolved = resolve_asset(ctx, raw, self.absolute_root.is_some())?;
     let url = ctx_publish_asset(ctx, &resolved)?;
     let (w, h) = image::image_dimensions(&resolved).unwrap_or((0, 0));
@@ -88,31 +92,29 @@ fn resolve_asset(ctx: &Ctx, raw: &str, allow_abs: bool) -> Result<PathBuf, Valid
 }
 
 fn ctx_publish_asset(ctx: &Ctx, path: &PathBuf) -> Result<String, ValidationError> {
-  let cfg = ctx.assets.as_ref().ok_or_else(||
-    ValidationError::root("asset pipeline not configured (engine bug?)")
-  )?;
-  let bytes = std::fs::read(path).map_err(|e|
-    ValidationError::root(format!("cannot read asset {}: {e}", path.display()))
-  )?;
+  let cfg = ctx
+    .assets
+    .as_ref()
+    .ok_or_else(|| ValidationError::root("asset pipeline not configured (engine bug?)"))?;
+  let bytes = std::fs::read(path)
+    .map_err(|e| ValidationError::root(format!("cannot read asset {}: {e}", path.display())))?;
   let hash = blake3::hash(&bytes);
   let hash8 = &hash.to_hex().to_string()[..8];
   let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("asset");
   let ext = path.extension().and_then(|s| s.to_str()).unwrap_or("bin");
-  let filename = cfg.name_template
-    .replace("[name]", stem)
-    .replace("[hash:8]", hash8)
-    .replace("[ext]", ext);
+  let filename =
+    cfg.name_template.replace("[name]", stem).replace("[hash:8]", hash8).replace("[ext]", ext);
   let dest = cfg.assets_dir.join(&filename);
-  std::fs::create_dir_all(&cfg.assets_dir).map_err(|e|
-    ValidationError::root(format!("cannot create assets dir: {e}"))
-  )?;
+  std::fs::create_dir_all(&cfg.assets_dir)
+    .map_err(|e| ValidationError::root(format!("cannot create assets dir: {e}")))?;
   if !dest.exists() {
-    std::fs::write(&dest, &bytes).map_err(|e|
-      ValidationError::root(format!("cannot write asset {}: {e}", dest.display()))
-    )?;
+    std::fs::write(&dest, &bytes)
+      .map_err(|e| ValidationError::root(format!("cannot write asset {}: {e}", dest.display())))?;
   }
   let mut url = cfg.base_url.clone();
-  if !url.ends_with('/') { url.push('/'); }
+  if !url.ends_with('/') {
+    url.push('/');
+  }
   url.push_str(&filename);
   let mut map = cfg.map.lock().unwrap();
   map.insert(path.to_string_lossy().to_string(), url.clone());

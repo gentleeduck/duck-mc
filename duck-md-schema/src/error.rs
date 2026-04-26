@@ -28,13 +28,16 @@ impl ValidationError {
   }
 
   pub fn at_index(mut self, idx: usize) -> Self {
-    self.path = format!("[{idx}]{}", if self.path.is_empty() {
-      String::new()
-    } else if self.path.starts_with('[') {
-      self.path.clone()
-    } else {
-      format!(".{}", self.path)
-    });
+    self.path = format!(
+      "[{idx}]{}",
+      if self.path.is_empty() {
+        String::new()
+      } else if self.path.starts_with('[') {
+        self.path.clone()
+      } else {
+        format!(".{}", self.path)
+      }
+    );
     self
   }
 }

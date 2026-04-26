@@ -2,6 +2,9 @@ import { createRequire } from 'node:module'
 import { readFileSync, writeFileSync, unlinkSync, readdirSync, statSync, existsSync } from 'node:fs'
 import { join, relative, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import type { Plugin, Pluggable } from 'unified'
+
+export type { Plugin, Pluggable } from 'unified'
 
 const require = createRequire(import.meta.url)
 const native = require('./index.js')
@@ -76,12 +79,6 @@ export interface OutputOptions {
   clean?: boolean
   format?: 'esm' | 'cjs'
 }
-
-export type PluginFn<O = unknown> = (options?: O) => unknown
-export type Pluggable<O = unknown> =
-  | PluginFn<O>
-  | [PluginFn<O>, O?]
-  | { plugin: PluginFn<O>; options?: O }
 
 export interface MarkdownOptions {
   gfm?: boolean
@@ -411,23 +408,20 @@ async function processWithUnified(
   const { default: rehypeRaw } = await import('rehype-raw')
   const { default: rehypeStringify } = await import('rehype-stringify')
 
-  const unwrap = (p: Pluggable): [PluginFn, unknown?] => {
-    if (typeof p === 'function') return [p as PluginFn, undefined]
-    if (Array.isArray(p)) return [p[0] as PluginFn, p[1]]
-    if (p && typeof p === 'object' && 'plugin' in p) return [p.plugin as PluginFn, p.options]
-    throw new Error(`invalid plugin spec: ${String(p)}`)
+  // unified's `.use([fn, opts])` interprets the array as a list of plugins
+  // (not a [plugin, opts] tuple). To pass options correctly we must call
+  // `.use(fn, opts)` w/ two args. Unwrap each Pluggable shape here.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const apply = (proc: any, p: Pluggable) => {
+    if (typeof p === 'function') return proc.use(p)
+    if (Array.isArray(p)) return proc.use(p[0] as Plugin, p[1])
+    return proc.use(p)
   }
-
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let proc: any = unified().use(remarkParse)
-  for (const spec of remarkPlugins) {
-    const [fn, opts] = unwrap(spec)
-    proc = proc.use(fn, opts as never)
-  }
+  for (const p of remarkPlugins) proc = apply(proc, p)
   proc = proc.use(remarkRehype, { allowDangerousHtml: true }).use(rehypeRaw)
-  for (const spec of rehypePlugins) {
-    const [fn, opts] = unwrap(spec)
-    proc = proc.use(fn, opts as never)
-  }
+  for (const p of rehypePlugins) proc = apply(proc, p)
   proc = proc.use(rehypeStringify, { allowDangerousHtml: true })
 
   const file = await proc.process(markdown)
