@@ -4,6 +4,9 @@ export default defineConfig({
   root: '.',
   output: { data: '.gentleduck', clean: true, html: true } as never,
   mdx: {
+    remarkPlugins: [
+      ['remark-gfm'],
+    ],
     rehypePlugins: [
       ['rehype-slug'],
       ['rehype-autolink-headings', {

@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 import { unified } from 'unified'
 import remarkParse from 'remark-parse'
-import remarkGfm from 'remark-gfm'
 import remarkRehype from 'remark-rehype'
 import rehypeRaw from 'rehype-raw'
 import rehypeStringify from 'rehype-stringify'
@@ -21,7 +20,7 @@ async function main() {
   const remarkPlugins = await loadPlugins(req.remarkPlugins ?? [])
   const rehypePlugins = await loadPlugins(req.rehypePlugins ?? [])
 
-  let proc = unified().use(remarkParse).use(remarkGfm)
+  let proc = unified().use(remarkParse)
   for (const [plugin, opts] of remarkPlugins) proc = proc.use(plugin, opts)
   proc = proc.use(remarkRehype, { allowDangerousHtml: true }).use(rehypeRaw)
   for (const [plugin, opts] of rehypePlugins) proc = proc.use(plugin, opts)
