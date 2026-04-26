@@ -2,16 +2,15 @@
   "name": "@duck/md",
   "version": "0.1.0",
   "type": "module",
-  "main": "mod.js",
-  "types": "mod.d.ts",
+  "main": "mod.ts",
+  "types": "mod.ts",
   "exports": {
     ".": {
-      "types": "./mod.d.ts",
-      "import": "./mod.js",
-      "default": "./mod.js"
+      "types": "./mod.ts",
+      "default": "./mod.ts"
     }
   },
-  "files": ["mod.js", "mod.d.ts", "mod.ts", "index.js", "index.d.ts", "*.node"],
+  "files": ["mod.ts", "index.js", "index.d.ts", "*.node"],
   "napi": {
     "name": "duck-md",
     "triples": {
@@ -20,14 +19,19 @@
     }
   },
   "scripts": {
-    "build:rs": "napi build --platform --release",
-    "build:ts": "tsc -p tsconfig.json",
-    "build": "pnpm build:rs && pnpm build:ts",
-    "build:debug": "napi build --platform && pnpm build:ts"
+    "build": "napi build --platform --release",
+    "build:debug": "napi build --platform"
+  },
+  "dependencies": {
+    "unified": "^11",
+    "remark-parse": "^11",
+    "remark-rehype": "^11",
+    "rehype-raw": "^7",
+    "rehype-stringify": "^10"
   },
   "devDependencies": {
     "@napi-rs/cli": "^2.18.4",
     "@types/node": "^22",
-    "typescript": "^5"
+    "@types/unist": "^3"
   }
 }

@@ -77,12 +77,18 @@ export interface OutputOptions {
   format?: 'esm' | 'cjs'
 }
 
+export type PluginFn<O = unknown> = (options?: O) => unknown
+export type Pluggable<O = unknown> =
+  | PluginFn<O>
+  | [PluginFn<O>, O?]
+  | { plugin: PluginFn<O>; options?: O }
+
 export interface MarkdownOptions {
   gfm?: boolean
   removeComments?: boolean
   copyLinkedFiles?: boolean
-  remarkPlugins?: unknown[]
-  rehypePlugins?: unknown[]
+  remarkPlugins?: Pluggable[]
+  rehypePlugins?: Pluggable[]
 }
 
 export interface MdxOptions extends MarkdownOptions {
@@ -394,6 +400,40 @@ export function compileMany(sources: string[]): CompileOutput[] {
   return native.compileMany(sources) as CompileOutput[]
 }
 
+async function processWithUnified(
+  markdown: string,
+  remarkPlugins: Pluggable[],
+  rehypePlugins: Pluggable[],
+): Promise<string> {
+  const { unified } = await import('unified')
+  const { default: remarkParse } = await import('remark-parse')
+  const { default: remarkRehype } = await import('remark-rehype')
+  const { default: rehypeRaw } = await import('rehype-raw')
+  const { default: rehypeStringify } = await import('rehype-stringify')
+
+  const unwrap = (p: Pluggable): [PluginFn, unknown?] => {
+    if (typeof p === 'function') return [p as PluginFn, undefined]
+    if (Array.isArray(p)) return [p[0] as PluginFn, p[1]]
+    if (p && typeof p === 'object' && 'plugin' in p) return [p.plugin as PluginFn, p.options]
+    throw new Error(`invalid plugin spec: ${String(p)}`)
+  }
+
+  let proc: any = unified().use(remarkParse)
+  for (const spec of remarkPlugins) {
+    const [fn, opts] = unwrap(spec)
+    proc = proc.use(fn, opts as never)
+  }
+  proc = proc.use(remarkRehype, { allowDangerousHtml: true }).use(rehypeRaw)
+  for (const spec of rehypePlugins) {
+    const [fn, opts] = unwrap(spec)
+    proc = proc.use(fn, opts as never)
+  }
+  proc = proc.use(rehypeStringify, { allowDangerousHtml: true })
+
+  const file = await proc.process(markdown)
+  return String(file)
+}
+
 function walkDir(dir: string): string[] {
   const out: string[] = []
   try {
@@ -464,8 +504,42 @@ export async function build(input: UserConfig): Promise<BuildReport> {
     }
   }
 
-  const report = native.build(adaptToBuildInput(input)) as BuildReport
+  // Strip JS plugin function refs from the napi input — they can't cross
+  // the FFI boundary. The in-process post-pass below applies them.
+  const stripped: UserConfig = {
+    ...input,
+    markdown: input.markdown ? { ...input.markdown, remarkPlugins: undefined, rehypePlugins: undefined } : undefined,
+    mdx: input.mdx ? { ...input.mdx, remarkPlugins: undefined, rehypePlugins: undefined } : undefined,
+  }
+  const report = native.build(adaptToBuildInput(stripped)) as BuildReport
   await applyCustomLoaders(input, report)
+
+  // In-process unified pipeline — type-safe plugin refs run here.
+  const remark: Pluggable[] = [
+    ...((input.markdown?.remarkPlugins ?? []) as Pluggable[]),
+    ...((input.mdx?.remarkPlugins ?? []) as Pluggable[]),
+  ]
+  const rehype: Pluggable[] = [
+    ...((input.markdown?.rehypePlugins ?? []) as Pluggable[]),
+    ...((input.mdx?.rehypePlugins ?? []) as Pluggable[]),
+  ]
+  if (remark.length || rehype.length) {
+    for (const c of report.collections) {
+      const records: Record<string, unknown>[] = JSON.parse(readFileSync(c.outputPath, 'utf8'))
+      for (const r of records) {
+        const md = (r.content as string | undefined) ?? ''
+        try {
+          r.html = await processWithUnified(md, remark, rehype)
+        } catch (e) {
+          report.errors.push({
+            file: (r.sourceFilePath as string) ?? c.outputPath,
+            message: `unified pipeline: ${(e as Error).message ?? e}`,
+          })
+        }
+      }
+      writeFileSync(c.outputPath, JSON.stringify(records, null, 2))
+    }
+  }
 
   const needPostprocess = collectionCallbacks.size > 0 || input.prepare || input.complete
   if (!needPostprocess) return report

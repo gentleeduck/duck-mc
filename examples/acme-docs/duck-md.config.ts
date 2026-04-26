@@ -1,19 +1,22 @@
 import { defineConfig, s } from '@duck/md'
+import remarkGfm from 'remark-gfm'
+import rehypeSlug from 'rehype-slug'
+import rehypeAutolinkHeadings from 'rehype-autolink-headings'
+// @ts-expect-error — rehype-pretty-code has no published type declarations
+import rehypePrettyCode from 'rehype-pretty-code'
 
 export default defineConfig({
   root: '.',
   output: { data: '.gentleduck', clean: true, html: true } as never,
   mdx: {
-    remarkPlugins: [
-      ['remark-gfm'],
-    ],
+    remarkPlugins: [remarkGfm],
     rehypePlugins: [
-      ['rehype-slug'],
-      ['rehype-pretty-code', {
+      rehypeSlug,
+      [rehypePrettyCode, {
         theme: { light: 'github-light', dark: 'catppuccin-mocha' },
         keepBackground: false,
       }],
-      ['rehype-autolink-headings', {
+      [rehypeAutolinkHeadings, {
         properties: { className: ['subheading-anchor'], 'aria-label': 'Link to section' },
       }],
     ],
