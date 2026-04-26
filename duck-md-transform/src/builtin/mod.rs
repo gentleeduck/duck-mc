@@ -9,8 +9,6 @@ mod disable_gfm;
 #[cfg(feature = "mermaid")]
 mod mermaid;
 mod npm_command;
-#[cfg(feature = "pretty-code")]
-mod pretty_code;
 
 pub use autolink_headings::AutolinkHeadings;
 pub use bare_url::BareUrlAutolink;
@@ -23,5 +21,3 @@ pub use disable_gfm::DisableGfm;
 #[cfg(feature = "mermaid")]
 pub use mermaid::Mermaid;
 pub use npm_command::NpmCommand;
-#[cfg(feature = "pretty-code")]
-pub use pretty_code::PrettyCode;

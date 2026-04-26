@@ -1,9 +1,26 @@
 import { createRequire } from 'node:module'
-import { readFileSync, writeFileSync, unlinkSync, readdirSync, statSync } from 'node:fs'
-import { join, relative } from 'node:path'
+import { readFileSync, writeFileSync, unlinkSync, readdirSync, statSync, existsSync } from 'node:fs'
+import { join, relative, dirname } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 const require = createRequire(import.meta.url)
 const native = require('./index.js')
+
+// Resolve sidecar entry relative to @duck/md package + propagate via env
+function resolveSidecar(): string | null {
+  const here = dirname(fileURLToPath(import.meta.url))
+  const candidates = [
+    join(here, '..', 'duck-md-sidecar', 'index.mjs'),
+    join(here, '..', '..', 'duck-md-sidecar', 'index.mjs'),
+    join(here, '..', 'node_modules', '@duck', 'md-sidecar', 'index.mjs'),
+  ]
+  for (const p of candidates) if (existsSync(p)) return p
+  return null
+}
+const SIDECAR_PATH = resolveSidecar()
+if (SIDECAR_PATH && !process.env.DUCK_MD_SIDECAR) {
+  process.env.DUCK_MD_SIDECAR = SIDECAR_PATH
+}
 
 export interface TocItem {
   title: string
@@ -128,8 +145,6 @@ interface NativeBuildInput {
   mdxMinify?: boolean
   markdownGfm?: boolean
   includeHtml?: boolean
-  themeLight?: string
-  themeDark?: string
 }
 
 const cbRegistry = new Map<number, (v: unknown) => unknown>()
@@ -368,10 +383,6 @@ function adaptToBuildInput(input: UserConfig | NativeBuildInput): NativeBuildInp
     mdxMinify: cfg.mdx?.minify,
     markdownGfm: cfg.markdown?.gfm,
     includeHtml: (cfg.output as { html?: boolean } | undefined)?.html,
-    themeLight: (cfg.mdx as { themeLight?: string } | undefined)?.themeLight
-      ?? (cfg.markdown as { themeLight?: string } | undefined)?.themeLight,
-    themeDark: (cfg.mdx as { themeDark?: string } | undefined)?.themeDark
-      ?? (cfg.markdown as { themeDark?: string } | undefined)?.themeDark,
   }
 }
 

@@ -10,7 +10,5 @@ pub use builtin::{
 pub use builtin::CopyLinkedFiles;
 #[cfg(feature = "mermaid")]
 pub use builtin::Mermaid;
-#[cfg(feature = "pretty-code")]
-pub use builtin::PrettyCode;
 pub use pipeline::{Pipeline, Transformer};
 pub use visit::{VisitFlow, Visitor, walk_mut};

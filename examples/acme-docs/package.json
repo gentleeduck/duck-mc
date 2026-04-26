@@ -15,7 +15,16 @@
     "@duck/md": "workspace:*",
     "next": "^15",
     "react": "^19",
-    "react-dom": "^19"
+    "react-dom": "^19",
+    "rehype-autolink-headings": "^7",
+    "rehype-pretty-code": "^0.14.1",
+    "rehype-slug": "^6",
+    "shiki": "^1.29.2",
+    "unified": "^11",
+    "remark-parse": "^11",
+    "remark-rehype": "^11",
+    "rehype-raw": "^7",
+    "rehype-stringify": "^10"
   },
   "devDependencies": {
     "@types/node": "^22",

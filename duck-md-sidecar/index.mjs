@@ -5,6 +5,14 @@ import remarkRehype from 'remark-rehype'
 import rehypeRaw from 'rehype-raw'
 import rehypeStringify from 'rehype-stringify'
 import { readFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
+import { pathToFileURL } from 'node:url'
+import { resolve } from 'node:path'
+
+// Resolve plugin imports relative to the user's project (process.cwd())
+// rather than this script's location, so plugins installed in the user's
+// node_modules are found.
+const userRequire = createRequire(resolve(process.cwd(), 'package.json'))
 
 async function main() {
   const stdin = readFileSync(0, 'utf8')
@@ -25,15 +33,25 @@ async function main() {
   process.stdout.write(JSON.stringify(out))
 }
 
+async function importFromUser(name) {
+  let resolved
+  try {
+    resolved = userRequire.resolve(name)
+  } catch {
+    return await import(name)
+  }
+  return await import(pathToFileURL(resolved).href)
+}
+
 async function loadPlugins(specs) {
   const out = []
   for (const spec of specs) {
     if (typeof spec === 'string') {
-      const mod = await import(spec)
+      const mod = await importFromUser(spec)
       out.push([mod.default ?? mod, undefined])
     } else if (Array.isArray(spec)) {
       const [name, opts] = spec
-      const mod = await import(name)
+      const mod = await importFromUser(name)
       out.push([mod.default ?? mod, opts])
     }
   }

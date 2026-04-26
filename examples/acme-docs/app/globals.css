@@ -53,22 +53,42 @@ main.docs pre {
   border: 1px solid var(--border);
   background: var(--code-bg);
 }
-main.docs pre.pretty-code .line { display: inline-block; min-width: 100%; }
-main.docs pre.pretty-code .line--highlighted {
+/* Shiki dual-theme via rehype-pretty-code uses CSS variables --shiki-light / --shiki-dark */
+main.docs pre[data-theme] code,
+main.docs pre[data-theme] code span {
+  color: var(--shiki-light);
+  background-color: var(--shiki-light-bg);
+}
+@media (prefers-color-scheme: dark) {
+  main.docs pre[data-theme] code,
+  main.docs pre[data-theme] code span {
+    color: var(--shiki-dark);
+    background-color: var(--shiki-dark-bg);
+  }
+}
+main.docs figure[data-rehype-pretty-code-figure] { margin: 16px 0; }
+main.docs [data-rehype-pretty-code-title] {
+  background: var(--code-bg);
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-bottom: 0;
+  border-top-left-radius: 8px;
+  border-top-right-radius: 8px;
+  font-family: ui-monospace, monospace;
+  font-size: 0.85em;
+  color: var(--muted);
+}
+main.docs [data-line] { display: inline-block; min-width: 100%; }
+main.docs [data-highlighted-line] {
   background: rgba(99, 102, 241, 0.12);
   margin: 0 -16px;
   padding: 0 16px;
   border-left: 2px solid var(--accent);
 }
-main.docs pre.pretty-code .word--highlighted {
+main.docs [data-highlighted-chars] {
   background: rgba(236, 72, 153, 0.18);
   border-radius: 3px;
   padding: 1px 3px;
-}
-main.docs [data-rehype-pretty-code-fragment] pre[data-appearance='dark'] { display: none; }
-@media (prefers-color-scheme: dark) {
-  main.docs [data-rehype-pretty-code-fragment] pre[data-appearance='light'] { display: none; }
-  main.docs [data-rehype-pretty-code-fragment] pre[data-appearance='dark'] { display: block; }
 }
 main.docs code {
   font-family: ui-monospace, monospace;

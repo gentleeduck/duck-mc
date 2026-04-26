@@ -1,8 +1,26 @@
 import { createRequire } from 'node:module';
-import { readFileSync, writeFileSync, unlinkSync, readdirSync, statSync } from 'node:fs';
-import { join, relative } from 'node:path';
+import { readFileSync, writeFileSync, unlinkSync, readdirSync, statSync, existsSync } from 'node:fs';
+import { join, relative, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 const require = createRequire(import.meta.url);
 const native = require('./index.js');
+// Resolve sidecar entry relative to @duck/md package + propagate via env
+function resolveSidecar() {
+    const here = dirname(fileURLToPath(import.meta.url));
+    const candidates = [
+        join(here, '..', 'duck-md-sidecar', 'index.mjs'),
+        join(here, '..', '..', 'duck-md-sidecar', 'index.mjs'),
+        join(here, '..', 'node_modules', '@duck', 'md-sidecar', 'index.mjs'),
+    ];
+    for (const p of candidates)
+        if (existsSync(p))
+            return p;
+    return null;
+}
+const SIDECAR_PATH = resolveSidecar();
+if (SIDECAR_PATH && !process.env.DUCK_MD_SIDECAR) {
+    process.env.DUCK_MD_SIDECAR = SIDECAR_PATH;
+}
 const cbRegistry = new Map();
 let cbId = 0;
 const registerCallback = (fn) => {
@@ -193,10 +211,6 @@ function adaptToBuildInput(input) {
         mdxMinify: cfg.mdx?.minify,
         markdownGfm: cfg.markdown?.gfm,
         includeHtml: cfg.output?.html,
-        themeLight: cfg.mdx?.themeLight
-            ?? cfg.markdown?.themeLight,
-        themeDark: cfg.mdx?.themeDark
-            ?? cfg.markdown?.themeDark,
     };
 }
 export function compile(source) {

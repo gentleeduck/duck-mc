@@ -34,10 +34,6 @@ impl Pipeline {
     {
       p = p.add(crate::Mermaid::default());
     }
-    #[cfg(feature = "pretty-code")]
-    {
-      p = p.add(crate::PrettyCode::default());
-    }
     p
   }
 

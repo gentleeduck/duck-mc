@@ -31,8 +31,6 @@ export interface BuildInput {
   mdxMinify?: boolean
   markdownGfm?: boolean
   includeHtml?: boolean
-  themeLight?: string
-  themeDark?: string
 }
 export interface BuildCollectionReport {
   name: string

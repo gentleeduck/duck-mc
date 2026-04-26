@@ -114,11 +114,5 @@ fn table_html_with_align() {
   assert!(h.contains("align=\"right\""));
 }
 
-#[test]
-fn pretty_code_html_output_used() {
-  use duck_md_transform::{Pipeline, PrettyCode};
-  let mut d = duck_md_parser::parse("```ts\nlet x = 1\n```\n");
-  Pipeline::new().add(PrettyCode::default()).run(&mut d);
-  let h = duck_md_codegen::render_html(&d);
-  assert!(h.contains("pretty-code"), "got: {}", h);
-}
+// pretty-code transformer removed — syntax highlighting now handled by
+// shiki/rehype-pretty-code via the JS sidecar plugin pipeline.

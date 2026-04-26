@@ -4,14 +4,12 @@ version.workspace = true
 edition.workspace = true
 
 [features]
-default = ["pretty-code", "mermaid", "assets"]
-pretty-code = ["dep:syntect"]
+default = ["mermaid", "assets"]
 mermaid = []
 assets = ["dep:blake3"]
 
 [dependencies]
 duck-md-parser = { path = "../duck-md-parser" }
-syntect = { workspace = true, optional = true }
 blake3 = { workspace = true, optional = true }
 serde_json.workspace = true
 
