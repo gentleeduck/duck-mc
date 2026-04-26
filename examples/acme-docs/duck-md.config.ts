@@ -1,4 +1,4 @@
-import { defineConfig, s } from '@duck/md'
+import { defineConfig, definePlugin, s } from '@duck/md'
 import remarkGfm from 'remark-gfm'
 import rehypeSlug from 'rehype-slug'
 import rehypeAutolinkHeadings from 'rehype-autolink-headings'
@@ -11,13 +11,13 @@ export default defineConfig({
     remarkPlugins: [remarkGfm],
     rehypePlugins: [
       rehypeSlug,
-      [rehypePrettyCode, {
+      definePlugin(rehypePrettyCode, {
         theme: { light: 'github-light', dark: 'catppuccin-mocha' },
         keepBackground: false,
-      }],
-      [rehypeAutolinkHeadings, {
+      }),
+      definePlugin(rehypeAutolinkHeadings, {
         properties: { className: ['subheading-anchor'], 'aria-label': 'Link to section' },
-      }],
+      }),
     ],
   },
   collections: {
