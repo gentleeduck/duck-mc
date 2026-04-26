@@ -486,11 +486,14 @@ dependencies = [
 
 [[package]]
 name = "duck-diagnostic"
-version = "0.1.0"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "be14965d1c11d66303809b8a621abb2c325d8e0a8fe74795e91433a3540b216b"
+checksum = "6f2be30ca2f0275b41f75d7989dbe369b14dfcb4d8ace872b28077e52559898b"
 dependencies = [
  "colored",
+ "serde",
+ "serde_json",
+ "unicode-width",
 ]
 
 [[package]]
@@ -1665,6 +1668,12 @@ name = "unicode-segmentation"
 version = "1.13.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9629274872b2bfaf8d66f5f15725007f635594914870f65218920345aa11aa8c"
+
+[[package]]
+name = "unicode-width"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b4ac048d71ede7ee76d585517add45da530660ef4390e49b098733c6e897f254"
 
 [[package]]
 name = "unicode-xid"

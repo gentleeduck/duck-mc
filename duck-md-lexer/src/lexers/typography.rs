@@ -131,7 +131,7 @@ impl<'engine> Lexer<'engine> {
       self.emit_diagnostic(
         Diagnostic::new(Code::UnterminatedExpression, "unterminated link")
           .with_label(Label::primary(
-            Span::new("", self.line, self.column, 1),
+            Span::from_zero_based("", self.line, self.column, 1),
             Some("link not closed before end of line".to_string()),
           ))
           .with_help("close the link with `]`"),
@@ -155,7 +155,7 @@ impl<'engine> Lexer<'engine> {
         self.emit_diagnostic(
           Diagnostic::new(Code::UnterminatedExpression, "unterminated link target")
             .with_label(Label::primary(
-              Span::new("", self.line, self.column, 1),
+              Span::from_zero_based("", self.line, self.column, 1),
               Some("link target not closed".to_string()),
             ))
             .with_help("close the target with `)`"),

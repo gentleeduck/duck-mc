@@ -65,7 +65,7 @@ impl<'engine> Lexer<'engine> {
       }
     }
 
-    let span = Span::new("index.mdx", self.line, self.column, length);
+    let span = Span::from_zero_based("index.mdx", self.line, self.column, length);
     self.tokens.push(Token::new(kind, span, self.get_current_lexeme().to_string()));
     self.start = self.current;
   }

@@ -11,3 +11,7 @@ unicode-segmentation.workspace = true
 
 [dev-dependencies]
 pretty_assertions.workspace = true
+
+[[bin]]
+name = "error"
+path = "./error-samples/error.rs"

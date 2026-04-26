@@ -145,7 +145,7 @@ impl<'engine> Lexer<'engine> {
         self.emit_diagnostic(
           Diagnostic::new(Code::UnterminatedExpression, "unterminated markdown comment")
             .with_label(Label::primary(
-              Span::new("", self.line, self.column, 1),
+              Span::from_zero_based("", self.line, self.column, 1),
               Some("markdown comment not closed before end of file".to_string()),
             ))
             .with_help("close with `*/}`"),
@@ -212,7 +212,7 @@ impl<'engine> Lexer<'engine> {
             self.emit_diagnostic(
               Diagnostic::new(Code::UnterminatedExpression, "unterminated expression")
                 .with_label(Label::primary(
-                  Span::new("", self.line, self.column, 1),
+                  Span::from_zero_based("", self.line, self.column, 1),
                   Some("expression not closed before end of line".to_string()),
                 ))
                 .with_help("close the expression with `}`"),
@@ -230,7 +230,7 @@ impl<'engine> Lexer<'engine> {
     self.emit_diagnostic(
       Diagnostic::new(Code::UnterminatedExpression, "unterminated expression")
         .with_label(Label::primary(
-          Span::new("", self.line, self.column, 1),
+          Span::from_zero_based("", self.line, self.column, 1),
           Some("reached end of file before closing `}`".to_string()),
         ))
         .with_help("close the expression with `}`"),
