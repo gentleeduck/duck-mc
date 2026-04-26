@@ -45,16 +45,16 @@ duck-md init                                      # scaffold duck-md.toml
 
 ## Workspace layout
 
-| Crate | Role |
-| ----- | ---- |
-| `duck-md-lexer`     | tokens (JSX boundary heuristic, GFM tables / strikethrough / tasklist, `<url>` autolinks) |
-| `duck-md-parser`    | parser + AST (`pub mod ast`) — AST nodes live with the parser |
-| `duck-md-codegen`   | HTML emitter + MDX body emitter (`_createMdxContent` factory string) |
+| Crate               | Role                                                                                                                                                         |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `duck-md-lexer`     | tokens (JSX boundary heuristic, GFM tables / strikethrough / tasklist, `<url>` autolinks)                                                                    |
+| `duck-md-parser`    | parser + AST (`pub mod ast`) — AST nodes live with the parser                                                                                                |
+| `duck-md-codegen`   | HTML emitter + MDX body emitter (`_createMdxContent` factory string)                                                                                         |
 | `duck-md-transform` | visitor + 5 native transformers: code_import (w/ `{1,3-5}` ranges), npm_command, bare_url, autolink_headings (`subheading-anchor`), pretty_code (line marks) |
-| `duck-md-schema`    | velite-parity schema builder + JSON descriptor compiler |
-| `duck-md-core`      | engine + loaders (matter/yaml/json) + CLI (`build`/`init`/`compile`/`dev`) |
-| `duck-md-napi`      | `@duck/md` npm package — Node FFI |
-| `duck-md-sidecar`   | `@duck/md-sidecar` — Node-side runner for community JS plugins |
+| `duck-md-schema`    | velite-parity schema builder + JSON descriptor compiler                                                                                                      |
+| `duck-md-core`      | engine + loaders (matter/yaml/json) + CLI (`build`/`init`/`compile`/`dev`)                                                                                   |
+| `duck-md-napi`      | `@duck/md` npm package — Node FFI                                                                                                                            |
+| `duck-md-sidecar`   | `@duck/md-sidecar` — Node-side runner for community JS plugins                                                                                               |
 
 ## Examples
 

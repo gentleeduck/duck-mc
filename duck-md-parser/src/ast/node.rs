@@ -52,7 +52,10 @@ pub struct ParseDiagnostic {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
-pub enum Severity { Warning, Error }
+pub enum Severity {
+  Warning,
+  Error,
+}
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Frontmatter {

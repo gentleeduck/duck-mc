@@ -1,12 +1,12 @@
-import { defineConfig } from '@duck/md'
+import { defineConfig } from "@duck/md";
 
 export default defineConfig({
-  outputDir: '.gentleduck',
+  outputDir: ".gentleduck",
   collections: [
     {
-      name: 'docs',
-      pattern: 'docs/**/*.mdx',
-      baseDir: 'content',
+      name: "docs",
+      pattern: "docs/**/*.mdx",
+      baseDir: "content",
     },
   ],
-})
+});

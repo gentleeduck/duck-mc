@@ -1,12 +1,12 @@
-import { defineConfig, s } from '@duck/md'
+import { defineConfig, s } from "@duck/md";
 
 export default defineConfig({
-  root: 'content',
-  output: { data: '.gentleduck' },
+  root: "content",
+  output: { data: ".gentleduck" },
   collections: {
     docs: {
-      name: 'doc',
-      pattern: 'docs/**/*.mdx',
+      name: "doc",
+      pattern: "docs/**/*.mdx",
       schema: s.object({
         title: s.string().max(99),
         description: s.string().optional(),
@@ -14,4 +14,4 @@ export default defineConfig({
       }),
     },
   },
-})
+});

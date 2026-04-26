@@ -1,8 +1,10 @@
-use duck_md_schema::{s, BoxSchema, Ctx, Schema};
+use duck_md_schema::{BoxSchema, Ctx, Schema, s};
 use pretty_assertions::assert_eq;
 use serde_json::json;
 
-fn ctx() -> Ctx { Ctx::empty() }
+fn ctx() -> Ctx {
+  Ctx::empty()
+}
 
 #[test]
 fn string_min_max() {
@@ -33,10 +35,7 @@ fn boolean_strict() {
 #[test]
 fn array_of_strings() {
   let schema = s::array(s::string().min(1).boxed()).min(1);
-  assert_eq!(
-    schema.parse(&json!(["a", "b"]), &ctx()).unwrap(),
-    json!(["a", "b"]),
-  );
+  assert_eq!(schema.parse(&json!(["a", "b"]), &ctx()).unwrap(), json!(["a", "b"]),);
   let err = schema.parse(&json!([""]), &ctx()).unwrap_err();
   assert_eq!(err.path, "[0]");
 }
@@ -53,23 +52,17 @@ fn object_with_optional_and_default() {
   assert_eq!(out["draft"], false);
   assert!(out.get("tags").is_none()); // optional + omitted → not present
 
-  let out = schema
-    .parse(&json!({"title": "Hi", "tags": ["a"]}), &ctx())
-    .unwrap();
+  let out = schema.parse(&json!({"title": "Hi", "tags": ["a"]}), &ctx()).unwrap();
   assert_eq!(out["tags"], json!(["a"]));
 }
 
 #[test]
 fn nested_object_path_in_error() {
-  let schema = s::object(vec![
-    (
-      "author".into(),
-      s::object(vec![("name".into(), s::string().min(1).boxed())]).boxed(),
-    ),
-  ]);
-  let err = schema
-    .parse(&json!({"author": {"name": ""}}), &ctx())
-    .unwrap_err();
+  let schema = s::object(vec![(
+    "author".into(),
+    s::object(vec![("name".into(), s::string().min(1).boxed())]).boxed(),
+  )]);
+  let err = schema.parse(&json!({"author": {"name": ""}}), &ctx()).unwrap_err();
   assert_eq!(err.path, "author.name");
 }
 
@@ -88,12 +81,9 @@ fn enum_and_literal() {
 fn refine_and_transform() {
   let schema = s::transform(
     s::refine(s::string().boxed(), |v| {
-      if v.as_str().unwrap().contains(' ') {
-        Err("must not contain space".into())
-      } else {
-        Ok(())
-      }
-    }).boxed(),
+      if v.as_str().unwrap().contains(' ') { Err("must not contain space".into()) } else { Ok(()) }
+    })
+    .boxed(),
     |v| serde_json::Value::String(v.as_str().unwrap().to_uppercase()),
   );
   assert_eq!(schema.parse(&json!("hello"), &ctx()).unwrap(), json!("HELLO"));
@@ -111,10 +101,7 @@ fn string_regex_with_lookbehind() {
 #[test]
 fn isodate_validates() {
   let schema = s::isodate();
-  assert_eq!(
-    schema.parse(&json!("2024-01-01"), &ctx()).unwrap(),
-    json!("2024-01-01"),
-  );
+  assert_eq!(schema.parse(&json!("2024-01-01"), &ctx()).unwrap(), json!("2024-01-01"),);
   assert_eq!(
     schema.parse(&json!("2024-01-01T12:34:56Z"), &ctx()).unwrap(),
     json!("2024-01-01T12:34:56Z"),

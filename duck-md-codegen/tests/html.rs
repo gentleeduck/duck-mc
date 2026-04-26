@@ -17,7 +17,10 @@ fn h1_with_id() {
     children: vec![Node::Heading(Heading {
       level: 1,
       id: "hello".into(),
-      children: vec![Node::Text(Text { value: "Hello".into(), span: duck_md_parser::ast::default_span() })],
+      children: vec![Node::Text(Text {
+        value: "Hello".into(),
+        span: duck_md_parser::ast::default_span(),
+      })],
       span: duck_md_parser::ast::default_span(),
     })],
   };

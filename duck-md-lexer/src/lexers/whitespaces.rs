@@ -32,10 +32,6 @@ impl<'engine> Lexer<'engine> {
     }
 
     let total = additional + 1;
-    if total >= 2 {
-      self.emit(TokenKind::HardBreak)
-    } else {
-      self.emit(TokenKind::SoftBreak)
-    }
+    if total >= 2 { self.emit(TokenKind::HardBreak) } else { self.emit(TokenKind::SoftBreak) }
   }
 }

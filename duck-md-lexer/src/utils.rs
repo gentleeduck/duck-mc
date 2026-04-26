@@ -20,7 +20,9 @@ impl<'engine> Lexer<'engine> {
       '~' if self.peek() == Some('~') => self.lex_strike(),
       '<' if self.peek() == Some('!') => self.lex_comment(),
       '<' if self.is_angle_autolink() => self.lex_angle_autolink(),
-      '<' if matches!(self.peek(), Some(c) if c.is_ascii_alphabetic() || c == '/' || c == '>') => self.lex_jsx_tag(),
+      '<' if matches!(self.peek(), Some(c) if c.is_ascii_alphabetic() || c == '/' || c == '>') => {
+        self.lex_jsx_tag()
+      },
       '<' => self.lex_text(),
       '>' => self.emit(TokenKind::BlockQuote),
       '=' => self.emit(TokenKind::Eq),
@@ -45,11 +47,15 @@ impl<'engine> Lexer<'engine> {
     for (i, &b) in bytes.iter().enumerate() {
       if b == b'>' {
         let inner = &rest[..i];
-        if inner.contains("://") && inner.len() >= 5 { return true; }
+        if inner.contains("://") && inner.len() >= 5 {
+          return true;
+        }
         if let Some(at) = inner.find('@') {
           let (local, domain) = inner.split_at(at);
           let domain = &domain[1..];
-          if !local.is_empty() && domain.contains('.') && !domain.starts_with('.')
+          if !local.is_empty()
+            && domain.contains('.')
+            && !domain.starts_with('.')
             && !domain.ends_with('.')
             && local.chars().all(|c| c.is_ascii_alphanumeric() || ".+-_".contains(c))
             && domain.chars().all(|c| c.is_ascii_alphanumeric() || ".-".contains(c))
@@ -68,7 +74,9 @@ impl<'engine> Lexer<'engine> {
 
   pub(crate) fn lex_angle_autolink(&mut self) {
     while let Some(c) = self.get_current_char() {
-      if c == '>' { break; }
+      if c == '>' {
+        break;
+      }
       self.advance();
     }
     if self.get_current_char() == Some('>') {

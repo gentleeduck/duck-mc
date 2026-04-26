@@ -4,10 +4,10 @@ const SAMPLES: &[&str] = &[
   "",
   " ",
   "\n\n\n",
-  "---\nbroken: \n  - [ unclosed\n",        // bad yaml
-  "import { from",                          // truncated import
-  "<Foo bar=",                              // bad jsx attr
-  "<Foo>",                                  // unclosed jsx
+  "---\nbroken: \n  - [ unclosed\n", // bad yaml
+  "import { from",                   // truncated import
+  "<Foo bar=",                       // bad jsx attr
+  "<Foo>",                           // unclosed jsx
   "**bold without close",
   "`code without close",
   "```rust\nno closing fence",
@@ -19,11 +19,11 @@ const SAMPLES: &[&str] = &[
   "<>frag without close",
   "## heading then unclosed jsx <Foo\n",
   "💀💩🚀\n# emoji heading\n",
-  "\u{0000}\u{0001}\u{0002}",               // control chars
-  "a < b < c\n",                            // ambiguous lt
-  "{{{{{{{{",                               // many opens
-  "}}}}}}}}}",                              // many closes
-  "<><><><></><><><><>",                    // chained frags
+  "\u{0000}\u{0001}\u{0002}", // control chars
+  "a < b < c\n",              // ambiguous lt
+  "{{{{{{{{",                 // many opens
+  "}}}}}}}}}",                // many closes
+  "<><><><></><><><><>",      // chained frags
 ];
 
 #[test]

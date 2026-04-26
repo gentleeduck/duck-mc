@@ -10,54 +10,54 @@ the import and you're done.
 
 ## What works the same
 
-| velite                          | @duck/md           |
-| ------------------------------- | ------------------ |
-| `defineConfig({...})`           | identical          |
-| `output.data` / `output.clean`  | identical          |
-| `output.assets` / `output.base` / `output.name` template | identical |
-| `collections.<key>.{name,pattern,schema,single}` | identical |
-| `s.string()`, `.max(N)`, `.min(N)`, `.regex(p)` | identical |
-| `s.number()`, `s.boolean()`, `s.array()`, `s.object()` | identical |
-| `s.enum([...])`, `s.literal(v)`, `s.union([...])` | identical |
-| `s.optional()`, `.nullable()`, `.default(v)` | identical |
-| `s.markdown()`, `s.mdx()`, `s.raw()`, `s.toc()`, `s.metadata()`, `s.excerpt()` | identical |
-| `s.path()`, `s.slug()`, `s.unique()`, `s.isodate()` | identical |
-| `s.file()`, `s.image()`         | identical (returns `{src,width,height}`; blur deferred) |
-| `--strict`, `--clean`, `--watch` (`dev`) | identical |
-| `.velite/` output (or any path you point at) | identical |
-| `index.js` + typed `index.d.ts` | identical          |
+| velite                                                                         | @duck/md                                                |
+| ------------------------------------------------------------------------------ | ------------------------------------------------------- |
+| `defineConfig({...})`                                                          | identical                                               |
+| `output.data` / `output.clean`                                                 | identical                                               |
+| `output.assets` / `output.base` / `output.name` template                       | identical                                               |
+| `collections.<key>.{name,pattern,schema,single}`                               | identical                                               |
+| `s.string()`, `.max(N)`, `.min(N)`, `.regex(p)`                                | identical                                               |
+| `s.number()`, `s.boolean()`, `s.array()`, `s.object()`                         | identical                                               |
+| `s.enum([...])`, `s.literal(v)`, `s.union([...])`                              | identical                                               |
+| `s.optional()`, `.nullable()`, `.default(v)`                                   | identical                                               |
+| `s.markdown()`, `s.mdx()`, `s.raw()`, `s.toc()`, `s.metadata()`, `s.excerpt()` | identical                                               |
+| `s.path()`, `s.slug()`, `s.unique()`, `s.isodate()`                            | identical                                               |
+| `s.file()`, `s.image()`                                                        | identical (returns `{src,width,height}`; blur deferred) |
+| `--strict`, `--clean`, `--watch` (`dev`)                                       | identical                                               |
+| `.velite/` output (or any path you point at)                                   | identical                                               |
+| `index.js` + typed `index.d.ts`                                                | identical                                               |
 
 ## Differences to know
 
-| Area                        | velite                                    | @duck/md                            |
-| --------------------------- | ----------------------------------------- | ----------------------------------- |
-| Image blur dataURL          | base64 webp via sharp                     | base64 webp via `image` crate ✅     |
-| Word-level marks `/word/`   | yes                                       | yes ✅                              |
-| Line marks `{1,3-5}`        | yes                                       | yes ✅                              |
-| Dual themes                 | shiki paired output                       | syntect paired output ✅            |
-| Mermaid                     | headless Chromium                         | shells out to `mmdc` if on PATH ✅  |
-| `<ComponentSource path=>`   | reads + emits tsx code block              | same ✅                             |
-| `<ComponentPreview name=>`  | registry lookup + tsx                     | yes ✅ (accepts JSON registry index)|
-| Indented code blocks        | yes                                       | yes ✅                              |
-| `<email>` autolinks         | yes                                       | yes ✅ (auto-prefixes mailto:)      |
-| `.transform()` / `.refine()` (JS callback) | runs during JS build      | yes ✅ (FFI bridge via callback registry) |
-| `s.regex()` enforcement     | yes                                       | yes ✅ (regex crate)                |
-| `s.record / tuple / intersection / discriminatedUnion` | yes (zod fork) | yes ✅                       |
-| `s.coerce.{string,number,boolean,date}` | yes                          | yes ✅                              |
-| `.superRefine()`            | yes                                       | yes ✅                              |
-| `prepare()` / `complete()` hooks | runs (async)                        | runs (async via JS adapter) ✅      |
-| Custom JS plugins (remark/rehype) | run inline                          | spawns `duck-md-sidecar` ✅         |
-| Watch mode                  | chokidar                                  | notify ✅                           |
-| Per-file compile parallelism | sequential                               | rayon parallel ✅                   |
-| `build()` return            | `Promise<Report>`                         | `Promise<Report>` ✅                |
-| `markdown.copyLinkedFiles`  | yes                                       | yes ✅ (asset hash + rewrite)       |
-| `mdx.outputFormat: 'module'`| yes                                       | yes ✅ (ESM module wrap)            |
-| `mdx.minify`                | yes (terser)                              | yes ✅ (whitespace collapse)        |
-| `markdown.gfm: false` toggle | yes                                      | yes ✅ (DisableGfm post-pass)       |
-| Grapheme-aware columns      | n/a                                       | yes ✅ (unicode-segmentation)       |
-| Parser error recovery       | yes (vfile-reporter messages)             | yes ✅ (Document.diagnostics)       |
-| Multi-platform binaries     | n/a (pure JS)                             | 7 targets via napi-rs ✅            |
-| Fuzz targets                | n/a                                       | yes ✅ (cargo-fuzz)                 |
+| Area                                                   | velite                        | @duck/md                                  |
+| ------------------------------------------------------ | ----------------------------- | ----------------------------------------- |
+| Image blur dataURL                                     | base64 webp via sharp         | base64 webp via `image` crate ✅          |
+| Word-level marks `/word/`                              | yes                           | yes ✅                                    |
+| Line marks `{1,3-5}`                                   | yes                           | yes ✅                                    |
+| Dual themes                                            | shiki paired output           | syntect paired output ✅                  |
+| Mermaid                                                | headless Chromium             | shells out to `mmdc` if on PATH ✅        |
+| `<ComponentSource path=>`                              | reads + emits tsx code block  | same ✅                                   |
+| `<ComponentPreview name=>`                             | registry lookup + tsx         | yes ✅ (accepts JSON registry index)      |
+| Indented code blocks                                   | yes                           | yes ✅                                    |
+| `<email>` autolinks                                    | yes                           | yes ✅ (auto-prefixes mailto:)            |
+| `.transform()` / `.refine()` (JS callback)             | runs during JS build          | yes ✅ (FFI bridge via callback registry) |
+| `s.regex()` enforcement                                | yes                           | yes ✅ (regex crate)                      |
+| `s.record / tuple / intersection / discriminatedUnion` | yes (zod fork)                | yes ✅                                    |
+| `s.coerce.{string,number,boolean,date}`                | yes                           | yes ✅                                    |
+| `.superRefine()`                                       | yes                           | yes ✅                                    |
+| `prepare()` / `complete()` hooks                       | runs (async)                  | runs (async via JS adapter) ✅            |
+| Custom JS plugins (remark/rehype)                      | run inline                    | spawns `duck-md-sidecar` ✅               |
+| Watch mode                                             | chokidar                      | notify ✅                                 |
+| Per-file compile parallelism                           | sequential                    | rayon parallel ✅                         |
+| `build()` return                                       | `Promise<Report>`             | `Promise<Report>` ✅                      |
+| `markdown.copyLinkedFiles`                             | yes                           | yes ✅ (asset hash + rewrite)             |
+| `mdx.outputFormat: 'module'`                           | yes                           | yes ✅ (ESM module wrap)                  |
+| `mdx.minify`                                           | yes (terser)                  | yes ✅ (whitespace collapse)              |
+| `markdown.gfm: false` toggle                           | yes                           | yes ✅ (DisableGfm post-pass)             |
+| Grapheme-aware columns                                 | n/a                           | yes ✅ (unicode-segmentation)             |
+| Parser error recovery                                  | yes (vfile-reporter messages) | yes ✅ (Document.diagnostics)             |
+| Multi-platform binaries                                | n/a (pure JS)                 | 7 targets via napi-rs ✅                  |
+| Fuzz targets                                           | n/a                           | yes ✅ (cargo-fuzz)                       |
 
 ## Remaining limitations
 

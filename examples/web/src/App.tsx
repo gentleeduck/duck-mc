@@ -1,18 +1,18 @@
-import { useMemo, useState } from 'react'
-import docs from '../.gentleduck/docs.json'
-import { MdxContent } from './MdxContent'
-import { Callout } from './components/Callout'
+import { useMemo, useState } from "react";
+import docs from "../.gentleduck/docs.json";
+import { MdxContent } from "./MdxContent";
+import { Callout } from "./components/Callout";
 
-type DocRecord = (typeof docs)[number]
+type DocRecord = (typeof docs)[number];
 
-const components = { Callout }
+const components = { Callout };
 
 export function App() {
-  const [slug, setSlug] = useState<string>(docs[0]?.permalink ?? '')
+  const [slug, setSlug] = useState<string>(docs[0]?.permalink ?? "");
   const doc = useMemo<DocRecord | undefined>(
     () => docs.find((d) => d.permalink === slug),
     [slug],
-  )
+  );
 
   return (
     <div className="layout">
@@ -22,7 +22,7 @@ export function App() {
           {docs.map((d) => (
             <li key={d.permalink}>
               <button
-                className={d.permalink === slug ? 'active' : ''}
+                className={d.permalink === slug ? "active" : ""}
                 onClick={() => setSlug(d.permalink)}
               >
                 {(d as { title?: string }).title ?? d.permalink}
@@ -33,15 +33,15 @@ export function App() {
       </aside>
       <main>{doc ? <DocView doc={doc} /> : <p>no doc</p>}</main>
     </div>
-  )
+  );
 }
 
 function DocView({ doc }: { doc: DocRecord }) {
   const fm = doc as DocRecord & {
-    title?: string
-    description?: string
-    tags?: string[]
-  }
+    title?: string;
+    description?: string;
+    tags?: string[];
+  };
   return (
     <article>
       <header>
@@ -68,10 +68,10 @@ function DocView({ doc }: { doc: DocRecord }) {
 
       <MdxContent code={doc.body} components={components} />
     </article>
-  )
+  );
 }
 
-function Toc({ items }: { items: DocRecord['toc'] }) {
+function Toc({ items }: { items: DocRecord["toc"] }) {
   return (
     <ul>
       {items.map((it) => (
@@ -81,5 +81,5 @@ function Toc({ items }: { items: DocRecord['toc'] }) {
         </li>
       ))}
     </ul>
-  )
+  );
 }

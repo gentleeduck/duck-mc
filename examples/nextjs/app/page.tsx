@@ -1,5 +1,5 @@
-import docs from '../.gentleduck/doc.json'
-import Link from 'next/link'
+import docs from "../.gentleduck/doc.json";
+import Link from "next/link";
 
 export default function Home() {
   return (
@@ -13,5 +13,5 @@ export default function Home() {
         ))}
       </ul>
     </main>
-  )
+  );
 }

@@ -15,10 +15,7 @@ pub struct MatterLoader;
 
 impl Loader for MatterLoader {
   fn test(&self, path: &Path) -> bool {
-    matches!(
-      path.extension().and_then(|s| s.to_str()),
-      Some("md") | Some("mdx") | Some("markdown")
-    )
+    matches!(path.extension().and_then(|s| s.to_str()), Some("md") | Some("mdx") | Some("markdown"))
   }
 
   fn load(&self, _path: &Path, source: &str) -> Result<Loaded, String> {
@@ -43,8 +40,8 @@ impl Loader for YamlLoader {
   }
 
   fn load(&self, _path: &Path, source: &str) -> Result<Loaded, String> {
-    let v: serde_yaml::Value = serde_yaml::from_str(source)
-      .map_err(|e| format!("yaml parse: {e}"))?;
+    let v: serde_yaml::Value =
+      serde_yaml::from_str(source).map_err(|e| format!("yaml parse: {e}"))?;
     let json = serde_json::to_value(v).map_err(|e| format!("yaml→json: {e}"))?;
     Ok(Loaded { data: json, content: source.to_string() })
   }
@@ -69,13 +66,7 @@ pub struct LoaderRegistry {
 
 impl LoaderRegistry {
   pub fn with_defaults() -> Self {
-    Self {
-      loaders: vec![
-        Box::new(MatterLoader),
-        Box::new(YamlLoader),
-        Box::new(JsonLoader),
-      ],
-    }
+    Self { loaders: vec![Box::new(MatterLoader), Box::new(YamlLoader), Box::new(JsonLoader)] }
   }
 
   pub fn pick(&self, path: &Path) -> Option<&dyn Loader> {

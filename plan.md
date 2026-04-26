@@ -5,20 +5,22 @@
 ## What is MDX exactly
 
 MDX is a superset of Markdown. It adds:
+
 1. JSX elements inside Markdown (`<Component prop="value" />`)
 2. JSX expressions inside Markdown (`{variable}`, `{2 + 2}`)
 3. Import/export statements at the top level
 4. Full JS expressions as children of JSX
 
 Example:
+
 ```mdx
 ---
 title: Hello
 ---
 
-import { Button } from './Button'
+import { Button } from "./Button";
 
-export const name = "world"
+export const name = "world";
 
 # Hello {name}
 
@@ -27,7 +29,8 @@ Some **bold** text with a <Button color="red">click me</Button> inline.
 <MyCard>
   ## Nested Markdown
 
-  This is markdown _inside_ a JSX component.
+This is markdown _inside_ a JSX component.
+
 </MyCard>
 ```
 
@@ -46,6 +49,7 @@ EXPRESSION MODE → balanced } found → switch back to MARKDOWN MODE
 ```
 
 The tricky parts:
+
 - JSX boundary detection (when does a `<` start JSX vs HTML?)
 - Nested JSX (JSX inside JSX)
 - Markdown inside JSX children
@@ -145,7 +149,7 @@ pub enum JsxAttrValue {
 
 ### Lexer State Machine
 
-```rust
+````rust
 #[derive(Debug, Clone, PartialEq)]
 enum LexerMode {
     Normal,           // top-level MDX
@@ -166,11 +170,12 @@ pub struct Lexer {
     mode_stack: Vec<LexerMode>,   // for nested modes
     tokens: Vec<Token>,
 }
-```
+````
 
 ### Key Lexer Rules
 
 **JSX detection** - a `<` starts JSX only if:
+
 - The next char is an uppercase letter (components) OR
 - It's a known HTML void element in a JSX context OR
 - We are already inside JSX children
@@ -184,6 +189,7 @@ fn is_jsx_start(&self) -> bool {
 ```
 
 **Expression detection** - a `{` starts an expression:
+
 ```rust
 fn is_expression_start(&self) -> bool {
     self.peek() == '{'
@@ -191,6 +197,7 @@ fn is_expression_start(&self) -> bool {
 ```
 
 **Frontmatter detection** - only at the very start of the file:
+
 ```rust
 fn is_frontmatter_start(&self) -> bool {
     self.pos == 0 && self.input.starts_with(&['-', '-', '-'])
@@ -684,13 +691,13 @@ Do NOT skip steps or jump ahead.
 
 ## Timeline
 
-| Step | What | Time |
-|---|---|---|
-| 1-6 | Full lexer with all token types | 2 weeks |
-| 7-12 | Full parser with AST | 2-3 weeks |
-| 13-16 | Codegen + errors | 1 week |
-| 17 | Integration tests + edge cases | 1 week |
-| Total | | 6-7 weeks |
+| Step  | What                            | Time      |
+| ----- | ------------------------------- | --------- |
+| 1-6   | Full lexer with all token types | 2 weeks   |
+| 7-12  | Full parser with AST            | 2-3 weeks |
+| 13-16 | Codegen + errors                | 1 week    |
+| 17    | Integration tests + edge cases  | 1 week    |
+| Total |                                 | 6-7 weeks |
 
 This is realistic for a medium Rust dev working on it as a side project.
 

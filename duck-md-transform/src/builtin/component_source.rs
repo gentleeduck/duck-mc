@@ -15,14 +15,20 @@ impl ComponentSource {
 }
 
 impl Transformer for ComponentSource {
-  fn name(&self) -> &str { "component-source" }
+  fn name(&self) -> &str {
+    "component-source"
+  }
   fn transform(&self, doc: &mut Document) {
     let mut v = Apply { base_dir: self.base_dir.clone() };
-    for c in &mut doc.children { walk_mut(c, &mut v); }
+    for c in &mut doc.children {
+      walk_mut(c, &mut v);
+    }
   }
 }
 
-struct Apply { base_dir: Option<PathBuf> }
+struct Apply {
+  base_dir: Option<PathBuf>,
+}
 
 impl Visitor for Apply {
   fn visit_node(&mut self, node: &mut Node) -> VisitFlow {

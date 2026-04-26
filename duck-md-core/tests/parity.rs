@@ -12,11 +12,7 @@ use std::path::PathBuf;
 
 fn fixtures_dir() -> PathBuf {
   let manifest = std::env!("CARGO_MANIFEST_DIR");
-  PathBuf::from(manifest)
-    .join("..")
-    .join("tests")
-    .join("fixtures")
-    .join("velite-parity")
+  PathBuf::from(manifest).join("..").join("tests").join("fixtures").join("velite-parity")
 }
 
 fn read_fixture(name: &str) -> String {
@@ -33,9 +29,7 @@ fn live_fixtures() -> Vec<PathBuf> {
     .filter(|p| p.extension().is_some_and(|x| x == "mdx"))
     .filter(|p| {
       // skip *.known_fail.mdx
-      !p.file_name()
-        .and_then(|n| n.to_str())
-        .is_some_and(|s| s.ends_with(".known_fail.mdx"))
+      !p.file_name().and_then(|n| n.to_str()).is_some_and(|s| s.ends_with(".known_fail.mdx"))
     })
     .collect()
 }
@@ -49,11 +43,7 @@ fn try_compile(src: &str) -> Option<duck_md::CompileOutput> {
 #[test]
 fn fixtures_dir_exists() {
   let p = fixtures_dir();
-  assert!(
-    p.exists(),
-    "fixtures dir not found at {} — vendoring step missing?",
-    p.display()
-  );
+  assert!(p.exists(), "fixtures dir not found at {} — vendoring step missing?", p.display());
   // At least one fixture should be present.
   assert!(!live_fixtures().is_empty(), "no fixtures vendored");
 }
@@ -86,10 +76,7 @@ fn fixture_one_compiles_without_panic() {
     }
     at_least_one_ok = true;
   }
-  assert!(
-    at_least_one_ok,
-    "no fixture passed all sanity assertions — see FIXTURE_* lines above"
-  );
+  assert!(at_least_one_ok, "no fixture passed all sanity assertions — see FIXTURE_* lines above");
 }
 
 #[test]
@@ -107,10 +94,7 @@ fn fixture_with_frontmatter_extracts_title() {
       break;
     }
   }
-  assert!(
-    found_title,
-    "no fixture has a title in its frontmatter — vendor a better one"
-  );
+  assert!(found_title, "no fixture has a title in its frontmatter — vendor a better one");
 }
 
 #[test]

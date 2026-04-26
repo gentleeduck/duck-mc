@@ -25,7 +25,7 @@ impl<'engine> Lexer<'engine> {
 
     // After the keyword, the next char must be a space, tab, or `{`.
     match self.peek() {
-      Some(' ') | Some('\t') | Some('{') => {}
+      Some(' ') | Some('\t') | Some('{') => {},
       _ => return self.lex_text(),
     }
 

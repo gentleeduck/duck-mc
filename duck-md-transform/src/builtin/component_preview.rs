@@ -11,22 +11,23 @@ pub struct ComponentPreview {
 
 impl ComponentPreview {
   pub fn new(registry_index: PathBuf, registry_root: PathBuf) -> Self {
-    Self {
-      registry_index: Some(registry_index),
-      registry_root: Some(registry_root),
-    }
+    Self { registry_index: Some(registry_index), registry_root: Some(registry_root) }
   }
 }
 
 impl Transformer for ComponentPreview {
-  fn name(&self) -> &str { "component-preview" }
+  fn name(&self) -> &str {
+    "component-preview"
+  }
   fn transform(&self, doc: &mut Document) {
     let Some(idx) = &self.registry_index else { return };
     let Some(root) = &self.registry_root else { return };
     let Ok(raw) = std::fs::read_to_string(idx) else { return };
     let Ok(index): Result<serde_json::Value, _> = serde_json::from_str(&raw) else { return };
     let mut v = Apply { index, root: root.clone() };
-    for c in &mut doc.children { walk_mut(c, &mut v); }
+    for c in &mut doc.children {
+      walk_mut(c, &mut v);
+    }
   }
 }
 

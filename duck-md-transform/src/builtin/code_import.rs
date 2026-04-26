@@ -73,10 +73,14 @@ fn parse_ranges(spec: &str) -> Vec<(usize, usize)> {
     let token = token.trim();
     if let Some((a, b)) = token.split_once('-') {
       if let (Ok(a), Ok(b)) = (a.trim().parse::<usize>(), b.trim().parse::<usize>()) {
-        if a >= 1 && b >= a { out.push((a, b)); }
+        if a >= 1 && b >= a {
+          out.push((a, b));
+        }
       }
     } else if let Ok(n) = token.parse::<usize>() {
-      if n >= 1 { out.push((n, n)); }
+      if n >= 1 {
+        out.push((n, n));
+      }
     }
   }
   out

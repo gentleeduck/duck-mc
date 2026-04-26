@@ -1,7 +1,7 @@
-import { build } from '@duck/md'
-import config from '../duck-md.config.js'
+import { build } from "@duck/md";
+import config from "../duck-md.config.js";
 
-const report = await build(config)
+const report = await build(config);
 for (const c of report.collections) {
-  console.log(`✓ ${c.name} — ${c.records} records → ${c.outputPath}`)
+  console.log(`✓ ${c.name} — ${c.records} records → ${c.outputPath}`);
 }

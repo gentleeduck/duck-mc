@@ -153,9 +153,7 @@ impl<'engine> Lexer<'engine> {
         return;
       }
 
-      if self.peek() == Some('*')
-        && self.peek_next() == Some('/')
-      {
+      if self.peek() == Some('*') && self.peek_next() == Some('/') {
         let content_end = self.current;
         self.advance(); // *
         self.advance(); // /

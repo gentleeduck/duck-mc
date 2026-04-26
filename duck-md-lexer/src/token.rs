@@ -72,7 +72,7 @@ pub enum TokenKind {
   HTMLCommentStart, // <!--
   HTMLCommentEnd,   //  -->
 
-  Autolink,         // <https://example.com>
+  Autolink, // <https://example.com>
 
   MarkdownCommentStart, // {/*
   MarkdownCommentEnd,   //  */}

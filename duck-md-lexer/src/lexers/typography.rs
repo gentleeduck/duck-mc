@@ -28,7 +28,8 @@ impl<'engine> Lexer<'engine> {
         if let Some(nx) = self.peek_next()
           && matches!(
             nx,
-            '\\' | '*'
+            '\\'
+              | '*'
               | '_'
               | '`'
               | '<'
@@ -177,9 +178,7 @@ impl<'engine> Lexer<'engine> {
   pub(crate) fn lex_comment(&mut self) {
     // caller consumed '<', dispatch confirmed peek() == '!'
     // check for <!-- without advancing, so we can fall back cleanly
-    if !(self.peek() == Some('!')
-      && self.peek_next() == Some('-'))
-    {
+    if !(self.peek() == Some('!') && self.peek_next() == Some('-')) {
       return self.lex_text();
     }
 

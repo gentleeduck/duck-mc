@@ -5,11 +5,11 @@ that `duck-md` can be smoke-tested against real input.
 
 ## Sources
 
-| Fixture | Source path | Lines |
-|---------|-------------|-------|
-| `mdx.mdx` | `@duck-ui/apps/duck/content/docs/mdx.mdx` | 117 |
-| `skills.mdx` | `@duck-ui/apps/duck/content/docs/skills.mdx` | 96 |
-| `whoiam.mdx` | `@duck-ui/apps/duck/content/docs/whoiam.mdx` | 141 |
+| Fixture      | Source path                                  | Lines |
+| ------------ | -------------------------------------------- | ----- |
+| `mdx.mdx`    | `@duck-ui/apps/duck/content/docs/mdx.mdx`    | 117   |
+| `skills.mdx` | `@duck-ui/apps/duck/content/docs/skills.mdx` | 96    |
+| `whoiam.mdx` | `@duck-ui/apps/duck/content/docs/whoiam.mdx` | 141   |
 
 Absolute origin (on the machine the fixtures were vendored from):
 `/run/media/wildduck/duck/wildduck/@duck/@duck-ui/apps/duck/content/docs/`

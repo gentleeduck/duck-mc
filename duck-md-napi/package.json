@@ -10,7 +10,12 @@
       "default": "./mod.ts"
     }
   },
-  "files": ["mod.ts", "index.js", "index.d.ts", "*.node"],
+  "files": [
+    "mod.ts",
+    "index.js",
+    "index.d.ts",
+    "*.node"
+  ],
   "napi": {
     "name": "duck-md",
     "triples": {

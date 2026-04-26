@@ -10,24 +10,24 @@ Source of truth for what `duck-md` must reproduce. Read this before designing sc
 
 ## A. Output schema per docs item
 
-| Field | Type | Derivation |
-|---|---|---|
-| `body` | string (compiled MDX function source — uses `arguments[0]`, `Fragment`, `jsx`, `jsxs`) | `s.mdx()` |
-| `component` | bool | `s.boolean().default(false)` from frontmatter |
-| `content` | string (raw markdown) | `s.markdown()` |
-| `description` | string | `s.string()` from frontmatter |
-| `excerpt` | string (~260 char) | `s.excerpt()` |
-| `links` | `{ api?, doc? }` optional | `s.object({...}).optional()` |
-| `metadata` | `{ readingTime, wordCount }` | `s.metadata()` |
-| `title` | string ≤99 | `s.string().max(99)` |
-| `toc` | nested `{title,url,items[]}` | `s.toc()` then `cleanTocItems` |
-| `contentType` | string | `path.split('.').pop()` |
-| `flattenedPath` | string | second-to-last seg minus `.mdx` |
-| `permalink` | string | `path.replace(/^.*docs\//,'').replace(/\.mdx$/,'')` |
-| `slug` | string | `'docs/' + permalink` or `'docs'` |
-| `sourceFileDir` | string | last 2 dir segs joined |
-| `sourceFileName` | string | basename |
-| `sourceFilePath` | string | `path` arg from velite (observed empty in current build — quirk to mirror) |
+| Field            | Type                                                                                   | Derivation                                                                 |
+| ---------------- | -------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| `body`           | string (compiled MDX function source — uses `arguments[0]`, `Fragment`, `jsx`, `jsxs`) | `s.mdx()`                                                                  |
+| `component`      | bool                                                                                   | `s.boolean().default(false)` from frontmatter                              |
+| `content`        | string (raw markdown)                                                                  | `s.markdown()`                                                             |
+| `description`    | string                                                                                 | `s.string()` from frontmatter                                              |
+| `excerpt`        | string (~260 char)                                                                     | `s.excerpt()`                                                              |
+| `links`          | `{ api?, doc? }` optional                                                              | `s.object({...}).optional()`                                               |
+| `metadata`       | `{ readingTime, wordCount }`                                                           | `s.metadata()`                                                             |
+| `title`          | string ≤99                                                                             | `s.string().max(99)`                                                       |
+| `toc`            | nested `{title,url,items[]}`                                                           | `s.toc()` then `cleanTocItems`                                             |
+| `contentType`    | string                                                                                 | `path.split('.').pop()`                                                    |
+| `flattenedPath`  | string                                                                                 | second-to-last seg minus `.mdx`                                            |
+| `permalink`      | string                                                                                 | `path.replace(/^.*docs\//,'').replace(/\.mdx$/,'')`                        |
+| `slug`           | string                                                                                 | `'docs/' + permalink` or `'docs'`                                          |
+| `sourceFileDir`  | string                                                                                 | last 2 dir segs joined                                                     |
+| `sourceFileName` | string                                                                                 | basename                                                                   |
+| `sourceFilePath` | string                                                                                 | `path` arg from velite (observed empty in current build — quirk to mirror) |
 
 ## B. Velite primitives in use
 
@@ -42,12 +42,14 @@ Source of truth for what `duck-md` must reproduce. Read this before designing sc
 ## C. Pipeline order
 
 Remark (mdast):
+
 1. `...remarkPluginsBefore`
 2. `remark-gfm`
 3. `remark-code-import` (resolves `file=...` meta, inlines)
 4. `...remarkPlugins`
 
 Rehype (hast), in `apps/duck/velite.config.ts` order:
+
 1. `rehypeComponent` (local, before)
 2. `rehype-slug`
 3. `rehypeMetadataPlugin` (local)
@@ -74,6 +76,7 @@ Single `docs` collection. Default pattern `docs/**/*.mdx`. App match resolves bo
 ## F. Output artifacts
 
 `.velite/`:
+
 - `docs.json` — array of records (schema A)
 - `index.js` — `export { default as docs } from './docs.json' with { type: 'json' }`
 - `index.d.ts` — `type Docs = Collections['docs']['schema']['_output']; declare const docs: Docs[]`

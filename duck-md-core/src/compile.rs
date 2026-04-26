@@ -193,10 +193,7 @@ fn build_excerpt(plain: &str, max: usize) -> String {
 fn build_metadata(plain: &str) -> Metadata {
   let words = plain.split_whitespace().count() as u32;
   let reading = ((words as f32) / 200.0).ceil() as u32;
-  Metadata {
-    word_count: words,
-    reading_time: reading.max(1),
-  }
+  Metadata { word_count: words, reading_time: reading.max(1) }
 }
 
 fn build_toc(doc: &Document) -> Vec<TocItem> {
@@ -220,11 +217,7 @@ fn nest(items: &[(u8, String, String)]) -> Vec<TocItem> {
   let mut path: Vec<usize> = Vec::new();
   let mut levels: Vec<u8> = Vec::new();
   for (level, title, id) in items {
-    let item = TocItem {
-      title: title.clone(),
-      url: format!("#{}", id),
-      items: Vec::new(),
-    };
+    let item = TocItem { title: title.clone(), url: format!("#{}", id), items: Vec::new() };
     // pop until top has lower level
     while let Some(top) = levels.last() {
       if *top >= *level {

@@ -1,4 +1,4 @@
-use duck_md_schema::{compile_descriptor, Ctx};
+use duck_md_schema::{Ctx, compile_descriptor};
 use serde_json::json;
 
 #[test]
@@ -18,7 +18,8 @@ fn compile_object_with_optional_default() {
       "draft": { "kind": "default", "inner": { "kind": "boolean" }, "fallback": false },
       "tags":  { "kind": "optional", "inner": { "kind": "array", "item": { "kind": "string" } } }
     }
-  })).unwrap();
+  }))
+  .unwrap();
   let ctx = Ctx::empty();
   let out = s.parse(&json!({"title": "Hi"}), &ctx).unwrap();
   assert_eq!(out["draft"], false);
@@ -46,7 +47,8 @@ fn compile_union_picks_first_match() {
       { "kind": "number" },
       { "kind": "string" }
     ]
-  })).unwrap();
+  }))
+  .unwrap();
   let ctx = Ctx::empty();
   assert!(u.parse(&json!(42), &ctx).is_ok());
   assert!(u.parse(&json!("hi"), &ctx).is_ok());

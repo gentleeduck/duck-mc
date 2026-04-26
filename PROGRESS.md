@@ -56,7 +56,7 @@ Goal: drop-in Rust replacement for Velite's role in `apps/duck` (see `SURVEY.md`
 - [x] P12: parse unordered list (flat; nesting deferred)
 - [x] P13: parse ordered list + start number
 - [x] P14: parse blockquote (multi-line `>`-led merge into one Blockquote of paragraphs)
-- [x] P15: parse thematic break (---, ***, ___) → Node::HorizontalRule
+- [x] P15: parse thematic break (---, \*\*\*, \_\_\_) → Node::HorizontalRule
 - [x] P16: parse soft/hard break (top-level break separates blocks; explicit inline break as `<br/>` deferred)
 - [x] P17: parse JSX self-closing
 - [x] P18: parse JSX element (re-entrant block parse for children)
@@ -184,6 +184,7 @@ See SURVEY.md §I for required output shape.
 ## Phase 16 — Continuous expansion (after the above)
 
 If all above ticked AND time/tokens remain, append more atomic tasks here and continue. Areas:
+
 - more transformers (footnotes, definition list, callout, math/katex, abbr, emoji shortcodes, container syntax `:::tip`)
 - more codegen targets (server components, MDX 2 esm output)
 - LSP server: hover, diagnostics, go-to-component-source
