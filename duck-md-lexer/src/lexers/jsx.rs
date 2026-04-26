@@ -77,6 +77,8 @@ impl<'engine> Lexer<'engine> {
         }
       },
       Some('{') => {
+        let start_line = self.line;
+        let start_col = self.column;
         self.advance(); // consume the {
         self.emit(TokenKind::ExpressionStart);
 
@@ -101,10 +103,21 @@ impl<'engine> Lexer<'engine> {
               self.advance();
             },
             '\n' => {
-              self.emit_diagnostic(Diagnostic::new(
-                Code::UnterminatedExpression,
-                "unterminated expression",
-              ));
+              self.emit_diagnostic(
+                Diagnostic::new(
+                  Code::UnterminatedExpression,
+                  "unterminated jsx attribute expression",
+                )
+                .with_label(Label::primary(
+                  Span::from_zero_based("", start_line, start_col, 1),
+                  Some("expression starts here".to_string()),
+                ))
+                .with_label(Label::secondary(
+                  Span::from_zero_based("", self.line, self.column, 1),
+                  Some("expected `}` before end of line".to_string()),
+                ))
+                .with_help("close the expression with `}`"),
+              );
               break;
             },
             _ => {
@@ -114,21 +127,41 @@ impl<'engine> Lexer<'engine> {
         }
 
         if !terminated && self.is_eof() {
-          self.emit_diagnostic(Diagnostic::new(
-            Code::UnterminatedExpression,
-            "unterminated expression",
-          ));
+          self.emit_diagnostic(
+            Diagnostic::new(
+              Code::UnterminatedExpression,
+              "unterminated jsx attribute expression",
+            )
+            .with_label(Label::primary(
+              Span::from_zero_based("", start_line, start_col, 1),
+              Some("expression starts here".to_string()),
+            ))
+            .with_label(Label::secondary(
+              Span::from_zero_based("", self.line, self.column, 1),
+              Some("reached end of file".to_string()),
+            ))
+            .with_help("close the expression with `}`"),
+          );
         }
       },
       _ => {
-        self.emit_diagnostic(Diagnostic::new(Code::InvalidJsxAttribute, "invalid jsx attribute"));
+        self.emit_diagnostic(
+          Diagnostic::new(Code::InvalidJsxAttribute, "invalid jsx attribute")
+            .with_label(Label::primary(
+              Span::from_zero_based("", self.line, self.column, 1),
+              Some("expected `\"...\"` or `{...}` after `=`".to_string()),
+            ))
+            .with_help("attribute values must be quoted strings or `{}`-wrapped expressions"),
+        );
       },
     }
   }
 
   pub(crate) fn lex_md_comment(&mut self) {
     // caller already consumed '{'. current points at '/'.
-    // Emit '{' as MarkdownCommentStart.
+    // Track '{' opener for diagnostic.
+    let start_line = self.line;
+    let start_col = self.column.saturating_sub(1);
     self.emit(TokenKind::MarkdownCommentStart);
 
     // advance past '/' and '*'
@@ -145,8 +178,12 @@ impl<'engine> Lexer<'engine> {
         self.emit_diagnostic(
           Diagnostic::new(Code::UnterminatedExpression, "unterminated markdown comment")
             .with_label(Label::primary(
+              Span::from_zero_based("", start_line, start_col, 3),
+              Some("comment opens here".to_string()),
+            ))
+            .with_label(Label::secondary(
               Span::from_zero_based("", self.line, self.column, 1),
-              Some("markdown comment not closed before end of file".to_string()),
+              Some("end of file reached".to_string()),
             ))
             .with_help("close with `*/}`"),
         );
@@ -184,7 +221,9 @@ impl<'engine> Lexer<'engine> {
   }
 
   pub(crate) fn lex_expression(&mut self) {
-    // opening '{' already consumed by caller
+    // opening '{' already consumed by caller — its position is one column back
+    let start_line = self.line;
+    let start_col = self.column.saturating_sub(1);
     self.emit(TokenKind::ExpressionStart);
 
     // track nesting depth for expressions like { a ? { b } : c }
@@ -212,8 +251,12 @@ impl<'engine> Lexer<'engine> {
             self.emit_diagnostic(
               Diagnostic::new(Code::UnterminatedExpression, "unterminated expression")
                 .with_label(Label::primary(
+                  Span::from_zero_based("", start_line, start_col, 1),
+                  Some("expression starts here".to_string()),
+                ))
+                .with_label(Label::secondary(
                   Span::from_zero_based("", self.line, self.column, 1),
-                  Some("expression not closed before end of line".to_string()),
+                  Some("expected `}` before end of line".to_string()),
                 ))
                 .with_help("close the expression with `}`"),
             );
@@ -230,6 +273,10 @@ impl<'engine> Lexer<'engine> {
     self.emit_diagnostic(
       Diagnostic::new(Code::UnterminatedExpression, "unterminated expression")
         .with_label(Label::primary(
+          Span::from_zero_based("", start_line, start_col, 1),
+          Some("expression starts here".to_string()),
+        ))
+        .with_label(Label::secondary(
           Span::from_zero_based("", self.line, self.column, 1),
           Some("reached end of file before closing `}`".to_string()),
         ))

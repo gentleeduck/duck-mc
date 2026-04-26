@@ -1,21 +1,25 @@
-use duck_diagnostic::Diagnostic;
+use duck_diagnostic::{Diagnostic, Label, Span};
 
 use crate::{Lexer, diagnostic::Code, token::TokenKind};
 
 impl<'engine> Lexer<'engine> {
   pub(crate) fn lex_code(&mut self) {
+    // first backtick already consumed by caller — its column is one back
+    let open_line = self.line;
+    let open_col = self.column.saturating_sub(1);
+
     // consume all opening backticks (first already consumed by caller)
     self.consume_while(|c, _| c == '`');
     let count = (self.current - self.start) as u8;
 
     if count >= 3 {
-      self.lex_fenced_code(count);
+      self.lex_fenced_code(count, open_line, open_col);
     } else {
-      self.lex_inline_code(count);
+      self.lex_inline_code(count, open_line, open_col);
     }
   }
 
-  fn lex_fenced_code(&mut self, count: u8) {
+  fn lex_fenced_code(&mut self, count: u8, open_line: usize, open_col: usize) {
     self.emit(TokenKind::CodeStart(count));
 
     // consume the info string (e.g. "js showLineNumbers") until newline
@@ -36,6 +40,14 @@ impl<'engine> Lexer<'engine> {
         self.emit(TokenKind::Text);
         self.emit_diagnostic(
           Diagnostic::new(Code::UnterminatedCodeBlock, "unterminated code block")
+            .with_label(Label::primary(
+              Span::from_zero_based("", open_line, open_col, count as usize),
+              Some("fence opens here".to_string()),
+            ))
+            .with_label(Label::secondary(
+              Span::from_zero_based("", self.line, self.column, 1),
+              Some("end of file reached without a closing fence".to_string()),
+            ))
             .with_help("add a closing ``` on its own line"),
         );
         return;
@@ -74,7 +86,7 @@ impl<'engine> Lexer<'engine> {
     }
   }
 
-  fn lex_inline_code(&mut self, count: u8) {
+  fn lex_inline_code(&mut self, count: u8, open_line: usize, open_col: usize) {
     self.emit(TokenKind::CodeStart(count));
 
     // consume until matching backtick(s) on the same line
@@ -93,6 +105,14 @@ impl<'engine> Lexer<'engine> {
     } else {
       self.emit_diagnostic(
         Diagnostic::new(Code::UnterminatedCodeBlock, "unterminated inline code")
+          .with_label(Label::primary(
+            Span::from_zero_based("", open_line, open_col, count as usize),
+            Some("opening backtick here".to_string()),
+          ))
+          .with_label(Label::secondary(
+            Span::from_zero_based("", self.line, self.column, 1),
+            Some("expected matching ` before end of line".to_string()),
+          ))
           .with_help(r"add a closing ` to the inline code"),
       );
     }
