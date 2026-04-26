@@ -18,13 +18,14 @@
     "react-dom": "^19",
     "rehype-autolink-headings": "^7",
     "rehype-pretty-code": "^0.14.1",
+    "rehype-raw": "^7",
     "rehype-slug": "^6",
-    "shiki": "^1.29.2",
-    "unified": "^11",
+    "rehype-stringify": "^10",
+    "remark-gfm": "^4",
     "remark-parse": "^11",
     "remark-rehype": "^11",
-    "rehype-raw": "^7",
-    "rehype-stringify": "^10"
+    "shiki": "^1.29.2",
+    "unified": "^11"
   },
   "devDependencies": {
     "@types/node": "^22",
