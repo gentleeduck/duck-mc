@@ -11,7 +11,6 @@
   "dependencies": {
     "unified": "^11",
     "remark-parse": "^11",
-    "remark-gfm": "^4",
     "remark-rehype": "^11",
     "rehype-raw": "^7",
     "rehype-stringify": "^10",

@@ -475,8 +475,6 @@ fn run_sidecar(markdown: &str, cfg: &EngineConfig) -> Option<String> {
     };
     let req = json!({
         "markdown": markdown,
-        "gfm": cfg.markdown_gfm,
-        "removeComments": true,
         "remarkPlugins": merge(&cfg.markdown_remark_plugins, &cfg.mdx_remark_plugins),
         "rehypePlugins": merge(&cfg.markdown_rehype_plugins, &cfg.mdx_rehype_plugins),
     });

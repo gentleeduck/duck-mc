@@ -4,15 +4,17 @@ export default defineConfig({
   root: '.',
   output: { data: '.gentleduck', clean: true, html: true } as never,
   mdx: {
+    remarkPlugins: [
+      ['remark-gfm'],
+    ],
     rehypePlugins: [
       ['rehype-slug'],
-      ['rehype-autolink-headings', {
-        behavior: 'wrap',
-        properties: { className: ['subheading-anchor'], 'aria-label': 'Link to section' },
-      }],
       ['rehype-pretty-code', {
         theme: { light: 'github-light', dark: 'catppuccin-mocha' },
         keepBackground: false,
+      }],
+      ['rehype-autolink-headings', {
+        properties: { className: ['subheading-anchor'], 'aria-label': 'Link to section' },
       }],
     ],
   },
