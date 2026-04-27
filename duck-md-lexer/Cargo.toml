@@ -8,6 +8,7 @@ duck-diagnostic.workspace = true
 serde_yaml.workspace = true
 serde.workspace = true
 unicode-segmentation.workspace = true
+memchr = "2.8.0"
 
 [dev-dependencies]
 pretty_assertions.workspace = true

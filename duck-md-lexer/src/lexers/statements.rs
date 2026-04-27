@@ -1,14 +1,18 @@
 use crate::{Lexer, token::TokenKind};
 
-impl<'engine> Lexer<'engine> {
+impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
+  /// Lex an `import ... from '...'` line at column 0.
   pub(crate) fn lex_import(&mut self) {
     self.lex_statement("import", TokenKind::Import);
   }
 
+  /// Lex an `export const ...` / `export default ...` line at column 0.
   pub(crate) fn lex_export(&mut self) {
     self.lex_statement("export", TokenKind::Export);
   }
 
+  /// Verify the keyword, then consume the rest of the statement up to the
+  /// closing newline (tracking `{}` depth so multi-line ESM is captured).
   fn lex_statement(&mut self, keyword: &str, kind: TokenKind) {
     // start points at the first char of the keyword. The first char has been
     // consumed by the caller (advance()), so `current` points at the second char.

@@ -2,20 +2,22 @@ use core::fmt;
 
 use duck_diagnostic::Span;
 
+/// One lexed token.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Token {
+pub struct Token<'src> {
   pub kind: TokenKind,
   pub span: Span,
-  pub raw: String,
+  pub raw: &'src str,
 }
 
-impl Token {
-  pub fn new(kind: TokenKind, span: Span, raw: String) -> Self {
+impl<'src> Token<'src> {
+  /// Build a token from kind + span + an owned raw lexeme.
+  pub fn new(kind: TokenKind, span: Span, raw: &'src str) -> Self {
     Self { kind, span, raw }
   }
 }
 
-impl fmt::Display for Token {
+impl<'src> fmt::Display for Token<'src> {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     let escaped = self.raw.replace('\n', "\\n").replace('\t', "\\t");
     write!(f, "{}({:?})", self.kind, escaped)
@@ -39,9 +41,9 @@ pub enum TokenKind {
 
   // Inline Markdown
   Text,       // plain text content
-  Bold(u8),   // ** or __ — carries the delimiter count
-  Italic(u8), // * or _ — carries the delimiter count
-  Strike(u8), // ~~ — carries the delimiter count
+  Bold(u8),   // ** or __ - carries the delimiter count
+  Italic(u8), // * or _ - carries the delimiter count
+  Strike(u8), // ~~ - carries the delimiter count
 
   // JSX
   JsxOpenTagStart,   //

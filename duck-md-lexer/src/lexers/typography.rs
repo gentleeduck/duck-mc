@@ -2,7 +2,9 @@ use duck_diagnostic::{Diagnostic, Label, Span};
 
 use crate::{Lexer, diagnostic::Code, token::TokenKind};
 
-impl<'engine> Lexer<'engine> {
+impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
+  /// Lex an ATX heading marker (`#` x 1-6 followed by space). Falls through
+  /// to text if the run isn't followed by a space.
   pub(crate) fn lex_heading(&mut self) {
     let mut level = 1;
     while let Some(c) = self.peek() {
@@ -21,6 +23,9 @@ impl<'engine> Lexer<'engine> {
     self.emit(TokenKind::Heading(level))
   }
 
+  /// Consume a run of plain text up to the next "interesting" character
+  /// (delimiter, fence, JSX boundary, escape). Handles backslash escapes for
+  /// the standard markdown escapable set.
   pub(crate) fn lex_text(&mut self) {
     while let Some(c) = self.peek() {
       if c == '\\' {
@@ -82,10 +87,12 @@ impl<'engine> Lexer<'engine> {
     self.emit(TokenKind::Text)
   }
 
+  /// Lex a run of `*`. One = italic, two = bold, three = bold or thematic
+  /// break depending on whether the line ends right after.
   pub(crate) fn lex_bold(&mut self) {
     // the first '*' is already consumed by caller
 
-    self.consume_while(|c, _| c == '*');
+    self.skip_while_byte(b'*');
     let at_line_end = self.get_current_char() == Some('\n') || self.is_eof();
 
     match self.get_current_lexeme() {
@@ -97,9 +104,10 @@ impl<'engine> Lexer<'engine> {
     }
   }
 
+  /// Lex `~~` as a strikethrough delimiter. Single `~` falls through to text.
   pub(crate) fn lex_strike(&mut self) {
     // first '~' already consumed by caller
-    self.consume_while(|c, _| c == '~');
+    self.skip_while_byte(b'~');
     let lex = self.get_current_lexeme();
     if lex.len() == 2 {
       self.emit(TokenKind::Strike(2));
@@ -108,10 +116,11 @@ impl<'engine> Lexer<'engine> {
     }
   }
 
+  /// Lex a run of `_`. One = italic, two = bold, three on EOL = thematic break.
   pub(crate) fn lex_italic(&mut self) {
     // the first '_' is already consumed by caller
 
-    self.consume_while(|c, _| c == '_');
+    self.skip_while_byte(b'_');
     let c = self.get_current_char();
 
     match self.get_current_lexeme() {
@@ -122,12 +131,15 @@ impl<'engine> Lexer<'engine> {
     }
   }
 
+  /// Lex a markdown link `[text](href)`. `[text]` part runs first; the
+  /// optional `(href)` is consumed if present. Diagnostic on either side
+  /// going unterminated.
   pub(crate) fn lex_link(&mut self) {
     // caller consumed '['; record opener column (one back).
     let open_line = self.line;
     let open_col = self.column.saturating_sub(1);
     self.emit(TokenKind::Bracket);
-    self.consume_while(|c, _| c != ']' && c != '\n');
+    self.skip_until_any2(b']', b'\n');
     self.emit(TokenKind::Text);
 
     if self.get_current_char() != Some(']') {
@@ -155,7 +167,7 @@ impl<'engine> Lexer<'engine> {
       let paren_col = self.column;
       self.advance();
       self.emit(TokenKind::ParenOpen);
-      self.consume_while(|c, _| c != ')' && c != '\n');
+      self.skip_until_any2(b')', b'\n');
       self.emit(TokenKind::Text);
       if self.get_current_char() == Some(')') {
         self.advance();
@@ -177,6 +189,7 @@ impl<'engine> Lexer<'engine> {
     }
   }
 
+  /// Lex `![alt](src)` image syntax. Emits `Bang` then defers to `lex_link`.
   pub(crate) fn lex_image(&mut self) {
     self.emit(TokenKind::Bang);
 
@@ -188,6 +201,8 @@ impl<'engine> Lexer<'engine> {
     }
   }
 
+  /// Lex an HTML comment `<!-- ... -->`. Falls back to `lex_text` if `<` is
+  /// not actually starting `<!--`.
   pub(crate) fn lex_comment(&mut self) {
     // caller consumed '<', dispatch confirmed peek() == '!'
     // check for <!-- without advancing, so we can fall back cleanly

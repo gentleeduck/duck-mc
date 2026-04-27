@@ -1,6 +1,8 @@
 use crate::{Lexer, token::TokenKind};
 
-impl<'engine> Lexer<'engine> {
+impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
+  /// Dispatch the next character to the matching sub-lexer. Run from the main
+  /// `scan_tokens` loop after `c` has been consumed.
   pub(crate) fn lex_tokens(&mut self, c: char) {
     match c {
       '\n' => self.lex_newline(),
@@ -34,10 +36,14 @@ impl<'engine> Lexer<'engine> {
     };
   }
 
+  /// Whether the slice from `self.start` onward begins with `prefix`. Used to
+  /// recognise ESM keywords (`import`, `export`) at line start.
   pub(crate) fn starts_with_at_start(&self, prefix: &str) -> bool {
     self.source.get(self.start..).is_some_and(|s| s.starts_with(prefix))
   }
 
+  /// Lookahead test for `<...>` autolinks. Returns true when the upcoming `>`
+  /// closes either a URL (`<https://...>`) or an email (`<a@b.c>`).
   pub(crate) fn is_angle_autolink(&self) -> bool {
     let rest = match self.source.get(self.current..) {
       Some(s) => s,
@@ -72,6 +78,8 @@ impl<'engine> Lexer<'engine> {
     false
   }
 
+  /// Consume `<...>` and emit a single `Autolink` token. Caller has already
+  /// advanced past the opening `<`.
   pub(crate) fn lex_angle_autolink(&mut self) {
     while let Some(c) = self.get_current_char() {
       if c == '>' {
@@ -85,10 +93,13 @@ impl<'engine> Lexer<'engine> {
     self.emit(TokenKind::Autolink);
   }
 
+  /// True once the cursor is at or past the end of the source.
   pub(crate) fn is_eof(&self) -> bool {
     self.current >= self.source.len()
   }
 
+  /// Consume one Unicode scalar at `current`, advance `current` + `column`,
+  /// return the consumed `char`. Returns `'\0'` at EOF (idempotent).
   pub(crate) fn advance(&mut self) -> char {
     if self.is_eof() {
       return '\0';
@@ -115,6 +126,7 @@ impl<'engine> Lexer<'engine> {
     ch
   }
 
+  /// Look at the char under the cursor without consuming it.
   pub(crate) fn peek(&self) -> Option<char> {
     if self.is_eof() {
       return None;
@@ -122,6 +134,7 @@ impl<'engine> Lexer<'engine> {
     self.source[self.current..].chars().next()
   }
 
+  /// Look at the second char ahead of the cursor without consuming.
   pub(crate) fn peek_next(&self) -> Option<char> {
     if self.is_eof() {
       return None;
@@ -131,10 +144,13 @@ impl<'engine> Lexer<'engine> {
     iter.next()
   }
 
-  pub(crate) fn get_current_lexeme(&self) -> &str {
+  /// Source slice between `start` and `current` - the lexeme of the
+  /// in-progress token. Borrows from the original source.
+  pub(crate) fn get_current_lexeme(&self) -> &'src str {
     self.source.get(self.start..self.current).unwrap_or("")
   }
 
+  /// Whether the char under the cursor equals `expected` (no consume).
   pub(crate) fn match_current_char(&mut self, expected: char) -> bool {
     if let Some(c) = self.source[self.current..].chars().next()
       && c == expected
@@ -144,31 +160,42 @@ impl<'engine> Lexer<'engine> {
     false
   }
 
-  pub(crate) fn consume_while(&mut self, mut predicate: impl FnMut(char, Option<char>) -> bool) {
-    while let Some(c) = self.peek() {
-      let next = self.peek_next();
-      if predicate(c, next) {
-        self.advance();
-      } else {
-        break;
-      }
-    }
-  }
-
+  /// Advance until the cursor sits on `c` (or EOF). For ASCII delimiters this
+  /// uses `memchr` for one SIMD scan; non-ASCII falls back to a char loop.
   pub(crate) fn consume_till(&mut self, c: char) {
-    while let Some(cc) = self.peek() {
-      if c != cc {
+    if c.is_ascii() {
+      let bytes = self.source.as_bytes();
+      let rest = &bytes[self.current..];
+      let end = memchr::memchr(c as u8, rest).unwrap_or(rest.len());
+      let chunk = std::str::from_utf8(&rest[..end]).unwrap();
+      // bookkeeping
+      for ch in chunk.chars() {
+        if ch == '\n' {
+          self.line += 1;
+          self.column = 0;
+        } else {
+          self.column += 1;
+        }
+      }
+      self.current += end;
+    } else {
+      // fallback to char loop for non-ASCII delimiter
+      while let Some(cc) = self.peek() {
+        if c == cc {
+          break;
+        }
         self.advance();
-      } else {
-        break;
       }
     }
   }
 
+  /// Same as `peek` but takes `&mut self` for ergonomic chaining.
   pub(crate) fn get_current_char(&mut self) -> Option<char> {
     self.source[self.current..].chars().next()
   }
 
+  /// Consume a run of inline whitespace (spaces + tabs) and emit one
+  /// `Whitespace` token if any was consumed.
   pub(crate) fn consume_whitespaces(&mut self) {
     let mut n = 0;
     while let Some(c) = self.get_current_char() {
@@ -182,5 +209,70 @@ impl<'engine> Lexer<'engine> {
     if n > 0 {
       self.emit(TokenKind::Whitespace);
     }
+  }
+
+  // ---------- byte-level fast scanners ----------
+
+  /// Bulk-skip `n` bytes from `current`. Updates `line` + `column` correctly
+  /// by counting newlines + chars after the last newline. Source slice between
+  /// `current..current+n` MUST be valid UTF-8 (always true when `n` came from a
+  /// `memchr` hit on an ASCII delimiter, since ASCII bytes are char boundaries).
+  pub(crate) fn advance_bytes(&mut self, n: usize) {
+    if n == 0 {
+      return;
+    }
+    let bytes = self.source.as_bytes();
+    let chunk = &bytes[self.current..self.current + n];
+
+    // Count newlines using memchr (SIMD).
+    let newlines = memchr::memchr_iter(b'\n', chunk).count();
+    if newlines > 0 {
+      let last_nl = memchr::memrchr(b'\n', chunk).unwrap();
+      let after_nl = &chunk[last_nl + 1..];
+      let tail = std::str::from_utf8(after_nl).unwrap();
+      self.line += newlines;
+      self.column = tail.chars().count();
+    } else {
+      let s = std::str::from_utf8(chunk).unwrap();
+      self.column += s.chars().count();
+    }
+    self.current += n;
+  }
+
+  /// Skip until the first `delim` byte (or EOF). Equivalent to
+  /// `consume_while(|c, _| c != delim_as_char)` for ASCII delimiters but
+  /// 5-10x faster via `memchr`.
+  pub(crate) fn skip_until_byte(&mut self, delim: u8) {
+    let rest = &self.source.as_bytes()[self.current..];
+    let n = memchr::memchr(delim, rest).unwrap_or(rest.len());
+    self.advance_bytes(n);
+  }
+
+  /// Skip until first occurrence of either `a` or `b` (or EOF).
+  pub(crate) fn skip_until_any2(&mut self, a: u8, b: u8) {
+    let rest = &self.source.as_bytes()[self.current..];
+    let n = memchr::memchr2(a, b, rest).unwrap_or(rest.len());
+    self.advance_bytes(n);
+  }
+
+  /// Skip a run of identical ASCII bytes equal to `b`.
+  pub(crate) fn skip_while_byte(&mut self, b: u8) {
+    let bytes = self.source.as_bytes();
+    let mut i = self.current;
+    while i < bytes.len() && bytes[i] == b {
+      i += 1;
+    }
+    self.advance_bytes(i - self.current);
+  }
+
+  /// Skip a run of ASCII bytes that satisfy `f`. Stops at the first non-ASCII
+  /// byte (high bit set) or first byte where `f` returns false.
+  pub(crate) fn skip_while_ascii<F: Fn(u8) -> bool>(&mut self, f: F) {
+    let bytes = self.source.as_bytes();
+    let mut i = self.current;
+    while i < bytes.len() && bytes[i] < 0x80 && f(bytes[i]) {
+      i += 1;
+    }
+    self.advance_bytes(i - self.current);
   }
 }

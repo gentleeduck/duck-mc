@@ -60,7 +60,7 @@ fn run_one(path: &PathBuf, show_tokens: bool) -> io::Result<(usize, usize)> {
 
 fn lex_and_print(label: &str, source: &str, show_tokens: bool) -> (usize, usize) {
   let engine = RefCell::new(DiagnosticEngine::new());
-  let mut lexer = Lexer::new(source.to_string(), engine.borrow_mut());
+  let mut lexer = Lexer::new(source, engine.borrow_mut());
   let _ = lexer.scan_tokens();
   let tokens = std::mem::take(&mut lexer.tokens);
   drop(lexer);
@@ -104,29 +104,11 @@ fn print_token_table(tokens: &[duck_md_lexer::token::Token]) {
     pw = pw,
     lw = lw
   );
-  println!(
-    "  {:-<kw$}  {:->pw$}  {:->lw$}  {:-<8}",
-    "",
-    "",
-    "",
-    "",
-    kw = kw,
-    pw = pw,
-    lw = lw
-  );
+  println!("  {:-<kw$}  {:->pw$}  {:->lw$}  {:-<8}", "", "", "", "", kw = kw, pw = pw, lw = lw);
   for ((kind, pos), (len, raw)) in
     kinds.iter().zip(positions.iter()).zip(lens.iter().zip(raws.iter()))
   {
-    println!(
-      "  {:<kw$}  {:>pw$}  {:>lw$}  {}",
-      kind,
-      pos,
-      len,
-      raw,
-      kw = kw,
-      pw = pw,
-      lw = lw
-    );
+    println!("  {:<kw$}  {:>pw$}  {:>lw$}  {}", kind, pos, len, raw, kw = kw, pw = pw, lw = lw);
   }
   println!("  {} tokens", tokens.len());
 }

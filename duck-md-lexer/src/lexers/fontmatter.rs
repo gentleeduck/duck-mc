@@ -1,10 +1,12 @@
 use crate::{Lexer, token::TokenKind};
 
-impl<'engine> Lexer<'engine> {
+impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
+  /// Lex a YAML frontmatter block delimited by `---` at file start. Falls
+  /// through to `ThematicBreak` if there's no closing `---` later in the source.
   pub(crate) fn lex_frontmatter(&mut self) {
     // first '-' already consumed by caller, consume remaining two
 
-    self.consume_while(|c, _| c == '-');
+    self.skip_while_byte(b'-');
 
     // thematic break if: not exactly 3 dashes, already reserved, not at file start,
     // or no closing --- exists in the remaining source
@@ -39,7 +41,7 @@ impl<'engine> Lexer<'engine> {
       // at the start of a line, check for closing ---
       if self.column == 0 && self.peek() == Some('-') && self.peek_next() == Some('-') {
         let content_end = self.current;
-        self.consume_while(|c, _| c == '-');
+        self.skip_while_byte(b'-');
 
         if self.current - content_end == 3 {
           // emit content (everything before the closing ---)
@@ -61,7 +63,7 @@ impl<'engine> Lexer<'engine> {
       }
 
       // consume the rest of the line (everything up to \n)
-      self.consume_while(|c, _| c != '\n');
+      self.skip_until_byte(b'\n');
 
       // consume the newline
       if self.peek() == Some('\n') {

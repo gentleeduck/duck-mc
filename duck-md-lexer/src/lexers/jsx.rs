@@ -2,7 +2,9 @@ use duck_diagnostic::{Diagnostic, Label, Span};
 
 use crate::{Lexer, diagnostic::Code, token::TokenKind};
 
-impl<'engine> Lexer<'engine> {
+impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
+  /// Entry for `<` followed by an alphabetic char or `/`. Emits the open/close
+  /// markers, tag name, attributes, and end marker (regular or self-closing).
   pub(crate) fn lex_jsx_tag(&mut self) {
     let mut is_close_tag = false;
 
@@ -17,7 +19,7 @@ impl<'engine> Lexer<'engine> {
     self.consume_whitespaces();
 
     // lex tag name e.g. Button, MyCard
-    self.consume_while(|c, _| c.is_alphanumeric() || c == '.');
+    self.skip_while_ascii(|b| b.is_ascii_alphanumeric() || b == b'.');
     self.emit(TokenKind::JsxTagName);
 
     self.consume_whitespaces();
@@ -48,11 +50,12 @@ impl<'engine> Lexer<'engine> {
     self.emit(TokenKind::JsxOpenTagEnd)
   }
 
+  /// Lex one `name`, `name=value` or `name={expr}` attribute inside a JSX tag.
   pub(crate) fn lex_jsx_attribute(&mut self) {
-    self.consume_while(|c, _| c.is_alphanumeric() || c == '-');
+    self.skip_while_ascii(|b| b.is_ascii_alphanumeric() || b == b'-');
     self.emit(TokenKind::JsxAttributeName);
 
-    // If the next char is not `=`, this is a boolean attribute — nothing more to do.
+    // If the next char is not `=`, this is a boolean attribute - nothing more to do.
     let next = self.get_current_char();
     if next != Some('=') {
       return;
@@ -128,19 +131,16 @@ impl<'engine> Lexer<'engine> {
 
         if !terminated && self.is_eof() {
           self.emit_diagnostic(
-            Diagnostic::new(
-              Code::UnterminatedExpression,
-              "unterminated jsx attribute expression",
-            )
-            .with_label(Label::primary(
-              Span::from_zero_based("", start_line, start_col, 1),
-              Some("expression starts here".to_string()),
-            ))
-            .with_label(Label::secondary(
-              Span::from_zero_based("", self.line, self.column, 1),
-              Some("reached end of file".to_string()),
-            ))
-            .with_help("close the expression with `}`"),
+            Diagnostic::new(Code::UnterminatedExpression, "unterminated jsx attribute expression")
+              .with_label(Label::primary(
+                Span::from_zero_based("", start_line, start_col, 1),
+                Some("expression starts here".to_string()),
+              ))
+              .with_label(Label::secondary(
+                Span::from_zero_based("", self.line, self.column, 1),
+                Some("reached end of file".to_string()),
+              ))
+              .with_help("close the expression with `}`"),
           );
         }
       },
@@ -157,6 +157,7 @@ impl<'engine> Lexer<'engine> {
     }
   }
 
+  /// Lex an MDX-style comment `{/* ... */}`. Caller has consumed the opening `{`.
   pub(crate) fn lex_md_comment(&mut self) {
     // caller already consumed '{'. current points at '/'.
     // Track '{' opener for diagnostic.
@@ -220,8 +221,10 @@ impl<'engine> Lexer<'engine> {
     }
   }
 
+  /// Lex a top-level `{ ... }` JSX expression node. Tracks brace depth so
+  /// nested object literals don't close the outer expression.
   pub(crate) fn lex_expression(&mut self) {
-    // opening '{' already consumed by caller — its position is one column back
+    // opening '{' already consumed by caller - its position is one column back
     let start_line = self.line;
     let start_col = self.column.saturating_sub(1);
     self.emit(TokenKind::ExpressionStart);
