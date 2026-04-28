@@ -2,35 +2,94 @@ use crate::ast::*;
 use crate::parser::Parser;
 use duck_md_lexer::token::TokenKind;
 
-/// Reconstruct the upcoming "logical line" of source from tokens, stopping at
-/// the first hard/soft break, EOF, or block-level boundary token. Returns
-/// `(text, num_tokens_consumed_to_reach_break)`.
-fn collect_line_text(p: &Parser) -> Option<(String, usize)> {
-  let mut text = String::new();
-  let mut count = 0usize;
-  while let Some(t) = p.tokens.get(p.pos + count) {
-    match &t.kind {
-      TokenKind::SoftBreak
-      | TokenKind::HardBreak
-      | TokenKind::Eof
-      | TokenKind::Heading(_)
-      | TokenKind::FrontmatterStart
-      | TokenKind::Import
-      | TokenKind::Export => break,
-      _ => {
-        text.push_str(&t.raw);
-        count += 1;
-      },
+impl<'eng, 'tokens> Parser<'eng, 'tokens> {
+  /// Reconstruct the upcoming "logical line" of source from tokens, stopping at
+  /// the first hard/soft break, EOF, or block-level boundary token. Returns
+  /// `(text, num_tokens_consumed_to_reach_break)`.
+  fn collect_line_text(&self) -> Option<(String, usize)> {
+    let mut text = String::new();
+    let mut count = 0usize;
+    while let Some(t) = self.tokens.get(self.pos + count) {
+      match &t.kind {
+        TokenKind::SoftBreak
+        | TokenKind::HardBreak
+        | TokenKind::Eof
+        | TokenKind::Heading(_)
+        | TokenKind::FrontmatterStart
+        | TokenKind::Import
+        | TokenKind::Export => break,
+        _ => {
+          text.push_str(&t.raw);
+          count += 1;
+        },
+      }
     }
+    if count == 0 { None } else { Some((text, count)) }
   }
-  if count == 0 { None } else { Some((text, count)) }
+
+  /// Speculatively try to parse a GFM table starting at the cursor. Reads
+  /// header + alignment + body rows, rolls back `pos` on any mismatch so the
+  /// caller can fall through to `parse_paragraph`.
+  pub(crate) fn try_parse_table(&mut self) -> Option<Node> {
+    let saved = self.pos;
+    let span = self.current_span();
+    let (line1, len1) = self.collect_line_text()?;
+    if !looks_like_table_row(&line1) {
+      return None;
+    }
+    self.pos += len1;
+    if matches!(self.peek_kind(), Some(TokenKind::SoftBreak) | Some(TokenKind::HardBreak)) {
+      self.advance();
+    }
+    let (line2, len2) = match self.collect_line_text() {
+      Some(x) => x,
+      None => {
+        self.pos = saved;
+        return None;
+      },
+    };
+    let aligns = match parse_alignment_row(&line2) {
+      Some(a) => a,
+      None => {
+        self.pos = saved;
+        return None;
+      },
+    };
+    self.pos += len2;
+    if matches!(self.peek_kind(), Some(TokenKind::SoftBreak) | Some(TokenKind::HardBreak)) {
+      self.advance();
+    }
+
+    let header_cells = split_cells(&line1);
+    let mut rows = Vec::new();
+    rows.push(make_row(&header_cells, &span));
+
+    while let Some((line, len)) = self.collect_line_text() {
+      if !looks_like_table_row(&line) {
+        break;
+      }
+      let cells = split_cells(&line);
+      let row_span = self.current_span();
+      rows.push(make_row(&cells, &row_span));
+      self.pos += len;
+      if matches!(self.peek_kind(), Some(TokenKind::SoftBreak) | Some(TokenKind::HardBreak)) {
+        self.advance();
+      }
+    }
+
+    Some(Node::Table(Table { align: aligns, children: rows, span }))
+  }
 }
 
+/// Quick shape check: line begins and ends with `|` and has at least two
+/// pipes (so it can split into >=1 cell).
 fn looks_like_table_row(s: &str) -> bool {
   let t = s.trim();
   t.starts_with('|') && t.ends_with('|') && t.matches('|').count() >= 2
 }
 
+/// Parse the `|:---|---:|:---:|` alignment row. `None` if any cell isn't a
+/// run of `-` optionally fenced by `:` markers.
 fn parse_alignment_row(s: &str) -> Option<Vec<TableAlign>> {
   let t = s.trim();
   if !t.starts_with('|') || !t.ends_with('|') {
@@ -59,6 +118,8 @@ fn parse_alignment_row(s: &str) -> Option<Vec<TableAlign>> {
   Some(aligns)
 }
 
+/// Split `|a|b|c|` into the cell strings between pipes (no trim — caller
+/// trims when materialising the cell).
 fn split_cells(s: &str) -> Vec<String> {
   let t = s.trim();
   if t.len() < 2 {
@@ -68,63 +129,18 @@ fn split_cells(s: &str) -> Vec<String> {
   inner.split('|').map(|c| c.to_string()).collect()
 }
 
-fn make_row(cells: &[String]) -> TableRow {
+/// Build one `TableRow` from raw cell strings. Cell content currently lands
+/// as a single `Text` child — inline parsing inside cells is a TODO. All
+/// cells share the row's span until per-cell ranges are tracked.
+fn make_row(cells: &[String], span: &duck_diagnostic::Span) -> TableRow {
   TableRow {
     cells: cells
       .iter()
       .map(|c| TableCell {
-        children: vec![Node::Text(Text { value: c.trim().to_string(), span: default_span() })],
-        span: default_span(),
+        children: vec![Node::Text(Text { value: c.trim().to_string(), span: span.clone() })],
+        span: span.clone(),
       })
       .collect(),
-    span: default_span(),
+    span: span.clone(),
   }
-}
-
-pub(crate) fn try_parse_table(p: &mut Parser) -> Option<Node> {
-  let saved = p.pos;
-  let (line1, len1) = collect_line_text(p)?;
-  if !looks_like_table_row(&line1) {
-    return None;
-  }
-  p.pos += len1;
-  if matches!(p.peek_kind(), Some(TokenKind::SoftBreak) | Some(TokenKind::HardBreak)) {
-    p.advance();
-  }
-  let (line2, len2) = match collect_line_text(p) {
-    Some(x) => x,
-    None => {
-      p.pos = saved;
-      return None;
-    },
-  };
-  let aligns = match parse_alignment_row(&line2) {
-    Some(a) => a,
-    None => {
-      p.pos = saved;
-      return None;
-    },
-  };
-  p.pos += len2;
-  if matches!(p.peek_kind(), Some(TokenKind::SoftBreak) | Some(TokenKind::HardBreak)) {
-    p.advance();
-  }
-
-  let header_cells = split_cells(&line1);
-  let mut rows = Vec::new();
-  rows.push(make_row(&header_cells));
-
-  while let Some((line, len)) = collect_line_text(p) {
-    if !looks_like_table_row(&line) {
-      break;
-    }
-    let cells = split_cells(&line);
-    rows.push(make_row(&cells));
-    p.pos += len;
-    if matches!(p.peek_kind(), Some(TokenKind::SoftBreak) | Some(TokenKind::HardBreak)) {
-      p.advance();
-    }
-  }
-
-  Some(Node::Table(Table { align: aligns, children: rows, span: default_span() }))
 }

@@ -12,8 +12,8 @@ fn parses_frontmatter() {
     _ => None,
   });
   let fm = fm.expect("expected Frontmatter node");
-  assert_eq!(fm.data["title"], "Hello");
-  assert_eq!(fm.data["slug"], "x");
+  assert!(fm.raw.contains("title: Hello"));
+  assert!(fm.raw.contains("slug: x"));
 }
 
 #[test]

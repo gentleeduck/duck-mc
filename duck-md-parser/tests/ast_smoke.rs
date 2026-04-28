@@ -9,11 +9,9 @@ fn sp() -> duck_diagnostic::Span {
 fn build_a_simple_document() {
   let doc = Node::Document(Document {
     span: sp(),
-    diagnostics: Vec::new(),
     children: vec![
       Node::Heading(Heading {
         level: 1,
-        id: "hello".into(),
         span: sp(),
         children: vec![Node::Text(Text { value: "Hello".into(), span: sp() })],
       }),
@@ -32,7 +30,7 @@ fn build_a_simple_document() {
 
   let json = serde_json::to_string(&doc).unwrap();
   assert!(json.contains("\"Heading\""));
-  assert!(json.contains("\"hello\""));
+  assert!(json.contains("\"Hello\""));
   let back: Node = serde_json::from_str(&json).unwrap();
   assert_eq!(doc, back);
 }

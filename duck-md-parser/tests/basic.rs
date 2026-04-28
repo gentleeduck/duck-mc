@@ -16,7 +16,7 @@ fn parses_h1() {
   match &d.children[0] {
     Node::Heading(h) => {
       assert_eq!(h.level, 1);
-      assert_eq!(h.id, "hello");
+      assert_eq!(h.slug(), "hello");
     },
     n => panic!("expected Heading, got {:?}", n),
   }

@@ -5,7 +5,6 @@ use serde::{Deserialize, Serialize};
 pub struct JsxAttr {
   pub name: String,
   pub value: JsxAttrValue,
-  #[serde(skip, default = "crate::ast::default_span")]
   pub span: Span,
 }
 
