@@ -5,8 +5,10 @@ edition.workspace = true
 
 [dependencies]
 duck-diagnostic.workspace = true
+duck-md-diagnostic = { workspace = true, features = ["lexer"] }
 serde_yaml.workspace = true
 serde.workspace = true
+serde_json.workspace = true
 unicode-segmentation.workspace = true
 memchr = "2.8.0"
 
@@ -14,5 +16,5 @@ memchr = "2.8.0"
 pretty_assertions.workspace = true
 
 [[bin]]
-name = "error"
-path = "./error-samples/error.rs"
+name = "lexer"
+path = "./lexer-samples/lexer.rs"

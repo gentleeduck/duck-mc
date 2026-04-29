@@ -93,6 +93,9 @@ pub enum TokenKind {
 }
 
 impl TokenKind {
+  /// Whether this kind is dropped from the emitted stream by `Lexer::emit`.
+  /// Currently: `Whitespace`, `Newline`, `Quote`. Indented-code-block markers
+  /// (4+ leading spaces) are exempted there as a special case.
   pub fn is_trivia(&self) -> bool {
     matches!(self, TokenKind::Whitespace | TokenKind::Newline | TokenKind::Quote)
   }

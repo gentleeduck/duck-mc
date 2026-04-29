@@ -1,17 +1,22 @@
-use std::cell::RefMut;
+use std::{cell::RefMut, sync::Arc};
 
 use duck_diagnostic::{Diagnostic, DiagnosticEngine, Span};
+use duck_md_diagnostic::{Code, metadata::SourceMeta};
 
-use crate::diagnostic::Code;
 use crate::token::{Token, TokenKind};
 
-pub mod diagnostic;
 mod lexers;
 pub mod token;
 mod utils;
 
+/// Streaming lexer for MDX. Holds a borrowed view of the source plus cursor
+/// state (`start` = current token's begin, `current` = scanner head, `line` /
+/// `column` = position bookkeeping for diagnostics). `frontmatter_reserved`
+/// flips to `true` once a YAML frontmatter block has been emitted so a later
+/// `---` line is unambiguously a thematic break.
 pub struct Lexer<'eng, 'src> {
   pub source: &'src str,
+  pub meta: Arc<SourceMeta>,
   pub tokens: Vec<Token<'src>>,
   pub start: usize,
   pub current: usize,
@@ -23,9 +28,14 @@ pub struct Lexer<'eng, 'src> {
 
 impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
   /// Build a fresh lexer over `source`. Diagnostics are emitted into `engine`.
-  pub fn new(source: &'src str, engine: RefMut<'eng, DiagnosticEngine<Code>>) -> Self {
+  pub fn new(
+    source: &'src str,
+    meta: Arc<SourceMeta>,
+    engine: RefMut<'eng, DiagnosticEngine<Code>>,
+  ) -> Self {
     Self {
       source,
+      meta,
       tokens: Vec::with_capacity(source.len() / 8),
       start: 0,
       current: 0,
@@ -70,7 +80,7 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
       }
     }
 
-    let span = Span::from_zero_based("index.mdx", self.line, self.column, length);
+    let span = Span::from_zero_based(self.meta.path.clone(), self.line, self.column, length);
     self.tokens.push(Token::new(kind, span, self.get_current_lexeme()));
     self.start = self.current;
   }

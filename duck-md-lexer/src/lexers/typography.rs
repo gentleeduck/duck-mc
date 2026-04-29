@@ -1,6 +1,7 @@
 use duck_diagnostic::{Diagnostic, Label, Span};
 
-use crate::{Lexer, diagnostic::Code, token::TokenKind};
+use crate::{Lexer, token::TokenKind};
+use duck_md_diagnostic::Code;
 
 impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
   /// Lex an ATX heading marker (`#` x 1-6 followed by space). Falls through

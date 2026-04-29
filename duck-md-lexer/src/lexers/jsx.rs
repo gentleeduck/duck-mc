@@ -1,6 +1,7 @@
 use duck_diagnostic::{Diagnostic, Label, Span};
 
-use crate::{Lexer, diagnostic::Code, token::TokenKind};
+use crate::{Lexer, token::TokenKind};
+use duck_md_diagnostic::Code;
 
 impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
   /// Entry for `<` followed by an alphabetic char or `/`. Emits the open/close
