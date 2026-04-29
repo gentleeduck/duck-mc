@@ -6,9 +6,10 @@ pub mod visit;
 pub use builtin::CopyLinkedFiles;
 #[cfg(feature = "mermaid")]
 pub use builtin::Mermaid;
+#[cfg(feature = "npm_command")]
+pub use builtin::NpmCommand;
 pub use builtin::{
   AutolinkHeadings, BareUrlAutolink, CodeImport, ComponentPreview, ComponentSource, DisableGfm,
-  NpmCommand,
 };
 pub use pipeline::{Pipeline, Transformer};
-pub use visit::{VisitFlow, Visitor, walk_mut};
+pub use visit::{NodeAction, Visitor, walk_root};

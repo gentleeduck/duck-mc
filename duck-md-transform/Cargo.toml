@@ -4,15 +4,23 @@ version.workspace = true
 edition.workspace = true
 
 [features]
-default = ["mermaid", "assets"]
+default = ["mermaid", "assets", "npm_command"]
 mermaid = []
 assets = ["dep:blake3"]
+npm_command = []
 
 [dependencies]
+duck-md-lexer = { path = "../duck-md-lexer" }
 duck-md-parser = { path = "../duck-md-parser" }
+duck-md-diagnostic = { workspace = true, features = ["parser", "transform"] }
+duck-diagnostic.workspace = true
 blake3 = { workspace = true, optional = true }
 serde_json.workspace = true
 
 [dev-dependencies]
 pretty_assertions.workspace = true
 tempfile.workspace = true
+
+[[bin]]
+name = "transform"
+path = "transform-samples/transform.rs"

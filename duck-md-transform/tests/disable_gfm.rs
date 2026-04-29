@@ -5,7 +5,7 @@ use duck_md_transform::{DisableGfm, Pipeline, Transformer};
 fn run(src: &str) -> Document {
   let mut doc = parse(src);
   let p = Pipeline::new().add(DisableGfm);
-  p.run(&mut doc);
+  p.run_silent(&mut doc);
   doc
 }
 

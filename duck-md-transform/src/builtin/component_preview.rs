@@ -1,8 +1,14 @@
 use crate::pipeline::Transformer;
-use crate::visit::{VisitFlow, Visitor, walk_mut};
+use crate::visit::{NodeAction, Visitor, walk_root};
+use duck_diagnostic::{Diagnostic, Label};
+use duck_md_diagnostic::Code;
+use duck_md_diagnostic::metadata::SourceMeta;
 use duck_md_parser::ast::*;
 use std::path::PathBuf;
 
+/// Replace `<ComponentPreview name="X" />` with a `CodeBlock` containing the
+/// source of the registry component named `X`. `registry_index` is the JSON
+/// manifest; `registry_root` is the directory referenced paths are relative to.
 #[derive(Default)]
 pub struct ComponentPreview {
   pub registry_index: Option<PathBuf>,
@@ -10,8 +16,27 @@ pub struct ComponentPreview {
 }
 
 impl ComponentPreview {
+  /// Both paths required; `Default` leaves them `None` → pass is a no-op.
   pub fn new(registry_index: PathBuf, registry_root: PathBuf) -> Self {
     Self { registry_index: Some(registry_index), registry_root: Some(registry_root) }
+  }
+
+  /// Index may be a JSON array of `{name, ...}` or an object keyed by name.
+  fn lookup_entry<'a>(index: &'a serde_json::Value, name: &str) -> Option<&'a serde_json::Value> {
+    if let Some(arr) = index.as_array() {
+      arr.iter().find(|e| e.get("name").and_then(|v| v.as_str()) == Some(name))
+    } else if let Some(obj) = index.as_object() {
+      obj.get(name)
+    } else {
+      None
+    }
+  }
+
+  fn attr_value(attrs: &[JsxAttr], name: &str) -> Option<String> {
+    attrs.iter().find(|a| a.name == name).and_then(|a| match &a.value {
+      JsxAttrValue::String(s) => Some(s.clone()),
+      _ => None,
+    })
   }
 }
 
@@ -19,14 +44,39 @@ impl Transformer for ComponentPreview {
   fn name(&self) -> &str {
     "component-preview"
   }
-  fn transform(&self, doc: &mut Document) {
+  fn transform(
+    &self,
+    doc: &mut Document,
+    #[allow(unused_variables)] meta: &SourceMeta,
+    engine: &mut duck_diagnostic::DiagnosticEngine<Code>,
+  ) {
+    // Both paths required — without them the pass is silently a no-op.
     let Some(idx) = &self.registry_index else { return };
     let Some(root) = &self.registry_root else { return };
-    let Ok(raw) = std::fs::read_to_string(idx) else { return };
-    let Ok(index): Result<serde_json::Value, _> = serde_json::from_str(&raw) else { return };
-    let mut v = Apply { index, root: root.clone() };
-    for c in &mut doc.children {
-      walk_mut(c, &mut v);
+    let raw = match std::fs::read_to_string(idx) {
+      Ok(r) => r,
+      Err(e) => {
+        engine.emit(Diagnostic::new(
+          Code::RegistryIndexUnreadable,
+          format!("component-preview: cannot read registry index {} ({})", idx.display(), e),
+        ));
+        return;
+      },
+    };
+    let index: serde_json::Value = match serde_json::from_str(&raw) {
+      Ok(v) => v,
+      Err(e) => {
+        engine.emit(Diagnostic::new(
+          Code::RegistryIndexMalformed,
+          format!("component-preview: registry index {} is not valid JSON ({})", idx.display(), e),
+        ));
+        return;
+      },
+    };
+    let mut v = Apply { index, root: root.clone(), pending: Vec::new() };
+    walk_root(&mut doc.children, &mut v);
+    for d in v.pending.drain(..) {
+      engine.emit(d);
     }
   }
 }
@@ -34,60 +84,78 @@ impl Transformer for ComponentPreview {
 struct Apply {
   index: serde_json::Value,
   root: PathBuf,
+  pending: Vec<Diagnostic<Code>>,
 }
 
 impl Visitor for Apply {
-  fn visit_node(&mut self, node: &mut Node) -> VisitFlow {
-    let name = match node {
-      Node::JsxSelfClosing(j) if j.name == "ComponentPreview" => attr_value(&j.attrs, "name"),
-      Node::JsxElement(j) if j.name == "ComponentPreview" => attr_value(&j.attrs, "name"),
-      _ => return VisitFlow::Continue,
+  fn visit_node(&mut self, node: &mut Node) -> NodeAction {
+    let (name_opt, span) = match node {
+      Node::JsxSelfClosing(j) if j.name == "ComponentPreview" => {
+        (ComponentPreview::attr_value(&j.attrs, "name"), j.span.clone())
+      },
+      Node::JsxElement(j) if j.name == "ComponentPreview" => {
+        (ComponentPreview::attr_value(&j.attrs, "name"), j.span.clone())
+      },
+      _ => return NodeAction::Keep,
     };
-    let Some(name) = name else { return VisitFlow::Continue };
-    let Some(entry) = lookup_entry(&self.index, &name) else { return VisitFlow::Continue };
+    let Some(name) = name_opt else {
+      self.pending.push(
+        Diagnostic::new(
+          Code::MissingComponentAttr,
+          "component-preview: missing required `name` attribute".to_string(),
+        )
+        .with_label(Label::primary(span, Some("on this <ComponentPreview>".into()))),
+      );
+      return NodeAction::Keep;
+    };
+    let Some(entry) = ComponentPreview::lookup_entry(&self.index, &name) else {
+      self.pending.push(
+        Diagnostic::new(
+          Code::RegistryEntryNotFound,
+          format!("component-preview: registry has no entry for `{}`", name),
+        )
+        .with_label(Label::primary(span, Some("not found".into()))),
+      );
+      return NodeAction::Keep;
+    };
     let files = entry.get("files").and_then(|v| v.as_array());
-    let Some(files) = files else { return VisitFlow::Continue };
-    let Some(first) = files.first() else { return VisitFlow::Continue };
+    let Some(files) = files else {
+      self.pending.push(Diagnostic::new(
+        Code::RegistryEntryNotFound,
+        format!("component-preview: entry `{}` has no `files` array", name),
+      ));
+      return NodeAction::Keep;
+    };
+    let Some(first) = files.first() else {
+      self.pending.push(Diagnostic::new(
+        Code::RegistryEntryNotFound,
+        format!("component-preview: entry `{}` has empty `files` array", name),
+      ));
+      return NodeAction::Keep;
+    };
     let path = first.get("path").and_then(|v| v.as_str()).unwrap_or("");
     let abs = self.root.join(path);
-    let Ok(content) = std::fs::read_to_string(&abs) else { return VisitFlow::Continue };
-    let lang = abs.extension().and_then(|s| s.to_str()).map(String::from);
-    *node = Node::CodeBlock(CodeBlock {
-      lang,
-      meta: Some(format!("title=\"{name}\"")),
-      value: content,
-      raw: None,
-      commands: None,
-      highlighted_html: None,
-      span: default_span(),
-    });
-    VisitFlow::SkipChildren
-  }
-}
-
-fn lookup_entry<'a>(index: &'a serde_json::Value, name: &str) -> Option<&'a serde_json::Value> {
-  if let Some(arr) = index.as_array() {
-    for entry in arr {
-      if entry.get("name").and_then(|v| v.as_str()) == Some(name) {
-        return Some(entry);
-      }
-    }
-    None
-  } else if let Some(obj) = index.as_object() {
-    obj.get(name)
-  } else {
-    None
-  }
-}
-
-fn attr_value(attrs: &[JsxAttr], name: &str) -> Option<String> {
-  for a in attrs {
-    if a.name == name {
-      return match &a.value {
-        JsxAttrValue::String(s) => Some(s.clone()),
-        _ => None,
-      };
+    match std::fs::read_to_string(&abs) {
+      Ok(content) => {
+        let lang = abs.extension().and_then(|s| s.to_str()).map(String::from);
+        *node = Node::CodeBlock(CodeBlock {
+          lang,
+          meta: Some(format!("title=\"{name}\"")),
+          value: content,
+          span,
+        });
+        NodeAction::KeepSkipChildren
+      },
+      Err(e) => {
+        self.pending.push(
+          Diagnostic::new(
+            Code::RegistrySourceUnreadable,
+            format!("component-preview: cannot read {} ({})", abs.display(), e),
+          )
+          .with_label(Label::primary(span, Some(format!("for `{}`", name)))),
+        );
+        NodeAction::Keep
+      },
     }
   }
-  None
 }

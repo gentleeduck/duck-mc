@@ -1,10 +1,20 @@
 use crate::pipeline::Transformer;
-use crate::visit::{VisitFlow, Visitor, walk_mut};
+use crate::visit::{NodeAction, Visitor, walk_root};
+use duck_diagnostic::{Diagnostic, Label, Span};
+use duck_md_diagnostic::Code;
+use duck_md_diagnostic::metadata::SourceMeta;
 use duck_md_parser::ast::*;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
+/// Copy referenced asset files (image `src`s and relative `href`s) into
+/// `assets_dir`, hash-name them via `name_template`, and rewrite the AST node
+/// to point at the published URL under `base_url`.
+///
+/// `map` caches `raw → url` so repeated references hash the file only once.
+/// Diagnostics: `AssetSourceMissing` (TW003) on read failure, `AssetCopyFailed`
+/// (T008) on destination write failure.
 pub struct CopyLinkedFiles {
   pub source_dir: PathBuf,
   pub assets_dir: PathBuf,
@@ -25,63 +35,103 @@ impl CopyLinkedFiles {
   }
 }
 
+enum Outcome {
+  Skip,
+  Published(String),
+  SourceMissing(PathBuf, std::io::Error),
+  CopyFailed(PathBuf, std::io::Error),
+}
+
 impl Transformer for CopyLinkedFiles {
   fn name(&self) -> &str {
     "copy-linked-files"
   }
-  fn transform(&self, doc: &mut Document) {
-    let mut v = Apply { config: self };
-    for c in &mut doc.children {
-      walk_mut(c, &mut v);
+  fn transform(
+    &self,
+    doc: &mut Document,
+    _meta: &SourceMeta,
+    engine: &mut duck_diagnostic::DiagnosticEngine<Code>,
+  ) {
+    let mut v = Apply { config: self, pending: Vec::new() };
+    walk_root(&mut doc.children, &mut v);
+    for d in v.pending.drain(..) {
+      engine.emit(d);
     }
   }
 }
 
 struct Apply<'a> {
   config: &'a CopyLinkedFiles,
+  pending: Vec<Diagnostic<Code>>,
+}
+
+impl<'a> Apply<'a> {
+  fn handle(&mut self, raw_slot: &mut String, span: Span, kind: &'static str) {
+    match self.config.publish(raw_slot) {
+      Outcome::Skip => {},
+      Outcome::Published(url) => *raw_slot = url,
+      Outcome::SourceMissing(path, err) => {
+        self.pending.push(
+          Diagnostic::new(
+            Code::AssetSourceMissing,
+            format!("copy-linked-files: cannot read {} source {} ({})", kind, path.display(), err),
+          )
+          .with_label(Label::primary(span, Some(format!("from this {}", kind)))),
+        );
+      },
+      Outcome::CopyFailed(path, err) => {
+        self.pending.push(
+          Diagnostic::new(
+            Code::AssetCopyFailed,
+            format!("copy-linked-files: failed to write asset {} ({})", path.display(), err),
+          )
+          .with_label(Label::primary(span, Some(format!("for this {}", kind)))),
+        );
+      },
+    }
+  }
 }
 
 impl<'a> Visitor for Apply<'a> {
-  fn visit_node(&mut self, node: &mut Node) -> VisitFlow {
+  fn visit_node(&mut self, node: &mut Node) -> NodeAction {
     match node {
       Node::Image(i) => {
-        if let Some(url) = self.config.publish(&i.src) {
-          i.src = url;
-        }
+        let span = i.span.clone();
+        self.handle(&mut i.src, span, "image");
       },
       Node::Link(l) => {
         if l.href.starts_with("./") || l.href.starts_with("../") {
-          if let Some(url) = self.config.publish(&l.href) {
-            l.href = url;
-          }
+          let span = l.span.clone();
+          self.handle(&mut l.href, span, "link");
         }
       },
       _ => {},
     }
-    VisitFlow::Continue
+    NodeAction::Keep
   }
 }
 
 impl CopyLinkedFiles {
-  fn publish(&self, raw: &str) -> Option<String> {
+  fn publish(&self, raw: &str) -> Outcome {
     if raw.starts_with("http://")
       || raw.starts_with("https://")
       || raw.starts_with("//")
       || raw.starts_with('/')
+      || raw.starts_with('#')
     {
-      return None;
-    }
-    if raw.starts_with('#') {
-      return None;
+      return Outcome::Skip;
     }
     {
       let map = self.map.lock().unwrap();
       if let Some(u) = map.get(raw) {
-        return Some(u.clone());
+        return Outcome::Published(u.clone());
       }
     }
     let path = self.source_dir.join(raw);
-    let bytes = std::fs::read(&path).ok()?;
+    let bytes = match std::fs::read(&path) {
+      Ok(b) => b,
+      Err(e) => return Outcome::SourceMissing(path, e),
+    };
     let hash = blake3::hash(&bytes);
     let hash8 = &hash.to_hex().to_string()[..8];
     let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("asset");
@@ -89,9 +139,13 @@ impl CopyLinkedFiles {
     let filename =
       self.name_template.replace("[name]", stem).replace("[hash:8]", hash8).replace("[ext]", ext);
     let dest = self.assets_dir.join(&filename);
-    std::fs::create_dir_all(&self.assets_dir).ok()?;
+    if let Err(e) = std::fs::create_dir_all(&self.assets_dir) {
+      return Outcome::CopyFailed(self.assets_dir.clone(), e);
+    }
     if !dest.exists() {
-      std::fs::write(&dest, &bytes).ok()?;
+      if let Err(e) = std::fs::write(&dest, &bytes) {
+        return Outcome::CopyFailed(dest, e);
+      }
     }
     let mut url = self.base_url.clone();
     if !url.ends_with('/') {
@@ -99,6 +153,6 @@ impl CopyLinkedFiles {
     }
     url.push_str(&filename);
     self.map.lock().unwrap().insert(raw.to_string(), url.clone());
-    Some(url)
+    Outcome::Published(url)
   }
 }

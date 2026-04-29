@@ -8,6 +8,7 @@ mod copy_linked_files;
 mod disable_gfm;
 #[cfg(feature = "mermaid")]
 mod mermaid;
+#[cfg(feature = "npm_command")]
 mod npm_command;
 
 pub use autolink_headings::AutolinkHeadings;
@@ -20,4 +21,5 @@ pub use copy_linked_files::CopyLinkedFiles;
 pub use disable_gfm::DisableGfm;
 #[cfg(feature = "mermaid")]
 pub use mermaid::Mermaid;
+#[cfg(feature = "npm_command")]
 pub use npm_command::NpmCommand;

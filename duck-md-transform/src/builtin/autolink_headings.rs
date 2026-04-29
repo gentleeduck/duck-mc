@@ -1,19 +1,22 @@
 use crate::pipeline::Transformer;
-use crate::visit::{VisitFlow, Visitor, walk_mut};
+use crate::visit::{NodeAction, Visitor, walk_root};
+use duck_md_diagnostic::Code;
+use duck_md_diagnostic::metadata::SourceMeta;
 use duck_md_parser::ast::*;
 
+/// Wrap each `Heading`'s children in a `Link` to its own `#id` anchor, so
+/// rendered HTML produces clickable section headings. `aria_label` flows
+/// through as the link's `title`.
 #[derive(Default)]
 pub struct AutolinkHeadings {
-  pub class_name: Option<String>,
   pub aria_label: Option<String>,
 }
 
 impl AutolinkHeadings {
+  /// Construct with the conventional shadcn-style aria label.
+  /// Use `Default::default()` for a transformer with it unset.
   pub fn new() -> Self {
-    Self {
-      class_name: Some("subheading-anchor".to_string()),
-      aria_label: Some("Link to section".to_string()),
-    }
+    Self { aria_label: Some("Link to section".to_string()) }
   }
 }
 
@@ -22,43 +25,42 @@ impl Transformer for AutolinkHeadings {
     "autolink-headings"
   }
 
-  fn transform(&self, doc: &mut Document) {
-    let mut v = Apply { class_name: self.class_name.clone(), aria_label: self.aria_label.clone() };
-    for c in &mut doc.children {
-      walk_mut(c, &mut v);
-    }
+  fn transform(
+    &self,
+    doc: &mut Document,
+    #[allow(unused_variables)] meta: &SourceMeta,
+    #[allow(unused_variables)] engine: &mut duck_diagnostic::DiagnosticEngine<Code>,
+  ) {
+    let mut v = Apply { aria_label: self.aria_label.clone() };
+    walk_root(&mut doc.children, &mut v);
   }
 }
 
 struct Apply {
-  class_name: Option<String>,
   aria_label: Option<String>,
 }
 
 impl Visitor for Apply {
-  fn visit_node(&mut self, node: &mut Node) -> VisitFlow {
+  fn visit_node(&mut self, node: &mut Node) -> NodeAction {
     if let Node::Heading(h) = node {
-      // Wrap heading children in a Link with href = "#<id>"
-      // We model the autolink as a `Link` whose href is the heading anchor and
-      // whose `title` carries the aria-label/class semantically.
+      let slug = h.slug();
+      let span = h.span.clone();
       let original = std::mem::take(&mut h.children);
-      // Skip if already wrapped in an autolink — detect by single child being a Link to "#<id>"
       let already =
-        matches!(original.as_slice(), [Node::Link(l)] if l.href == format!("#{}", h.id));
+        matches!(original.as_slice(), [Node::Link(l)] if l.href == format!("#{}", slug));
       if already {
         h.children = original;
-        return VisitFlow::SkipChildren;
+        return NodeAction::KeepSkipChildren;
       }
       let link = Node::Link(Link {
-        href: format!("#{}", h.id),
+        href: format!("#{}", slug),
         title: self.aria_label.clone(),
-        class: self.class_name.clone(),
         children: original,
-        span: default_span(),
+        span,
       });
       h.children = vec![link];
-      return VisitFlow::SkipChildren;
+      return NodeAction::KeepSkipChildren;
     }
-    VisitFlow::Continue
+    NodeAction::Keep
   }
 }

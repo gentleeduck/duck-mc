@@ -11,7 +11,7 @@ fn component_source_replaces_jsx_with_code_block() {
   let src = "<ComponentSource path=\"foo.tsx\" />\n";
   let mut doc = parse(src);
   let p = Pipeline::new().add(ComponentSource::with_base_dir(dir.path()));
-  p.run(&mut doc);
+  p.run_silent(&mut doc);
 
   let cb = doc
     .children
@@ -32,7 +32,7 @@ fn component_source_no_op_for_missing_file() {
   let src = "<ComponentSource path=\"missing.tsx\" />\n";
   let mut doc = parse(src);
   let p = Pipeline::new().add(ComponentSource::with_base_dir(dir.path()));
-  p.run(&mut doc);
+  p.run_silent(&mut doc);
   // original JSX node preserved when file not found
   let still_jsx =
     doc.children.iter().any(|n| matches!(n, Node::JsxSelfClosing(_) | Node::JsxElement(_)));

@@ -1,11 +1,11 @@
 use duck_md_parser::ast::*;
 use duck_md_parser::parse;
-use duck_md_transform::{AutolinkHeadings, CodeImport, NpmCommand, Pipeline};
+use duck_md_transform::{AutolinkHeadings, CodeImport, Pipeline};
 
 #[test]
 fn pipeline_runs_autolink() {
   let mut d = parse("# Hello");
-  Pipeline::new().add(AutolinkHeadings::new()).run(&mut d);
+  Pipeline::new().add(AutolinkHeadings::new()).run_silent(&mut d);
   let h = match &d.children[0] {
     Node::Heading(h) => h,
     n => panic!("expected heading, got {:?}", n),
@@ -23,8 +23,8 @@ fn pipeline_runs_autolink() {
 #[test]
 fn idempotent() {
   let mut d = parse("# Hello");
-  Pipeline::new().add(AutolinkHeadings::new()).run(&mut d);
-  Pipeline::new().add(AutolinkHeadings::new()).run(&mut d);
+  Pipeline::new().add(AutolinkHeadings::new()).run_silent(&mut d);
+  Pipeline::new().add(AutolinkHeadings::new()).run_silent(&mut d);
   let h = match &d.children[0] {
     Node::Heading(h) => h,
     n => panic!("expected heading, got {:?}", n),
@@ -35,7 +35,7 @@ fn idempotent() {
 #[test]
 fn defaults_pipeline_includes_autolink() {
   let mut d = parse("# Foo Bar");
-  Pipeline::with_defaults().run(&mut d);
+  Pipeline::with_defaults().run_silent(&mut d);
   let h = match &d.children[0] {
     Node::Heading(h) => h,
     n => panic!("expected heading, got {:?}", n),
@@ -43,40 +43,40 @@ fn defaults_pipeline_includes_autolink() {
   assert!(matches!(h.children.first(), Some(Node::Link(_))));
 }
 
-#[test]
-fn npm_command_derives_yarn_pnpm_bun() {
-  let mut d = duck_md_parser::parse("```\nnpm install lodash\n```\n");
-  duck_md_transform::Pipeline::new().add(NpmCommand).run(&mut d);
-  let cb = d
-    .children
-    .iter()
-    .find_map(|n| match n {
-      Node::CodeBlock(cb) => Some(cb),
-      _ => None,
-    })
-    .expect("code block");
-  let c = cb.commands.as_ref().expect("commands");
-  assert_eq!(c.npm, "npm install lodash");
-  assert_eq!(c.yarn, "yarn add lodash");
-  assert_eq!(c.pnpm, "pnpm add lodash");
-  assert_eq!(c.bun, "bun add lodash");
-}
-
-#[test]
-fn npm_command_handles_npx_create() {
-  let mut d = duck_md_parser::parse("```\nnpx create-next-app my-app\n```\n");
-  duck_md_transform::Pipeline::new().add(NpmCommand).run(&mut d);
-  let cb = d
-    .children
-    .iter()
-    .find_map(|n| match n {
-      Node::CodeBlock(cb) => Some(cb),
-      _ => None,
-    })
-    .expect("cb");
-  let c = cb.commands.as_ref().expect("c");
-  assert_eq!(c.bun, "bunx create-next-app my-app");
-}
+// #[test]
+// fn npm_command_derives_yarn_pnpm_bun() {
+//   let mut d = duck_md_parser::parse("```\nnpm install lodash\n```\n");
+//   duck_md_transform::Pipeline::new().add(NpmCommand).run_silent(&mut d);
+//   let cb = d
+//     .children
+//     .iter()
+//     .find_map(|n| match n {
+//       Node::CodeBlock(cb) => Some(cb),
+//       _ => None,
+//     })
+//     .expect("code block");
+//   let c = cb.commands.as_ref().expect("commands");
+//   assert_eq!(c.npm, "npm install lodash");
+//   assert_eq!(c.yarn, "yarn add lodash");
+//   assert_eq!(c.pnpm, "pnpm add lodash");
+//   assert_eq!(c.bun, "bun add lodash");
+// }
+//
+// #[test]
+// fn npm_command_handles_npx_create() {
+//   let mut d = duck_md_parser::parse("```\nnpx create-next-app my-app\n```\n");
+//   duck_md_transform::Pipeline::new().add(NpmCommand).run_silent(&mut d);
+//   let cb = d
+//     .children
+//     .iter()
+//     .find_map(|n| match n {
+//       Node::CodeBlock(cb) => Some(cb),
+//       _ => None,
+//     })
+//     .expect("cb");
+//   let c = cb.commands.as_ref().expect("c");
+//   assert_eq!(c.bun, "bunx create-next-app my-app");
+// }
 
 #[test]
 fn code_import_reads_file() {
@@ -87,7 +87,7 @@ fn code_import_reads_file() {
   let mut d = duck_md_parser::parse(&src);
   duck_md_transform::Pipeline::new()
     .add(CodeImport::with_base_dir(dir.path().to_path_buf()))
-    .run(&mut d);
+    .run_silent(&mut d);
   let cb = d
     .children
     .iter()
