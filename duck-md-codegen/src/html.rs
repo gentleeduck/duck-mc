@@ -1,24 +1,42 @@
 use crate::escape::{escape_attr, escape_text};
+use duck_diagnostic::{Diagnostic, DiagnosticEngine};
+use duck_md_diagnostic::Code;
 use duck_md_parser::ast::*;
 
-#[derive(Default)]
-pub struct HtmlEmitter {
+/// Stateful HTML emitter. Walks a `Document`, accumulates output into `out`,
+/// and reports any non-fatal issues into a caller-provided
+/// [`DiagnosticEngine`]. JSX elements pass through verbatim; raw
+/// `JsxExpression` nodes can't be evaluated by HTML and surface as
+/// [`Code::HtmlExpressionDropped`] warnings.
+pub struct HtmlEmitter<'a> {
   out: String,
+  engine: &'a mut DiagnosticEngine<Code>,
 }
 
+/// Convenience: render a whole document to HTML with a throwaway engine
+/// (diagnostics discarded).
 pub fn render_html(doc: &Document) -> String {
-  let mut e = HtmlEmitter::default();
-  for n in &doc.children {
-    e.emit(n);
-  }
-  e.into_string()
+  let mut engine = DiagnosticEngine::new();
+  HtmlEmitter::render(doc, &mut engine)
 }
 
-impl HtmlEmitter {
-  pub fn into_string(self) -> String {
-    self.out
+impl<'a> HtmlEmitter<'a> {
+  /// Build an emitter, walk `doc`, return the buffered HTML. Diagnostics emit
+  /// straight into `engine`.
+  pub fn render(doc: &Document, engine: &'a mut DiagnosticEngine<Code>) -> String {
+    let mut e = Self { out: String::new(), engine };
+    for n in &doc.children {
+      e.emit(n);
+    }
+    e.out
   }
 
+  /// Push a diagnostic into the shared engine.
+  fn diag(&mut self, code: Code, message: impl Into<String>) {
+    self.engine.emit(Diagnostic::new(code, message.into()));
+  }
+
+  /// Dispatch one node to its variant-specific emitter.
   pub fn emit(&mut self, node: &Node) {
     match node {
       Node::Document(d) => {
@@ -26,8 +44,8 @@ impl HtmlEmitter {
           self.emit(c);
         }
       },
-      Node::Frontmatter(_) => { /* not rendered into HTML */ },
-      Node::Import(_) | Node::Export(_) => { /* MDX-only, not HTML */ },
+      Node::Frontmatter(_) => {},
+      Node::Import(_) | Node::Export(_) => {},
       Node::Heading(h) => self.emit_heading(h),
       Node::Paragraph(p) => self.emit_paragraph(p),
       Node::Text(t) => self.out.push_str(&escape_text(&t.value)),
@@ -48,9 +66,7 @@ impl HtmlEmitter {
       Node::ListItem(li) => self.emit_list_item(li),
       Node::TaskListItem(t) => self.emit_task_list_item(t),
       Node::Table(t) => self.emit_table(t),
-      Node::TableRow(_) | Node::TableCell(_) => {
-        // handled inside emit_table
-      },
+      Node::TableRow(_) | Node::TableCell(_) => {},
       Node::JsxElement(e) => self.emit_jsx_element(e),
       Node::JsxSelfClosing(s) => self.emit_jsx_self_closing(s),
       Node::JsxFragment(f) => {
@@ -58,7 +74,12 @@ impl HtmlEmitter {
           self.emit(c);
         }
       },
-      Node::JsxExpression(_) => { /* HTML output omits raw JS expressions */ },
+      Node::JsxExpression(e) => {
+        self.diag(
+          Code::HtmlExpressionDropped,
+          format!("html: raw `{{...}}` expression dropped: {}", e.value.trim()),
+        );
+      },
       Node::HardBreak(_) => self.out.push_str("<br/>"),
       Node::SoftBreak(_) => self.out.push('\n'),
     }
@@ -77,7 +98,7 @@ impl HtmlEmitter {
   }
 
   fn emit_heading(&mut self, h: &Heading) {
-    self.out.push_str(&format!("<h{} id=\"{}\">", h.level, escape_attr(&h.id)));
+    self.out.push_str(&format!("<h{} id=\"{}\">", h.level, escape_attr(&h.slug())));
     for c in &h.children {
       self.emit(c);
     }
@@ -93,13 +114,9 @@ impl HtmlEmitter {
   }
 
   fn emit_code_block(&mut self, cb: &CodeBlock) {
-    if let Some(h) = &cb.highlighted_html {
-      self.out.push_str(h);
-      return;
-    }
     self.out.push_str("<pre><code");
     if let Some(lang) = &cb.lang {
-      self.out.push_str(&format!(" class=\"language-{}\"", escape_attr(lang)));
+      self.out.push_str(&format!(" class=\"gentleduck-md-language-{}\"", escape_attr(lang)));
     }
     self.out.push('>');
     self.out.push_str(&escape_text(&cb.value));
@@ -108,9 +125,6 @@ impl HtmlEmitter {
 
   fn emit_link(&mut self, l: &Link) {
     self.out.push_str(&format!("<a href=\"{}\"", escape_attr(&l.href)));
-    if let Some(class) = &l.class {
-      self.out.push_str(&format!(" class=\"{}\"", escape_attr(class)));
-    }
     if let Some(title) = &l.title {
       self.out.push_str(&format!(" aria-label=\"{}\"", escape_attr(title)));
     }
@@ -222,6 +236,10 @@ impl HtmlEmitter {
   }
 
   fn emit_jsx_element(&mut self, e: &JsxElement) {
+    if e.name.is_empty() {
+      self.diag(Code::MalformedJsxTagName, "html: JSX element has empty name; skipped".to_string());
+      return;
+    }
     self.out.push('<');
     self.out.push_str(&e.name);
     for a in &e.attrs {
@@ -237,12 +255,47 @@ impl HtmlEmitter {
   }
 
   fn emit_jsx_self_closing(&mut self, s: &JsxSelfClosing) {
-    self.out.push('<');
-    self.out.push_str(&s.name);
-    for a in &s.attrs {
-      self.emit_attr(a);
+    if s.name.is_empty() {
+      self.diag(
+        Code::MalformedJsxTagName,
+        "html: self-closing JSX has empty name; skipped".to_string(),
+      );
+      return;
     }
-    self.out.push_str(" />");
+    match s.name.as_str() {
+      "MermaidSvg" => {
+        if let Some(attr) = s.attrs.iter().find(|a| a.name == "svg")
+          && let JsxAttrValue::String(svg) = &attr.value
+        {
+          self.out.push_str(svg);
+          return;
+        }
+      },
+      "PackageManagerTabs" => {
+        self.out.push_str("<div class=\"gentleduck-md-pm-tabs\">");
+        for pm in ["npm", "yarn", "pnpm", "bun"] {
+          if let Some(attr) = s.attrs.iter().find(|a| a.name == pm)
+            && let JsxAttrValue::String(cmd) = &attr.value
+          {
+            self.out.push_str(&format!(
+              "<pre><code class=\"gentleduck-md-language-bash\" data-pm=\"{}\">{}</code></pre>",
+              pm,
+              escape_text(cmd)
+            ));
+          }
+        }
+        self.out.push_str("</div>");
+        return;
+      },
+      _ => {
+        self.out.push('<');
+        self.out.push_str(&s.name);
+        for a in &s.attrs {
+          self.emit_attr(a);
+        }
+        self.out.push_str(" />");
+      },
+    }
   }
 
   fn emit_attr(&mut self, a: &JsxAttr) {

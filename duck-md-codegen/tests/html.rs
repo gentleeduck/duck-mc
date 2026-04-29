@@ -13,10 +13,8 @@ fn h1_with_id() {
   use duck_md_parser::ast::*;
   let doc = Document {
     span: duck_md_parser::ast::default_span(),
-    diagnostics: Vec::new(),
     children: vec![Node::Heading(Heading {
       level: 1,
-      id: "hello".into(),
       children: vec![Node::Text(Text {
         value: "Hello".into(),
         span: duck_md_parser::ast::default_span(),
@@ -55,7 +53,7 @@ fn image_renders() {
 fn fenced_code_with_lang() {
   let src = "```ts\nlet x = 1\n```\n";
   let h = html(src);
-  assert!(h.contains("<pre><code class=\"language-ts\""), "got {}", h);
+  assert!(h.contains("<pre><code class=\"gentleduck-md-language-ts\""), "got {}", h);
   assert!(h.contains("let x = 1"), "got {}", h);
 }
 

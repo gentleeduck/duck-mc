@@ -1,3 +1,5 @@
+/// HTML-escape text content. Replaces `&`, `<`, `>` with named entities.
+/// Use for node text — does NOT escape `"` (safe inside element body).
 pub fn escape_text(s: &str) -> String {
   let mut out = String::with_capacity(s.len());
   for ch in s.chars() {
@@ -11,6 +13,8 @@ pub fn escape_text(s: &str) -> String {
   out
 }
 
+/// HTML-escape an attribute value. Same as [`escape_text`] plus `"` → `&quot;`
+/// since attribute values are quoted.
 pub fn escape_attr(s: &str) -> String {
   let mut out = String::with_capacity(s.len());
   for ch in s.chars() {
