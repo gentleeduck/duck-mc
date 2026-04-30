@@ -1,6 +1,6 @@
 # Velite Parity Survey (target: duck-ui docs)
 
-Source of truth for what `duck-md` must reproduce. Read this before designing schema, transformers, or output shape. Pulled from:
+Source of truth for what `dmc` must reproduce. Read this before designing schema, transformers, or output shape. Pulled from:
 
 - `packages/duck-docs/src/velite/config.ts`
 - `packages/duck-docs/src/velite/plugins/*`

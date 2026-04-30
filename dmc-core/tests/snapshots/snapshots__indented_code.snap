@@ -1,0 +1,20 @@
+---
+source: dmc-core/tests/snapshots.rs
+assertion_line: 40
+expression: out
+---
+{
+  "frontmatter": null,
+  "frontmatterRaw": "",
+  "content": "para\n\n    fn main() {}\n\nafter\n",
+  "html": "[REDACTED_HTML]",
+  "body": "[REDACTED_FACTORY_STRING]",
+  "excerpt": "para fn main(){} after",
+  "metadata": {
+    "readingTime": 1,
+    "wordCount": 4
+  },
+  "toc": [],
+  "imports": [],
+  "exports": []
+}

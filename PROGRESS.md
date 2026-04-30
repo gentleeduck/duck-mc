@@ -33,16 +33,16 @@ Goal: drop-in Rust replacement for Velite's role in `apps/duck` (see `SURVEY.md`
 
 ## Phase 2 — AST
 
-- [x] A1: new crate `duck-md-ast`. Workspace member. Define `Node`, `Document`, `Frontmatter`, `Heading`, `Paragraph`, `Text`, `CodeBlock`, `Link`, `Image`, `List`, `ListItem`, `Blockquote`, `ThematicBreak`, `HardBreak`, `SoftBreak`, `JsxElement`, `JsxSelfClosing`, `JsxExpression`, `JsxFragment`, `Import`, `Export`, `Bold`, `Italic`, `InlineCode`, `Strikethrough`, `Table`, `TableRow`, `TableCell`, `TaskListItem`
+- [x] A1: new crate `dmc-ast`. Workspace member. Define `Node`, `Document`, `Frontmatter`, `Heading`, `Paragraph`, `Text`, `CodeBlock`, `Link`, `Image`, `List`, `ListItem`, `Blockquote`, `ThematicBreak`, `HardBreak`, `SoftBreak`, `JsxElement`, `JsxSelfClosing`, `JsxExpression`, `JsxFragment`, `Import`, `Export`, `Bold`, `Italic`, `InlineCode`, `Strikethrough`, `Table`, `TableRow`, `TableCell`, `TaskListItem`
 - [x] A2: `JsxAttr`, `JsxAttrValue::{String,Expression,Boolean}`
 - [x] A3: `Span` on every node (reuse `duck_diagnostic::Span`); add `Position { line, column, offset }` (Span carries line/column/length already; offset deferred)
 - [ ] A4: `Display` impl + tree-print debug helper
 - [x] A5: `serde::Serialize` on every node so AST can be JSON-dumped (Span skipped — duck_diagnostic doesn't derive Serialize)
-- [x] A6: `duck-md-ast/tests/ast_smoke.rs` — round-trip serialize/deserialize on a hand-built doc (named smoke.rs)
+- [x] A6: `dmc-ast/tests/ast_smoke.rs` — round-trip serialize/deserialize on a hand-built doc (named smoke.rs)
 
 ## Phase 3 — Parser
 
-- [x] P1: new crate `duck-md-parser`. `Parser` struct, `peek/advance/expect`, `parse() -> Document` entry
+- [x] P1: new crate `dmc-parser`. `Parser` struct, `peek/advance/expect`, `parse() -> Document` entry
 - [x] P2: parse frontmatter
 - [x] P3: parse top-level imports
 - [x] P4: parse top-level exports
@@ -65,24 +65,24 @@ Goal: drop-in Rust replacement for Velite's role in `apps/duck` (see `SURVEY.md`
 - [x] P21: parse GFM table (header + alignment + body, alignments :--/--:/:-:)
 - [x] P22: parse GFM task list item (Bracket/Text/Bracket detection inside list)
 - [x] P23: parse GFM strikethrough (Strike token mirrored after Bold/Italic)
-- [ ] P24: parser test suite — `duck-md-parser/tests/*.rs` per construct
+- [ ] P24: parser test suite — `dmc-parser/tests/*.rs` per construct
 - [ ] P25: error recovery — synthesize missing-close on unterminated JSX, continue; collect into `Diagnostic`s
 
 ## Phase 4 — Public API
 
-- [x] X1: convert `duck-md-core` from binary to library + binary. `lib.rs` exposes `parse(source) -> Document`
+- [x] X1: convert `dmc-core` from binary to library + binary. `lib.rs` exposes `parse(source) -> Document`
 - [x] X2: `compile(source) -> CompileOutput { frontmatter, frontmatter_raw, content, html, excerpt, metadata, toc, imports, exports }`
-- [ ] X3: integration fixtures `duck-md-core/tests/fixtures/*.mdx` + golden JSON outputs
-- [ ] X4: `duck-md-core/tests/integration.rs` — golden diff per fixture
+- [ ] X3: integration fixtures `dmc-core/tests/fixtures/*.mdx` + golden JSON outputs
+- [ ] X4: `dmc-core/tests/integration.rs` — golden diff per fixture
 
 ## Phase 5 — Codegen (HTML)
 
-- [x] C1: new crate `duck-md-codegen`. `HtmlEmitter` struct with output buffer + escape helpers
+- [x] C1: new crate `dmc-codegen`. `HtmlEmitter` struct with output buffer + escape helpers
 - [x] C2: emit Heading (with id slug), Paragraph, Text (escaped), Bold, Italic, InlineCode, Strikethrough, CodeBlock (no highlight)
 - [x] C3: emit Link, Image, List, ListItem, TaskListItem, Blockquote, ThematicBreak, HardBreak (`<br/>`), SoftBreak (newline)
 - [x] C4: emit Table, TableRow, TableCell with align attrs
 - [x] C5: emit JSX self-closing, JSX element, JSX expression as JSX-string passthrough into HTML
-- [x] C6: tests — `duck-md-codegen/tests/html.rs` golden per construct
+- [x] C6: tests — `dmc-codegen/tests/html.rs` golden per construct
 
 ## Phase 6 — Codegen (MDX body — JS function source)
 
@@ -93,11 +93,11 @@ See SURVEY.md §I for required output shape.
 - [x] M3: emit JSX elements as `jsx(ComponentName, { ...props, children: [...] })`
 - [x] M4: emit JSX expressions as embedded JS expressions in children arrays (passed through verbatim)
 - [x] M5: emit Imports/Exports at module scope of the body
-- [x] M6: tests — `duck-md-codegen/tests/mdx_body.rs` golden vs hand-checked snippets
+- [x] M6: tests — `dmc-codegen/tests/mdx_body.rs` golden vs hand-checked snippets
 
 ## Phase 7 — Schema (Velite primitive parity)
 
-- [ ] S1: new crate `duck-md-schema`. Type-level builder: `string(), boolean(), number(), object(map), array(item), optional(), default(value), max(N), min(N), regex(pat), enum_(["a","b"])`
+- [ ] S1: new crate `dmc-schema`. Type-level builder: `string(), boolean(), number(), object(map), array(item), optional(), default(value), max(N), min(N), regex(pat), enum_(["a","b"])`
 - [x] S2: `mdx()` — `CompileOutput.body` populated via `render_mdx_body`
 - [x] S3: `markdown()` — provided as `CompileOutput.content` (raw md sans frontmatter)
 - [x] S4: `excerpt(opts)` — provided as `CompileOutput.excerpt` (strip MD, truncate 260)
@@ -105,16 +105,16 @@ See SURVEY.md §I for required output shape.
 - [x] S6: `toc()` — provided as `CompileOutput.toc` (nested via index-path stack)
 - [ ] S7: schema parse error type with rich path (e.g. `frontmatter.title: too long`)
 - [ ] S8: `transform(fn)` post-step
-- [ ] S9: tests — `duck-md-schema/tests/*.rs` per primitive
+- [ ] S9: tests — `dmc-schema/tests/*.rs` per primitive
 
 ## Phase 8 — Transform pipeline
 
-- [x] T1: new crate `duck-md-transform`. `Visitor` trait + `walk_mut` + mutate-in-place
+- [x] T1: new crate `dmc-transform`. `Visitor` trait + `walk_mut` + mutate-in-place
 - [ ] T2: `HastVisitor` trait + `walk_hast` (deferred — current pipeline operates on mdast/AST directly)
 - [ ] T3: hast node types (deferred — see T2)
 - [ ] T4: ordering API for before/after hooks (deferred — current Pipeline runs sequentially)
 - [x] T5: pipeline runner: source → lex → parse → transforms → emit (`Pipeline::with_defaults` wired into `compile()`)
-- [x] T6: tests — `duck-md-transform/tests/pipeline.rs` 3/3
+- [x] T6: tests — `dmc-transform/tests/pipeline.rs` 3/3
 
 ## Phase 9 — Built-in transformers (mirror velite plugins)
 
@@ -140,7 +140,7 @@ See SURVEY.md §I for required output shape.
 
 ## Phase 11 — Collections + globs
 
-- [x] G1: `CollectionConfig { name, pattern, base_dir }` type in `duck-md-core::engine`
+- [x] G1: `CollectionConfig { name, pattern, base_dir }` type in `dmc-core::engine`
 - [x] G2: glob walk via `globwalk`
 - [x] G3: per-file pipeline: read → compile → record
 - [ ] G4: parallelism via `rayon` (deferred)
@@ -148,25 +148,25 @@ See SURVEY.md §I for required output shape.
 
 ## Phase 12 — CLI
 
-- [x] U1: `duck-md` binary. Commands: `build`, `init`, `compile`
-- [x] U2: `build` — read `duck-md.toml` config, run pipeline, write `.duck-md/`
+- [x] U1: `dmc` binary. Commands: `build`, `init`, `compile`
+- [x] U2: `build` — read `dmc.toml` config, run pipeline, write `.dmc/`
 - [ ] U3: `dev` — `notify` watcher, incremental rebuild (deferred)
 - [x] U4: `init` — scaffold default config
 - [x] U5: tests — `assert_cmd` integration tests on fixture projects
 
 ## Phase 13 — Output
 
-- [x] O1: write `.duck-md/<collection>.json` (array of records)
-- [x] O2: write `.duck-md/index.js` mirroring velite's `export { default as <name> } from './...json' with { type: 'json' }`
-- [x] O3: write `.duck-md/index.d.ts` (minimal `any[]`; richer types deferred)
-- [ ] O4: tests — diff `.duck-md/docs.json` against `apps/duck/.velite/docs.json` on shared fixtures (sample subset)
+- [x] O1: write `.dmc/<collection>.json` (array of records)
+- [x] O2: write `.dmc/index.js` mirroring velite's `export { default as <name> } from './...json' with { type: 'json' }`
+- [x] O3: write `.dmc/index.d.ts` (minimal `any[]`; richer types deferred)
+- [ ] O4: tests — diff `.dmc/docs.json` against `apps/duck/.velite/docs.json` on shared fixtures (sample subset)
 
 ## Phase 14 — Velite parity verification
 
 - [x] V1: vendor 3 MDX files from `apps/duck/content/docs/` into `tests/fixtures/velite-parity/` (mdx.mdx, skills.mdx, whoiam.mdx)
 - [ ] V2: vendor matching expected records from `apps/duck/.velite/docs.json` for byte-exact comparison (deferred — needs richer transformers first)
-- [x] V3: smoke parity test `duck-md-core/tests/parity.rs` — 6 sanity assertions, all 3 fixtures green
-- [ ] V4: doc README parity reporting CLI: `duck-md parity --against <velite_dir>`
+- [x] V3: smoke parity test `dmc-core/tests/parity.rs` — 6 sanity assertions, all 3 fixtures green
+- [ ] V4: doc README parity reporting CLI: `dmc parity --against <velite_dir>`
 
 ## Phase 15 — Hardening
 

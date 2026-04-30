@@ -1,0 +1,55 @@
+[package]
+name = "dmc-core"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[features]
+default = ["cli", "watch", "pretty-code"]
+cli = ["dep:clap", "dep:toml"]
+watch = ["dep:notify", "dep:notify-debouncer-mini"]
+pretty-code = []
+
+[lib]
+name = "dmc"
+path = "src/lib.rs"
+
+[[bin]]
+name = "dmc"
+path = "src/main.rs"
+required-features = ["cli", "watch"]
+
+[[bin]]
+name = "core"
+path = "core-samples/core.rs"
+
+[dependencies]
+dmc-lexer.workspace = true
+dmc-diagnostic = { workspace = true, features = ["lexer", "parser", "transform", "codegen"] }
+duck-diagnostic.workspace = true
+dmc-parser = { path = "../dmc-parser" }
+dmc-codegen = { path = "../dmc-codegen" }
+dmc-transform = { path = "../dmc-transform" }
+dmc-schema = { path = "../dmc-schema" }
+serde_yaml.workspace = true
+notify = { workspace = true, optional = true }
+notify-debouncer-mini = { workspace = true, optional = true }
+rayon.workspace = true
+tempfile.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+globwalk.workspace = true
+clap = { workspace = true, optional = true }
+toml = { workspace = true, optional = true }
+
+[dev-dependencies]
+pretty_assertions.workspace = true
+tempfile.workspace = true
+assert_cmd.workspace = true
+predicates.workspace = true
+insta.workspace = true
+criterion.workspace = true
+
+[[bench]]
+name = "compile"
+harness = false

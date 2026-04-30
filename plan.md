@@ -733,7 +733,7 @@ Remaining ideas — apply only after benching shows real headroom. Each requires
 
 Today `Token.raw: String` and lexer copies the lexeme on every emit (`get_current_lexeme().to_string()`). Switching to `Cow<'src, str>` makes the hot path zero-copy (always `Cow::Borrowed` from the source slice), and the parser's only mutation site (`block.rs:82` rewriting an ordered-list-item Text token) can use `Cow::Owned`.
 
-**Touches:** `duck-md-lexer/src/token.rs`, `lib.rs::emit`, every parser file that does `t.raw.clone()` (returns `Cow` not `String` after the switch — most call sites need `t.raw.to_string()` or `t.raw.into_owned()`).
+**Touches:** `dmc-lexer/src/token.rs`, `lib.rs::emit`, every parser file that does `t.raw.clone()` (returns `Cow` not `String` after the switch — most call sites need `t.raw.to_string()` or `t.raw.into_owned()`).
 
 **Expected gain:** ~30 to 50 % lex throughput on text-heavy fixtures (skills.mdx tokens drop from 269 String allocs to 0).
 
@@ -741,7 +741,7 @@ Today `Token.raw: String` and lexer copies the lexeme on every emit (`get_curren
 
 Once Token carries `'src`, Parser must thread `'src` through. Mechanical but rippling change.
 
-**Touches:** `duck-md-parser/src/parser.rs`, `block.rs`, `inline.rs`, `jsx.rs`, `table.rs`. Each `Vec<Token>` becomes `Vec<Token<'src>>`, each `&Token` becomes `&Token<'src>`. AST node types (`Text { value: String }` etc) stay String — convert at insertion.
+**Touches:** `dmc-parser/src/parser.rs`, `block.rs`, `inline.rs`, `jsx.rs`, `table.rs`. Each `Vec<Token>` becomes `Vec<Token<'src>>`, each `&Token` becomes `&Token<'src>`. AST node types (`Text { value: String }` etc) stay String — convert at insertion.
 
 **Expected gain:** zero by itself; required to unlock #1.
 

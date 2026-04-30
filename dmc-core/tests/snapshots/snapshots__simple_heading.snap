@@ -1,0 +1,26 @@
+---
+source: dmc-core/tests/snapshots.rs
+assertion_line: 16
+expression: out
+---
+{
+  "frontmatter": null,
+  "frontmatterRaw": "",
+  "content": "# Hello\n\nworld",
+  "html": "<h1 id=\"hello\"><a href=\"#hello\" aria-label=\"Link to section\">Hello</a></h1><p>world</p>",
+  "body": "[REDACTED_FACTORY_STRING]",
+  "excerpt": "Hello world",
+  "metadata": {
+    "readingTime": 1,
+    "wordCount": 2
+  },
+  "toc": [
+    {
+      "title": "Hello",
+      "url": "#hello",
+      "items": []
+    }
+  ],
+  "imports": [],
+  "exports": []
+}

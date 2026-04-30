@@ -1,0 +1,26 @@
+[package]
+name = "dmc-transform"
+version.workspace = true
+edition.workspace = true
+
+[features]
+default = ["mermaid", "assets", "npm_command"]
+mermaid = []
+assets = ["dep:blake3"]
+npm_command = []
+
+[dependencies]
+dmc-lexer = { path = "../dmc-lexer" }
+dmc-parser = { path = "../dmc-parser" }
+dmc-diagnostic = { workspace = true, features = ["parser", "transform"] }
+duck-diagnostic.workspace = true
+blake3 = { workspace = true, optional = true }
+serde_json.workspace = true
+
+[dev-dependencies]
+pretty_assertions.workspace = true
+tempfile.workspace = true
+
+[[bin]]
+name = "transform"
+path = "transform-samples/transform.rs"

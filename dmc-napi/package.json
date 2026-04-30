@@ -1,0 +1,42 @@
+{
+	"name": "@gentleduck/dmc",
+	"version": "0.1.0",
+	"type": "module",
+	"main": "mod.ts",
+	"types": "mod.ts",
+	"exports": {
+		".": {
+			"types": "./mod.ts",
+			"default": "./mod.ts"
+		}
+	},
+	"files": [
+		"mod.ts",
+		"index.js",
+		"index.d.ts",
+		"*.node"
+	],
+	"napi": {
+		"name": "dmc",
+		"triples": {
+			"defaults": true,
+			"additional": []
+		}
+	},
+	"scripts": {
+		"build": "napi build --platform --release",
+		"build:debug": "napi build --platform"
+	},
+	"dependencies": {
+		"unified": "^11",
+		"remark-parse": "^11",
+		"remark-rehype": "^11",
+		"rehype-raw": "^7",
+		"rehype-stringify": "^10"
+	},
+	"devDependencies": {
+		"@napi-rs/cli": "^2.18.4",
+		"@types/node": "^22",
+		"@types/unist": "^3"
+	}
+}

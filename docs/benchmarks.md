@@ -1,4 +1,4 @@
-# duck-md benchmarks
+# dmc benchmarks
 
 Real numbers, real reproductions. Measured on Linux, Node 20.20.2, pnpm 10.33.0, Rust release profile, criterion 0.5.
 
@@ -16,21 +16,21 @@ Fixtures: `tests/fixtures/velite-parity/{mdx,skills,whoiam}.mdx` — 117 / 96 / 
 
 | Workload                              | Tool        | Median  | Notes                              |
 | ------------------------------------- | ----------- | ------- | ---------------------------------- |
-| compile skills.mdx (in-process)       | duck-md     | **0.119 ms** | cargo bench, native release        |
+| compile skills.mdx (in-process)       | dmc     | **0.119 ms** | cargo bench, native release        |
 | compile skills.mdx (in-process)       | @mdx-js/mdx | 2.583 ms     | function-body output + remark-gfm  |
 | remark→rehype HTML skills.mdx         | unified     | 1.986 ms     | gfm + rehype-raw + stringify       |
 | md-only skills.mdx                    | marked      | 0.136 ms     | gfm:true; baseline lower bound     |
 | build 3 fixtures (cold)               | velite      | 250 ms       | full pipeline incl. esbuild config |
-| build 3 fixtures (cold)               | duck-md     | **2.4 ms**   | 104× faster                        |
+| build 3 fixtures (cold)               | dmc     | **2.4 ms**   | 104× faster                        |
 | build 999 fixtures (cold)             | velite      | 7330 ms      | 7.34 ms / file                     |
-| build 999 fixtures (cold)             | duck-md     | **46 ms**    | **159× faster**, 0.05 ms / file    |
+| build 999 fixtures (cold)             | dmc     | **46 ms**    | **159× faster**, 0.05 ms / file    |
 | sidecar cold spawn (per call)         | node sidecar | 115.5 ms    | bottleneck for users with shiki    |
 
-duck-md is faster than `marked` at full MDX semantics. There is little single-file headroom left.
+dmc is faster than `marked` at full MDX semantics. There is little single-file headroom left.
 
 ## Raw outputs
 
-### duck-md cargo bench (release)
+### dmc cargo bench (release)
 
 ```
 compile skills.mdx      time:   [118.67 µs 119.39 µs 120.18 µs]
@@ -66,14 +66,14 @@ marked whoiam.mdx                      median=0.255 ms
 
 ```
 velite build                  median=250.3 ms   samples=[242, 248, 250, 251, 277]
-duck-md build                 median=2.4 ms     samples=[2, 2, 2, 2, 3]
+dmc build                 median=2.4 ms     samples=[2, 2, 2, 2, 3]
 ```
 
 ### Full build, 999 fixtures (3 cold runs each)
 
 ```
 velite build (999)            median=7330 ms    per-file=7.34 ms
-duck-md build (999)           median=46 ms      per-file=0.05 ms   samples=[44, 46, 60]
+dmc build (999)           median=46 ms      per-file=0.05 ms   samples=[44, 46, 60]
 ```
 
 ### Sidecar per-call cold spawn (20 iters)
@@ -91,7 +91,7 @@ median=115.5 ms   mean=115.4 ms   per call (just node startup + ESM import graph
 mkdir -p /tmp/duck-bench && cp tests/fixtures/velite-parity/*.mdx /tmp/duck-bench/
 mkdir -p /tmp/duck-bench/content/docs && cp /tmp/duck-bench/*.mdx /tmp/duck-bench/content/docs/
 
-cat > /tmp/duck-bench/duck-md.toml <<'EOF'
+cat > /tmp/duck-bench/dmc.toml <<'EOF'
 output_dir = ".gentleduck"
 
 [[collections]]
@@ -222,7 +222,7 @@ import { performance } from "node:perf_hooks";
 import { spawnSync } from "node:child_process";
 import { rmSync } from "node:fs";
 
-const DUCK = "<repo>/target/release/duck-md";
+const DUCK = "<repo>/target/release/dmc";
 
 function timeRun(label, cmd, args) {
   const samples = [];
@@ -241,7 +241,7 @@ function timeRun(label, cmd, args) {
 }
 
 timeRun("velite build", "node_modules/.bin/velite", ["build", "--clean"]);
-timeRun("duck-md build", DUCK, ["build", "--config", "duck-md.toml"]);
+timeRun("dmc build", DUCK, ["build", "--config", "dmc.toml"]);
 ```
 
 ### 4. Scale bench, 999 fixtures
@@ -253,7 +253,7 @@ for i in $(seq 1 333); do
   cp /tmp/duck-bench/mdx.mdx    /tmp/duck-bench-big/content/docs/mdx_$i.mdx
   cp /tmp/duck-bench/whoiam.mdx /tmp/duck-bench-big/content/docs/whoiam_$i.mdx
 done
-cp /tmp/duck-bench/duck-md.toml /tmp/duck-bench-big/
+cp /tmp/duck-bench/dmc.toml /tmp/duck-bench-big/
 cp -r /tmp/duck-bench/node_modules /tmp/duck-bench-big/
 cp /tmp/duck-bench/package.json   /tmp/duck-bench-big/
 
@@ -285,7 +285,7 @@ import { performance } from "node:perf_hooks";
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 
-const SIDECAR = "<repo>/duck-md-sidecar/index.mjs";
+const SIDECAR = "<repo>/dmc-sidecar/index.mjs";
 const src = readFileSync("/tmp/duck-bench/skills.mdx", "utf8");
 const req = JSON.stringify({
   markdown: src,
@@ -311,8 +311,8 @@ console.log(`@ 999 files = ${(median * 999 / 1000).toFixed(1)}s cold-spawn cost`
 
 ## What the numbers tell us
 
-1. **Native pipeline is already at the floor.** duck-md (full MDX semantics) is faster than `marked` (md-only, fastest known JS). 21.7× faster than @mdx-js/mdx. Lexer/parser micro-opts will not move the needle.
-2. **velite cold-build vs duck-md scales worse for velite at small sizes** (Node + esbuild dominate) and **better for duck-md at large sizes** (rayon amortization). The 999-file ratio (159×) is the realistic large-site number.
+1. **Native pipeline is already at the floor.** dmc (full MDX semantics) is faster than `marked` (md-only, fastest known JS). 21.7× faster than @mdx-js/mdx. Lexer/parser micro-opts will not move the needle.
+2. **velite cold-build vs dmc scales worse for velite at small sizes** (Node + esbuild dominate) and **better for dmc at large sizes** (rayon amortization). The 999-file ratio (159×) is the realistic large-site number.
 3. **Sidecar process spawn is the only multi-second bottleneck.** 115 ms × N files. A long-lived sidecar with NDJSON streaming would convert this to one cold-start + ~2-3 ms / file.
 4. Codegen (`format!`-heavy in `mdx.rs` / `html.rs`) is the largest remaining native overhead per file. Refactor to `&mut String` writers cuts ~25-40 µs / file.
 

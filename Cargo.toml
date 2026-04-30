@@ -1,14 +1,14 @@
 [workspace]
 resolver = "3"
 members = [
-  "duck-md-core",
-  "duck-md-diagnostic",
-  "duck-md-lexer",
-  "duck-md-parser",
-  "duck-md-codegen",
-  "duck-md-transform",
-  "duck-md-schema",
-  "duck-md-napi",
+  "dmc-core",
+  "dmc-diagnostic",
+  "dmc-lexer",
+  "dmc-parser",
+  "dmc-codegen",
+  "dmc-transform",
+  "dmc-schema",
+  "dmc-napi",
 ]
 exclude = ["fuzz"]
 
@@ -25,7 +25,7 @@ serde_yaml = "0.9"
 thiserror = "1"
 miette = { version = "5", features = ["fancy"] }
 slug = "0.1"
-duck-diagnostic = "0.4.0"
+duck-diagnostic = "0.6.0"
 globwalk = "0.9"
 tempfile = "3"
 clap = { version = "4", features = ["derive"] }
@@ -37,12 +37,12 @@ syntect = { version = "5", default-features = false, features = ["default-fancy"
 criterion = "0.5"
 
 # Workspace crates
-duck-md-diagnostic = { path = "duck-md-diagnostic" }
-duck-md-lexer = { path = "duck-md-lexer" }
-duck-md-parser = { path = "duck-md-parser" }
-duck-md-codegen = { path = "duck-md-codegen" }
-duck-md-transform = { path = "duck-md-transform" }
-duck-md-schema = { path = "duck-md-schema" }
+dmc-diagnostic = { path = "dmc-diagnostic" }
+dmc-lexer = { path = "dmc-lexer" }
+dmc-parser = { path = "dmc-parser" }
+dmc-codegen = { path = "dmc-codegen" }
+dmc-transform = { path = "dmc-transform" }
+dmc-schema = { path = "dmc-schema" }
 blake3 = "1"
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp", "gif"] }
 notify = "6"

@@ -46,7 +46,7 @@ the import and you're done.
 | `s.coerce.{string,number,boolean,date}`                | yes                           | yes ✅                                    |
 | `.superRefine()`                                       | yes                           | yes ✅                                    |
 | `prepare()` / `complete()` hooks                       | runs (async)                  | runs (async via JS adapter) ✅            |
-| Custom JS plugins (remark/rehype)                      | run inline                    | spawns `duck-md-sidecar` ✅               |
+| Custom JS plugins (remark/rehype)                      | run inline                    | spawns `dmc-sidecar` ✅               |
 | Watch mode                                             | chokidar                      | notify ✅                                 |
 | Per-file compile parallelism                           | sequential                    | rayon parallel ✅                         |
 | `build()` return                                       | `Promise<Report>`             | `Promise<Report>` ✅                      |
@@ -61,36 +61,36 @@ the import and you're done.
 
 ## Remaining limitations
 
-- **Custom user-defined `loaders[]` registration** — built-in matter / yaml / json loaders work; user-defined `{ test, load }` loaders accepted in config but not invoked. Workaround: pre-process source files in a build script before running `duck-md build`, or add a `prepare(data)` hook to mutate records post-validation.
+- **Custom user-defined `loaders[]` registration** — built-in matter / yaml / json loaders work; user-defined `{ test, load }` loaders accepted in config but not invoked. Workaround: pre-process source files in a build script before running `dmc build`, or add a `prepare(data)` hook to mutate records post-validation.
 - **Byte-exact velite output equivalence** — output shape matches velite (camelCase fields, hoisted frontmatter, typed `.d.ts`). Body strings differ when minify is on (whitespace collapse vs terser AST minify) but produce equivalent JS.
 - **Schema `.regex(p)` uses Rust regex syntax** — minor differences vs JavaScript regex (e.g. no lookbehind by default).
 
 ## Plugin compatibility
 
-By default duck-md runs a native Rust pipeline (no Node child process
+By default dmc runs a native Rust pipeline (no Node child process
 needed): `code_import`, `npm_command`, `bare_url`, `autolink_headings`
 (with `subheading-anchor` class), `pretty_code` (single + dual theme),
 `mermaid`, `ComponentSource`, `ComponentPreview`, `copy_linked_files`.
 
 If you need community plugins (`rehype-pretty-code`, `rehype-slug`,
 `remark-toc`, etc.), pass them through `markdown.remarkPlugins` /
-`mdx.rehypePlugins`. duck-md detects them and shells out to
+`mdx.rehypePlugins`. dmc detects them and shells out to
 `@duck/md-sidecar` which runs them via unified.
 
 ## CLI
 
 ```sh
 # build once
-duck-md build --config duck-md.config.ts
+dmc build --config dmc.config.ts
 
 # watch + rebuild
-duck-md dev --config duck-md.config.ts
+dmc dev --config dmc.config.ts
 
 # strict (fail on first validation error)
-duck-md build --strict
+dmc build --strict
 ```
 
-Velite users: `velite build` → `duck-md build`. `velite dev` → `duck-md dev`.
+Velite users: `velite build` → `dmc build`. `velite dev` → `dmc dev`.
 
 ## Output schema
 

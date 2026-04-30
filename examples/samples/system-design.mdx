@@ -1,0 +1,523 @@
+---
+title: dmc system design — one giant diagram
+date: 2026-04-30
+tags: [architecture, system-design, mermaid]
+---
+
+```mermaid
+%%{init: {
+  "flowchart": {
+    "nodeSpacing": 25,
+    "rankSpacing": 35,
+    "curve": "basis",
+    "htmlLabels": true,
+    "padding": 6
+  },
+  "themeVariables": {
+    "fontSize": "12px",
+    "fontFamily": "ui-monospace, SFMono-Regular, monospace"
+  }
+}}%%
+flowchart LR
+  %% =========================================================
+  %% INPUT LAYER
+  %% =========================================================
+  subgraph INPUT["📥 INPUT"]
+    direction TB
+    Bytes["📄 source bytes<br/>(UTF-8 .mdx)"]
+    Origin["enum Origin"]
+    O1["File(PathBuf)"]
+    O2["Stdin"]
+    O3["Inline(&'static str)"]
+    O4["Memory"]
+    SourceMeta["SourceMeta {<br/>path: Arc&lt;str&gt;,<br/>version: u64,<br/>origin: Origin<br/>}"]
+    Origin --> O1 & O2 & O3 & O4
+    Bytes --> SourceMeta
+    Origin --> SourceMeta
+  end
+
+  %% =========================================================
+  %% LEXER LAYER
+  %% =========================================================
+  subgraph LEXER["🔤 LEXER  —  dmc-lexer"]
+    direction TB
+
+    LexerStruct["Lexer&lt;'eng,'src&gt; {<br/>source: &amp;'src str,<br/>meta: Arc&lt;SourceMeta&gt;,<br/>tokens: Vec&lt;Token&lt;'src&gt;&gt;,<br/>start, current, line, column,<br/>frontmatter_reserved: bool,<br/>engine: RefMut&lt;DiagnosticEngine&lt;Code&gt;&gt;<br/>}"]
+
+    subgraph LEXMODS["per-construct lex modules (lib/lexers/)"]
+      direction LR
+      LM1["fontmatter.rs<br/>--- yaml ---"]
+      LM2["code.rs<br/>``` fences<br/>+ inline `…`"]
+      LM3["jsx.rs<br/>&lt;Tag attr=…&gt;<br/>&lt;Tag /&gt;"]
+      LM4["lists.rs<br/>- / 1. / [ ] / [x]"]
+      LM5["statements.rs<br/>import / export"]
+      LM6["typography.rs<br/>** _ ~~ `"]
+      LM7["whitespaces.rs<br/>spaces / breaks"]
+    end
+
+    subgraph LEXUTILS["utils.rs primitives"]
+      direction LR
+      LU1["advance / peek / peek_next"]
+      LU2["consume_till / consume_whitespaces"]
+      LU3["skip_until_byte (memchr)<br/>skip_while_byte (memchr)"]
+      LU4["match_current_char<br/>get_current_lexeme"]
+      LU5["is_angle_autolink<br/>lex_angle_autolink"]
+    end
+
+    LexEmit["emit(TokenKind) →<br/>Token { kind, span, raw: &amp;'src str }<br/>(skips trivia unless line-leading 4-space indent)"]
+
+    LexerStruct --> LexScan["scan_tokens()<br/>while !is_eof:<br/>  start = current<br/>  c = advance<br/>  lex_tokens(c)"]
+    LexScan --> LEXMODS
+    LEXMODS --> LexEmit
+    LEXUTILS -. consumed by .-> LEXMODS
+
+    subgraph TOKENKINDS["enum TokenKind"]
+      direction LR
+      TK1["Frontmatter*<br/>ThematicBreak"]
+      TK2["Heading(u8)<br/>Text"]
+      TK3["Bold(n)<br/>Italic(n)<br/>Strike(n)"]
+      TK4["JsxOpenTag*<br/>JsxCloseTag*<br/>JsxAttribute*"]
+      TK5["ExpressionStart<br/>ExpressionEnd"]
+      TK6["BlockQuote<br/>OrderedListItem<br/>UnorderedListItem"]
+      TK7["CodeStart(n)<br/>CodeEnd(n)"]
+      TK8["Bracket Bang<br/>ParenOpen ParenClose"]
+      TK9["Eq String Quote"]
+      TK10["HTMLComment*<br/>MarkdownComment*"]
+      TK11["Autolink<br/>Import Export"]
+      TK12["HardBreak SoftBreak<br/>Newline Whitespace<br/>Eof"]
+    end
+
+    LexEmit --> TOKENKINDS
+    TokenStream["Vec&lt;Token&lt;'src&gt;&gt;"]
+    TOKENKINDS --> TokenStream
+  end
+
+  SourceMeta --> LexerStruct
+  Bytes -- &'src str --> LexerStruct
+
+  %% =========================================================
+  %% PARSER LAYER
+  %% =========================================================
+  subgraph PARSER["🌳 PARSER  —  dmc-parser"]
+    direction TB
+
+    ParserStruct["Parser&lt;'eng,'tokens&gt; {<br/>tokens: Vec&lt;Token&lt;'tokens&gt;&gt;,<br/>meta: Arc&lt;SourceMeta&gt;,<br/>pos: usize,<br/>engine: RefMut&lt;DiagnosticEngine&lt;Code&gt;&gt;<br/>}"]
+
+    ParseLoop["parse() →<br/>while !is_eof:<br/>  parse_block() | force-advance"]
+
+    subgraph BLOCKDISPATCH["block.rs — parse_block()"]
+      direction LR
+      B1["FrontmatterStart →<br/>parse_frontmatter()<br/>(yaml stays raw)"]
+      B2["Import / Export →<br/>consume_import / consume_export"]
+      B3["Heading(n) →<br/>parse_heading()"]
+      B4["CodeStart(n≥3) →<br/>parse_code_block()"]
+      B5["JsxOpenTagStart →<br/>parse_jsx()"]
+      B6["ExpressionStart →<br/>parse_jsx_expression()"]
+      B7["MarkdownCommentStart →<br/>skip_md_comment()"]
+      B8["UnorderedListItem /<br/>OrderedListItem →<br/>parse_list()"]
+      B9["BlockQuote →<br/>parse_blockquote()"]
+      B10["ThematicBreak →<br/>HorizontalRule"]
+      B11["HardBreak / SoftBreak → skip"]
+      B12["Indented (4 spaces) →<br/>parse_indented_code()"]
+      B13["fallback →<br/>try_parse_table() →<br/>parse_paragraph()"]
+    end
+
+    subgraph INLINEDISPATCH["inline.rs — collect_inline()"]
+      direction LR
+      I1["Text → Text"]
+      I2["Bold(n) → Bold(Inline)"]
+      I3["Italic(n) → Italic(Inline)"]
+      I4["Strike(n) → Strikethrough"]
+      I5["CodeStart(n) → InlineCode"]
+      I6["Bracket → Link"]
+      I7["Bang+Bracket → Image"]
+      I8["Autolink → Link"]
+      I9["JsxOpenTagStart → JsxElement /<br/>JsxSelfClosing / JsxFragment"]
+      I10["ExpressionStart → JsxExpression"]
+      I11["Whitespace → Text"]
+    end
+
+    subgraph TABLEDISPATCH["table.rs"]
+      direction TB
+      T1["collect_line_text()"]
+      T2["looks_like_table_row()<br/>parse_alignment_row()"]
+      T3["split_cells →<br/>make_row →<br/>Table { align, children }"]
+    end
+
+    ParserStruct --> ParseLoop
+    ParseLoop --> BLOCKDISPATCH
+    BLOCKDISPATCH --> INLINEDISPATCH
+    BLOCKDISPATCH --> TABLEDISPATCH
+
+    subgraph ASTNODES["enum Node — dmc-parser/ast"]
+      direction LR
+      AN1["Document<br/>{children, span}"]
+      AN2["Frontmatter<br/>{raw, span}"]
+      AN3["Import<br/>{raw, span}"]
+      AN4["Export<br/>{raw, span}"]
+      AN5["Heading<br/>{level, children, span}<br/>+ slug() lazy method"]
+      AN6["Paragraph<br/>{children, span}"]
+      AN7["Text<br/>{value, span}"]
+      AN8["Bold/Italic/Strikethrough<br/>(Inline {children, span})"]
+      AN9["InlineCode<br/>{value, span}"]
+      AN10["CodeBlock<br/>{lang, meta, value, span}"]
+      AN11["Link<br/>{href, title, children, span}"]
+      AN12["Image<br/>{src, alt, title, span}"]
+      AN13["HorizontalRule<br/>{span}"]
+      AN14["Blockquote<br/>{children, span}"]
+      AN15["List<br/>{ordered, start, children, span}"]
+      AN16["ListItem / TaskListItem<br/>{checked, children, span}"]
+      AN17["Table / TableRow / TableCell<br/>+ TableAlign enum"]
+      AN18["JsxElement / JsxSelfClosing /<br/>JsxFragment / JsxExpression<br/>+ JsxAttr / JsxAttrValue"]
+      AN19["BreakNode<br/>(HardBreak / SoftBreak)"]
+    end
+
+    INLINEDISPATCH --> ASTNODES
+    BLOCKDISPATCH --> ASTNODES
+    TABLEDISPATCH --> ASTNODES
+
+    DocOut["Document {<br/>children: Vec&lt;Node&gt;,<br/>span<br/>}"]
+    ASTNODES --> DocOut
+  end
+
+  TokenStream --> ParserStruct
+  SourceMeta --> ParserStruct
+
+  %% =========================================================
+  %% TRANSFORM LAYER
+  %% =========================================================
+  subgraph TRANSFORM["⚙️ TRANSFORM  —  dmc-transform"]
+    direction TB
+
+    PipelineStruct["Pipeline {<br/>transformers: Vec&lt;Box&lt;dyn Transformer&gt;&gt;<br/>}"]
+
+    PipelineRun["pipeline.run(doc, &amp;meta, &amp;mut engine)<br/>→ for each Transformer: t.transform(doc, meta, engine)"]
+
+    subgraph WALKER["visit.rs — walker"]
+      direction TB
+      W0["pub fn walk_root(&amp;mut Vec&lt;Node&gt;, &amp;mut V)"]
+      W1["walk_vec — index loop on Vec&lt;Node&gt;:<br/>match v.visit_node(&amp;mut children[i])"]
+      W2["NodeAction::Keep → recurse children, i+=1"]
+      W3["NodeAction::KeepSkipChildren → i+=1"]
+      W4["NodeAction::Replace(Vec&lt;Node&gt;) →<br/>splice at i, advance past insertions"]
+      W5["NodeAction::Remove → children.remove(i)"]
+      W6["walk_children_mut(parent, v):<br/>match parent → recurse into:<br/>Document/Heading/Paragraph/<br/>Bold/Italic/Strike/Link/<br/>List/ListItem/TaskListItem/<br/>Blockquote/JsxElement/JsxFragment/Table"]
+      W0 --> W1
+      W1 --> W2 & W3 & W4 & W5
+      W2 --> W6
+    end
+
+    PipelineStruct --> PipelineRun --> WALKER
+
+    subgraph TFORMERS["builtin/ — 9 transformers"]
+      direction TB
+
+      subgraph TF1["AutolinkHeadings"]
+        TF1A["wrap heading children in<br/>&lt;a href='#slug' title=aria-label&gt;"]
+        TF1B["NodeAction::KeepSkipChildren"]
+      end
+
+      subgraph TF2["BareUrlAutolink"]
+        TF2A["scan Text for http(s)://<br/>split into Text/Link/Text/…"]
+      end
+
+      subgraph TF3["CodeImport"]
+        TF3A["parse_file_meta(meta) →<br/>(path, ranges?)"]
+        TF3B["resolve base_dir:<br/>self.base_dir<br/>→ meta.origin.parent()<br/>→ none + warn TW004"]
+        TF3C["fs::read + slice_lines<br/>→ cb.value"]
+        TF3D["diags: T001 ImportFileNotFound,<br/>T002 InvalidLineRange,<br/>TW004 BaseDirNotFound"]
+      end
+
+      subgraph TF4["ComponentSource"]
+        TF4A["&lt;ComponentSource path='…'/&gt; →<br/>CodeBlock { lang, meta, value }"]
+        TF4B["diags: T007 Unreadable,<br/>TW002 MissingComponentAttr,<br/>TW004 BaseDirNotFound"]
+      end
+
+      subgraph TF5["ComponentPreview"]
+        TF5A["read registry_index JSON →<br/>lookup name → first file path<br/>→ CodeBlock"]
+        TF5B["diags: T003 IndexUnreadable,<br/>T004 IndexMalformed,<br/>T005 EntryNotFound,<br/>T006 SourceUnreadable,<br/>TW002 MissingComponentAttr"]
+      end
+
+      subgraph TF6["CopyLinkedFiles"]
+        TF6A["walk Image.src + Link.href<br/>→ publish() →<br/>blake3 hash + assets_dir"]
+        TF6B["Outcome enum:<br/>Skip / Published(url) /<br/>SourceMissing / CopyFailed"]
+        TF6C["diags: TW003 AssetSourceMissing,<br/>T008 AssetCopyFailed"]
+      end
+
+      subgraph TF7["DisableGfm"]
+        TF7A["Strikethrough → ~~text~~<br/>Table → pipe-delimited Text<br/>TaskListItem → ListItem with [x]/[ ]"]
+      end
+
+      subgraph TF8["Mermaid (cfg=mermaid)"]
+        TF8A["filter cb.lang == 'mermaid'"]
+        TF8B["mmdc_available — OnceLock cached"]
+        TF8C["render_cached:<br/>L1 mem (Mutex&lt;HashMap&gt;)<br/>→ L2 disk (output_dir/<hash>.svg)<br/>→ spawn mmdc"]
+        TF8D["replace CodeBlock →<br/>&lt;MermaidSvg svg='…'/&gt;"]
+        TF8E["diags: TW001 MmdcUnavailable,<br/>T009 MermaidRenderFailed"]
+      end
+
+      subgraph TF9["NpmCommand (cfg=npm_command)"]
+        TF9A["derive(value):<br/>npm install / npx create- / npx →<br/>4-tuple (npm,yarn,pnpm,bun)"]
+        TF9B["NodeAction::Replace([&lt;PackageManagerTabs/&gt;])"]
+      end
+    end
+
+    WALKER --> TF1 & TF2 & TF3 & TF4 & TF5 & TF6 & TF7 & TF8 & TF9
+
+    subgraph PENDING["per-transformer Apply struct"]
+      direction TB
+      P1["pending: Vec&lt;Diagnostic&lt;Code&gt;&gt;"]
+      P2["visitor pushes during walk"]
+      P3["transform() drains into engine after walk_root"]
+    end
+
+    TF3 -. uses .-> PENDING
+    TF4 -. uses .-> PENDING
+    TF5 -. uses .-> PENDING
+    TF6 -. uses .-> PENDING
+    TF8 -. uses .-> PENDING
+  end
+
+  DocOut --> PipelineStruct
+  SourceMeta --> PipelineRun
+
+  TransformedDoc["Document<br/>(in-place mutated)"]
+  TFORMERS --> TransformedDoc
+
+  %% =========================================================
+  %% CODEGEN LAYER
+  %% =========================================================
+  subgraph CODEGEN["🎨 CODEGEN  —  dmc-codegen"]
+    direction TB
+
+    subgraph ESCAPE["escape.rs"]
+      ESC1["escape_text: &amp;,&lt;,&gt; → entities"]
+      ESC2["escape_attr: + &quot;"]
+    end
+
+    subgraph HTMLEMIT["HtmlEmitter&lt;'a&gt;"]
+      direction TB
+      HE0["render(doc, &amp;mut engine) → String"]
+      HE1["emit(node) — variant dispatch"]
+      HE2["emit_heading: &lt;h{lvl} id='{slug}'&gt;…"]
+      HE3["emit_paragraph: &lt;p&gt;…&lt;/p&gt;"]
+      HE4["emit_code_block:<br/>&lt;pre&gt;&lt;code class='gentledmc-language-{lang}'&gt;…"]
+      HE5["emit_link: &lt;a href aria-label&gt;"]
+      HE6["emit_image: &lt;img src alt title /&gt;"]
+      HE7["emit_blockquote / emit_list / emit_list_item"]
+      HE8["emit_table: thead/tbody + align"]
+      HE9["emit_task_list_item:<br/>&lt;li&gt;&lt;input type=checkbox disabled&gt;"]
+      HE10["emit_jsx_element / emit_jsx_self_closing"]
+      HE11["JSX SPECIAL CASES:<br/>&lt;MermaidSvg svg=…/&gt; → raw SVG inline<br/>&lt;PackageManagerTabs npm,yarn,pnpm,bun /&gt; →<br/>div.gentledmc-pm-tabs of pre/code"]
+      HE12["JsxExpression → drop + emit GW002"]
+      HE13["empty JSX name → emit G001"]
+      HE0 --> HE1
+      HE1 --> HE2 & HE3 & HE4 & HE5 & HE6 & HE7 & HE8 & HE9 & HE10
+      HE10 --> HE11
+      HE1 --> HE12 & HE13
+    end
+
+    subgraph MDXEMIT["MdxBodyEmitter&lt;'a&gt;"]
+      direction TB
+      ME0["render(doc, &amp;mut engine) → String"]
+      ME1["emit_document — hoist Imports/Exports → prelude<br/>frontmatter dropped"]
+      ME2["emit_node — variant dispatch returns owned String"]
+      ME3["jsxs(Fragment, { children: […] })"]
+      ME4["emit_heading → jsxs('h{n}', { id, children })"]
+      ME5["emit_link → jsxs('a', { href, aria-label, children })"]
+      ME6["emit_image → jsx('img', { src, alt })"]
+      ME7["emit_jsx_element / self_closing → user component renders at runtime"]
+      ME8["Table → drop + emit GW001"]
+      ME9["empty JSX name → emit G001"]
+      ME10["js_string — JS-quote literals<br/>escapes backslash, quote, CR/LF/TAB,<br/>control chars via uXXXX"]
+      ME11["finish() wraps body in:<br/>function _createMdxContent(props) {<br/>  const { Fragment, jsx, jsxs } = arguments[0];<br/>  return body;<br/>}"]
+      ME0 --> ME1 --> ME2
+      ME2 --> ME3 & ME4 & ME5 & ME6 & ME7
+      ME2 --> ME8 & ME9
+      ME2 --> ME10
+      ME3 --> ME11
+    end
+
+    HtmlOut["HTML String<br/>(class prefix: gentledmc-*)"]
+    MdxOut["JS body String<br/>(MDX runtime invokable)"]
+
+    HtmlEmit --> HtmlOut
+    MdxEmit --> MdxOut
+
+    HE4 -. uses .-> ESCAPE
+    HE2 -. uses .-> ESCAPE
+    HE5 -. uses .-> ESCAPE
+    HE6 -. uses .-> ESCAPE
+  end
+
+  TransformedDoc --> HTMLEMIT
+  TransformedDoc --> MDXEMIT
+
+  %% =========================================================
+  %% CORE / COMPILE LAYER
+  %% =========================================================
+  subgraph CORE["📦 CORE  —  dmc-core"]
+    direction TB
+
+    CompileFn["compile(source: &amp;str) →<br/>compile_with_pipeline(source, Pipeline::with_defaults())"]
+
+    subgraph FINALIZE["finalize(source, doc)"]
+      direction TB
+      F1["scan top-level children:<br/>Frontmatter → yaml::from_str → frontmatter Value<br/>Import → push imports[]<br/>Export → push exports[]"]
+      F2["strip_frontmatter(source) → content"]
+      F3["render_html(doc) → html"]
+      F4["render_mdx_body(doc) → body"]
+      F5["plain_text(doc) →<br/>build_excerpt → excerpt<br/>build_metadata → reading_time, word_count"]
+      F6["build_toc(doc) →<br/>nest level/title/slug into TocItem tree"]
+    end
+
+    CompileFn --> FINALIZE
+
+    CompileOutput["CompileOutput {<br/>frontmatter: serde_json::Value,<br/>frontmatter_raw: String,<br/>content: String,<br/>html: String,<br/>body: String,<br/>excerpt: String,<br/>metadata: { word_count, reading_time },<br/>toc: Vec&lt;TocItem&gt;,<br/>imports: Vec&lt;String&gt;,<br/>exports: Vec&lt;String&gt;<br/>}"]
+
+    FINALIZE --> CompileOutput
+  end
+
+  HtmlOut --> FINALIZE
+  MdxOut --> FINALIZE
+  TransformedDoc --> FINALIZE
+
+  %% =========================================================
+  %% DIAGNOSTIC ENGINE — CROSS CUTTING
+  %% =========================================================
+  subgraph DIAG["🚨 DIAGNOSTIC ENGINE  —  duck-diagnostic + dmc-diagnostic"]
+    direction TB
+
+    EngineCore["DiagnosticEngine&lt;C: DiagnosticCode&gt;<br/>holds Vec&lt;Diagnostic&lt;C&gt;&gt;"]
+
+    Diagnostic["Diagnostic&lt;C&gt; {<br/>code: C,<br/>severity: Severity,<br/>message: String,<br/>labels: Vec&lt;Label&gt;,<br/>notes: Vec&lt;String&gt;,<br/>help: Option&lt;String&gt;,<br/>suggestions: Vec&lt;Suggestion&gt;<br/>}"]
+
+    Span["Span {<br/>file: Arc&lt;str&gt;,<br/>line: usize (1-based),<br/>column: usize (1-based),<br/>length: usize (bytes)<br/>}"]
+
+    Severity["enum Severity:<br/>Bug | Error | Warning | Note | Help"]
+
+    subgraph CODES["enum Code (dmc-diagnostic)"]
+      direction TB
+
+      subgraph CL["lexer feature"]
+        direction LR
+        CL1["E001 InvalidCharacter"]
+        CL2["E002 InvalidFrontMatter"]
+        CL3["E003 UnterminatedString"]
+        CL4["E004 UnterminatedExpression"]
+        CL5["E005 UnexpectedEof"]
+        CL6["E006 InvalidJsxSelfClosingTag"]
+        CL7["E007 UnterminatedJsxTag"]
+        CL8["E008 InvalidJsxClosingTag"]
+        CL9["E009 InvalidJsxAttribute"]
+        CL10["E010 UnterminatedCodeBlock"]
+        CL11["W001 EmptyFrontMatter"]
+      end
+
+      subgraph CP["parser feature"]
+        direction LR
+        CP1["P001 UnterminatedLink"]
+        CP2["P002 UnterminatedImage"]
+        CP3["P003 UnterminatedInlineCode"]
+        CP4["P004 UnterminatedCodeBlockBlock"]
+        CP5["P005..P008 Jsx + comment"]
+        CP6["P009 UnterminatedFrontmatter"]
+        CP7["P010 MismatchedJsxCloseTag"]
+        CP8["P011 TableShapeMismatch"]
+        CP9["P012 StraySetextUnderline"]
+        CP10["P013 MissingJsxAttributeValue"]
+        CP11["P014 ListMarkerOverflow"]
+        CP12["PW001 EmptyFrontmatter"]
+        CP13["PW002 InvalidFrontmatterYaml"]
+        CP14["PW003 HeadingLevelClamped"]
+        CP15["PW004 RecoveredUnterminatedJsx"]
+      end
+
+      subgraph CT["transform feature"]
+        direction LR
+        CT1["T001 ImportFileNotFound"]
+        CT2["T002 InvalidLineRange"]
+        CT3["T003 RegistryIndexUnreadable"]
+        CT4["T004 RegistryIndexMalformed"]
+        CT5["T005 RegistryEntryNotFound"]
+        CT6["T006 RegistrySourceUnreadable"]
+        CT7["T007 ComponentSourceUnreadable"]
+        CT8["T008 AssetCopyFailed"]
+        CT9["T009 MermaidRenderFailed"]
+        CT10["TW001 MmdcUnavailable"]
+        CT11["TW002 MissingComponentAttr"]
+        CT12["TW003 AssetSourceMissing"]
+        CT13["TW004 BaseDirNotFound"]
+      end
+
+      subgraph CG["codegen feature"]
+        direction LR
+        CG1["G001 MalformedJsxTagName"]
+        CG2["GW001 MdxTableUnsupported"]
+        CG3["GW002 HtmlExpressionDropped"]
+      end
+
+      subgraph CC["custom"]
+        CC1["Custom { code: String,<br/>severity: Severity }"]
+      end
+    end
+
+    EngineCore --> Diagnostic
+    Diagnostic --> Severity
+    Diagnostic --> Span
+    Diagnostic --> CODES
+  end
+
+  %% diagnostic flows from every layer
+  LEXER -. emits .-> EngineCore
+  PARSER -. emits .-> EngineCore
+  TRANSFORM -. emits .-> EngineCore
+  CODEGEN -. emits .-> EngineCore
+  CORE -. iterates .-> EngineCore
+  Span -. file is .-> SourceMeta
+
+  %% =========================================================
+  %% RUNNERS
+  %% =========================================================
+  subgraph RUNNERS["🚀 CLI RUNNERS  —  per-crate bins"]
+    direction LR
+    R1["lexer<br/>(dmc-lexer)<br/>tokens table / json"]
+    R2["parse<br/>(dmc-parser)<br/>AST tree / json"]
+    R3["transform<br/>(dmc-transform)<br/>before/after diff"]
+    R4["codegen<br/>(dmc-codegen)<br/>HTML / MDX body"]
+    R5["dmc<br/>(dmc-core)<br/>full compile + watch"]
+    R1 -. shares .-> Samples
+    R2 -. shares .-> Samples
+    R3 -. shares .-> Samples
+    R4 -. shares .-> Samples
+    R5 -. shares .-> Samples
+  end
+  Samples["samples/<br/>index.mdx, headings.mdx,<br/>bare-urls.mdx, code-import.mdx,<br/>snippets/, errors/"]
+
+  %% =========================================================
+  %% WORKSPACE DEP GRAPH
+  %% =========================================================
+  subgraph DEPGRAPH["📚 CRATE DEPENDENCY GRAPH"]
+    direction TB
+    D0["duck-diagnostic 0.4.0 (crates.io)"]
+    D1["dmc-diagnostic"]
+    D2["dmc-lexer"]
+    D3["dmc-parser"]
+    D4["dmc-transform"]
+    D5["dmc-codegen"]
+    D6["dmc-core"]
+    D7["dmc-schema"]
+    D8["dmc-napi"]
+    D9["fuzz (excluded)"]
+    D0 --> D1 --> D2 --> D3 --> D4 --> D6
+    D3 --> D5 --> D6
+    D6 --> D7
+    D6 --> D8
+    D6 --> D9
+  end
+
+  %% =========================================================
+  %% OUTPUT
+  %% =========================================================
+  CompileOutput --> Consumer["consumer<br/>(docs site / SSG / LSP / CLI)"]
+```

@@ -1,27 +1,27 @@
 {
-  "name": "duck-md-web",
-  "private": true,
-  "version": "0.0.0",
-  "type": "module",
-  "scripts": {
-    "content": "tsx scripts/build-content.ts",
-    "predev": "pnpm content",
-    "prebuild": "pnpm content",
-    "dev": "vite",
-    "build": "tsc -b && vite build",
-    "preview": "vite preview"
-  },
-  "dependencies": {
-    "@duck/md": "workspace:*",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1"
-  },
-  "devDependencies": {
-    "@types/react": "^18.3.12",
-    "@types/react-dom": "^18.3.1",
-    "@vitejs/plugin-react": "^4.3.4",
-    "tsx": "^4.19.2",
-    "typescript": "^5.6.3",
-    "vite": "^5.4.10"
-  }
+	"name": "dmc-web",
+	"private": true,
+	"version": "0.0.0",
+	"type": "module",
+	"scripts": {
+		"content": "tsx scripts/build-content.ts",
+		"predev": "pnpm content",
+		"prebuild": "pnpm content",
+		"dev": "vite",
+		"build": "tsc -b && vite build",
+		"preview": "vite preview"
+	},
+	"dependencies": {
+		"@duck/md": "workspace:*",
+		"react": "^18.3.1",
+		"react-dom": "^18.3.1"
+	},
+	"devDependencies": {
+		"@types/react": "^18.3.12",
+		"@types/react-dom": "^18.3.1",
+		"@vitejs/plugin-react": "^4.3.4",
+		"tsx": "^4.19.2",
+		"typescript": "^5.6.3",
+		"vite": "^5.4.10"
+	}
 }

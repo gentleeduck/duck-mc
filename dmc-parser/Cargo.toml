@@ -1,0 +1,19 @@
+[package]
+name = "dmc-parser"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+dmc-lexer.workspace = true
+dmc-diagnostic = { workspace = true, features = ["lexer", "parser"] }
+duck-diagnostic.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+slug.workspace = true
+
+[dev-dependencies]
+pretty_assertions.workspace = true
+
+[[bin]]
+name = "parse"
+path = "./parse-samples/parse.rs"

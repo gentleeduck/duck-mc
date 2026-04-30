@@ -1,6 +1,6 @@
-# How duck-md works — full architecture
+# How dmc works — full architecture
 
-duck-md is a Rust MDX compiler that drops in for velite. Same TS API surface (`defineConfig`, `s.*`), same JSON output shape, native pipeline by default with an opt-in Node sidecar for community remark/rehype plugins.
+dmc is a Rust MDX compiler that drops in for velite. Same TS API surface (`defineConfig`, `s.*`), same JSON output shape, native pipeline by default with an opt-in Node sidecar for community remark/rehype plugins.
 
 ## Pipeline at a glance
 
@@ -9,42 +9,42 @@ duck-md is a Rust MDX compiler that drops in for velite. Same TS API surface (`d
   │
   ▼
 ┌──────────────────┐
-│ duck-md-lexer    │  string → Vec<Token> (frontmatter, GFM, JSX boundary)
+│ dmc-lexer    │  string → Vec<Token> (frontmatter, GFM, JSX boundary)
 └──────────────────┘
   │
   ▼
 ┌──────────────────┐
-│ duck-md-parser   │  tokens → typed Document AST (block + inline + jsx + table)
+│ dmc-parser   │  tokens → typed Document AST (block + inline + jsx + table)
 └──────────────────┘
   │
   ▼
 ┌──────────────────┐
-│ duck-md-transform│  Pipeline of in-place AST mutations (slug, autolink, code-import, …)
+│ dmc-transform│  Pipeline of in-place AST mutations (slug, autolink, code-import, …)
 └──────────────────┘
   │
   ▼
 ┌──────────────────┐
-│ duck-md-codegen  │  AST → html string + AST → MDX function-body string
+│ dmc-codegen  │  AST → html string + AST → MDX function-body string
 └──────────────────┘
   │
   ├──────────► s.markdown / s.mdx / s.toc / s.metadata fields filled
   │
   ▼
 ┌──────────────────┐
-│ duck-md-schema   │  validates frontmatter; runs s.* primitives + duck-md extras
+│ dmc-schema   │  validates frontmatter; runs s.* primitives + dmc extras
 └──────────────────┘
   │
   ▼
 ┌──────────────────┐
-│ duck-md-core     │  rayon par_iter per collection → JSON + index.{js,d.ts}
+│ dmc-core     │  rayon par_iter per collection → JSON + index.{js,d.ts}
 │   (engine)       │
 └──────────────────┘
   │
-  ├──────────► optional: duck-md-sidecar (Node child for user JS plugins)
+  ├──────────► optional: dmc-sidecar (Node child for user JS plugins)
   │
   ▼
 ┌──────────────────┐
-│ duck-md-napi     │  TypeScript public surface (compile, build, definePlugin)
+│ dmc-napi     │  TypeScript public surface (compile, build, definePlugin)
 └──────────────────┘
 ```
 
@@ -54,9 +54,9 @@ duck-md is a Rust MDX compiler that drops in for velite. Same TS API surface (`d
 
 ## Crate-by-crate
 
-### 1. `duck-md-lexer` — tokens
+### 1. `dmc-lexer` — tokens
 
-`Lexer { source, tokens, start, current, line, column }` in `duck-md-lexer/src/lib.rs:13-22`.
+`Lexer { source, tokens, start, current, line, column }` in `dmc-lexer/src/lib.rs:13-22`.
 
 Entry: `scan_tokens()` (`lib.rs:38`). Hot loop:
 
@@ -85,9 +85,9 @@ Trivia (whitespace, newline) discarded except **line-leading 4+ spaces** (`lib.r
 
 Tokens carry `Span { file, line, column, length }` plus the lexeme as a `String`. Diagnostics flow through `duck-diagnostic::DiagnosticEngine<Code>` — lexer never panics, only emits + recovers.
 
-### 2. `duck-md-parser` — typed AST
+### 2. `dmc-parser` — typed AST
 
-Entry: `pub fn parse(source: &str) -> Document` (`duck-md-parser/src/lib.rs`).
+Entry: `pub fn parse(source: &str) -> Document` (`dmc-parser/src/lib.rs`).
 
 Files:
 
@@ -97,15 +97,15 @@ Files:
 - `table.rs` (130 LOC) — GFM pipe tables with alignment row.
 - `parser.rs` — orchestration; `Document { children: Vec<Node>, diagnostics: Vec<Diagnostic> }`.
 
-AST under `duck-md-parser/src/ast/{node.rs,jsx.rs}`. Big `Node` enum: `Text`, `Heading`, `Paragraph`, `Bold`, `Italic`, `Strikethrough`, `InlineCode`, `CodeBlock`, `HorizontalRule`, `Link`, `Image`, `List`, `ListItem`, `TaskListItem`, `Blockquote`, `Table`, `JsxElement`, `JsxFragment`, `JsxExpression`, `Frontmatter`, `Import`, `Export`, `HardBreak`.
+AST under `dmc-parser/src/ast/{node.rs,jsx.rs}`. Big `Node` enum: `Text`, `Heading`, `Paragraph`, `Bold`, `Italic`, `Strikethrough`, `InlineCode`, `CodeBlock`, `HorizontalRule`, `Link`, `Image`, `List`, `ListItem`, `TaskListItem`, `Blockquote`, `Table`, `JsxElement`, `JsxFragment`, `JsxExpression`, `Frontmatter`, `Import`, `Export`, `HardBreak`.
 
 **No `serde_json::Value` on the hot path** — the AST is fully typed Rust enums. `Value` only appears for `Frontmatter.data` (already-parsed YAML/TOML/JSON) and at the final output boundary.
 
 Heading `id` is filled in this layer (slug crate) so it's available to TOC builder + autolink transformer downstream.
 
-### 3. `duck-md-transform` — AST mutations
+### 3. `dmc-transform` — AST mutations
 
-`Pipeline` of `Box<dyn Transformer>` in `duck-md-transform/src/pipeline.rs:11-45`. Default set (`Pipeline::with_defaults()`, line 26):
+`Pipeline` of `Box<dyn Transformer>` in `dmc-transform/src/pipeline.rs:11-45`. Default set (`Pipeline::with_defaults()`, line 26):
 
 | Transformer        | File                           | What it does |
 | ------------------ | ------------------------------ | ------------ |
@@ -119,13 +119,13 @@ Optional / config-driven (added by engine, not in defaults):
 - `DisableGfm` (`builtin/disable_gfm.rs`) — strips GFM-specific nodes back to plain markdown when `markdown.gfm = false`.
 - `CopyLinkedFiles` (`builtin/copy_linked_files.rs`) — hashes + copies `Image.url` / `Link.url` into `output.assets`, rewrites URLs to `output.base`.
 - `Mermaid` (`builtin/mermaid.rs`) — feature-flagged; renders mermaid fences.
-- `ComponentPreview`, `ComponentSource` (`builtin/component_*.rs`) — duck-md extras for shadcn-style component docs.
+- `ComponentPreview`, `ComponentSource` (`builtin/component_*.rs`) — dmc extras for shadcn-style component docs.
 
 Transformers see `&mut Document`, mutate in place, no allocations beyond the new node payloads. Order matters: `CodeImport` runs first so subsequent transformers see real code; `BareUrlAutolink` runs before HTML emission.
 
-### 4. `duck-md-codegen` — emitters
+### 4. `dmc-codegen` — emitters
 
-`duck-md-codegen/src/lib.rs` re-exports two emitters:
+`dmc-codegen/src/lib.rs` re-exports two emitters:
 
 - `render_html(&Document) -> String` — produces sanitized HTML (used by velite parity, by `s.markdown()`, and as input to the optional sidecar).
 - `render_mdx_body(&Document) -> String` — produces a JS function body (the velite-compatible `_createMdxContent` factory). Output is consumable by `new Function(body)(jsxRuntime, components)` at runtime.
@@ -136,9 +136,9 @@ Transformers see `&mut Document`, mutate in place, no allocations beyond the new
 
 MDX module wrapping (`mdx_output_format = "module"`) and minify (`mdx_minify = true`) happen post-emit in `engine.rs`.
 
-### 5. `duck-md-schema` — frontmatter validation + duck-md extras
+### 5. `dmc-schema` — frontmatter validation + dmc extras
 
-`Schema` trait (`duck-md-schema/src/lib.rs:35-37`):
+`Schema` trait (`dmc-schema/src/lib.rs:35-37`):
 
 ```rust
 pub trait Schema: Send + Sync {
@@ -171,13 +171,13 @@ Velite-custom in `markdown.rs` + `asset.rs`:
 
 `ctx.rs` carries `Ctx { meta: Value, assets: Option<&mut AssetPipeline> }`. `compile.rs` (193 LOC) takes a JSON descriptor (the napi side ships it from TS) and reconstructs a `Box<dyn Schema>` tree — this is how the TS `s.string().max(99)` chain reaches the Rust validator without re-implementing zod.
 
-### 6. `duck-md-core::loaders` — frontmatter format dispatch
+### 6. `dmc-core::loaders` — frontmatter format dispatch
 
 `loaders/{matter,yaml,json}.rs` — selects parser by frontmatter delimiter or file extension. `matter` is the default (`---` YAML or TOML wrapper). All return `(data: Value, content: &str)` and feed `Node::Frontmatter`.
 
 `LoaderRegistry` accepts user-registered loaders via `loaders[]` in the config (passed through napi).
 
-### 7. `duck-md-core::engine` — collections + rayon + output
+### 7. `dmc-core::engine` — collections + rayon + output
 
 `EngineConfig` (`engine.rs:18-83`) is the kitchen-sink struct: collections, output dirs, plugin lists, format flags, gfm toggle, include_html, mdx_minify, etc. Default values at line 60 mirror velite.
 
@@ -189,7 +189,7 @@ let outcomes: Vec<(Value, Option<EngineError>)> = paths
   .map(|path| {
     let source = std::fs::read_to_string(path)?;
     let mut compiled = {
-      let mut pipeline = duck_md_transform::Pipeline::with_defaults();
+      let mut pipeline = dmc_transform::Pipeline::with_defaults();
       // optional DisableGfm + CopyLinkedFiles wired in here
       crate::compile_with_pipeline(&source, &pipeline)
     };
@@ -212,9 +212,9 @@ let outcomes: Vec<(Value, Option<EngineError>)> = paths
 
 Watch mode (`Cmd::Dev`): `notify` crate watches each collection's `base_dir`. On change, rebuild only that collection (per-collection incremental, not full).
 
-### 8. `duck-md-sidecar` — opt-in JS plugin runner
+### 8. `dmc-sidecar` — opt-in JS plugin runner
 
-`duck-md-sidecar/index.mjs` is a tiny Node script. Reads one JSON request from stdin, returns one JSON response on stdout:
+`dmc-sidecar/index.mjs` is a tiny Node script. Reads one JSON request from stdin, returns one JSON response on stdout:
 
 ```
 { markdown, remarkPlugins, rehypePlugins }   →   { html, messages }
@@ -236,9 +236,9 @@ Plugin resolution uses `createRequire(cwd/package.json)` so user-installed packa
 
 The engine spawns this via `Command::new("node")` once per file when `has_js_plugins(cfg)` returns true. **This is the single biggest perf bottleneck** — see `docs/perf-plan.md` U1.
 
-### 9. `duck-md-napi` — TypeScript public surface
+### 9. `dmc-napi` — TypeScript public surface
 
-`duck-md-napi/mod.ts` (793 LOC) is a single TS-only entry. No compiled `mod.js`; consumers use `node` ≥20 with `--experimental-strip-types` or bun/tsx, and the napi `index.js` (the Rust binding) is loaded via `createRequire`.
+`dmc-napi/mod.ts` (793 LOC) is a single TS-only entry. No compiled `mod.js`; consumers use `node` ≥20 with `--experimental-strip-types` or bun/tsx, and the napi `index.js` (the Rust binding) is loaded via `createRequire`.
 
 Exports:
 
@@ -250,7 +250,7 @@ Exports:
 - `definePlugin(plugin, options)` — type-safe `[plugin, options]` tuple. Generic infers `Params` from the plugin's first parameter type, so `definePlugin(rehypePrettyCode, { theme: 'invalid' })` is a TS error at config time.
 - `Plugin`, `Pluggable` — re-exported from `unified`.
 
-Sidecar path resolution (`mod.ts:47-56`): tries package-relative paths in order, sets `process.env.DUCK_MD_SIDECAR` so the Rust engine finds the entry without hard-coding.
+Sidecar path resolution (`mod.ts:47-56`): tries package-relative paths in order, sets `process.env.dmc_SIDECAR` so the Rust engine finds the entry without hard-coding.
 
 User config is allowed to use plugin **function references** directly (not strings), because the JS-side `processWithUnified` runs unified in-process for the simple case. Only when the engine drops to the Rust `run()` path do plugin names get serialized to strings for the sidecar.
 
@@ -258,12 +258,12 @@ User config is allowed to use plugin **function references** directly (not strin
 
 ## End-to-end flow for a single file
 
-1. `duck-md build --config duck-md.toml` → `Cmd::Build` → `cmd_build` loads TOML or evaluates TS config (via bun / `node --import tsx`).
+1. `dmc build --config dmc.toml` → `Cmd::Build` → `cmd_build` loads TOML or evaluates TS config (via bun / `node --import tsx`).
 2. `EngineConfig` constructed; `run(cfg)` enters per-collection loop.
 3. `globwalk` resolves the collection pattern → `Vec<PathBuf>`.
 4. `paths.par_iter().map(...)` (rayon) — each file:
    1. `fs::read_to_string` → `String`.
-   2. `duck_md_parser::parse(&source)` → `Document` (lexer + parser).
+   2. `dmc_parser::parse(&source)` → `Document` (lexer + parser).
    3. `Pipeline::with_defaults().run(&mut doc)` (transformers).
    4. `finalize(source, doc)` (compile.rs:46) computes `html`, `body`, `excerpt`, `metadata`, `toc`, plus `imports` / `exports` from the AST.
    5. If JS plugins configured: `run_sidecar` (Node child) overrides `html`.
@@ -279,16 +279,16 @@ User config is allowed to use plugin **function references** directly (not strin
 **CLI:**
 
 ```sh
-duck-md build --config duck-md.config.ts
-duck-md dev   --config duck-md.config.ts
-duck-md compile path/to/file.mdx
-duck-md init
+dmc build --config dmc.config.ts
+dmc dev   --config dmc.config.ts
+dmc compile path/to/file.mdx
+dmc init
 ```
 
 **Rust crate:**
 
 ```rust
-use duck_md::{compile, run, EngineConfig};
+use dmc::{compile, run, EngineConfig};
 
 let out = compile(source);     // CompileOutput { body, html, frontmatter, toc, ... }
 let report = run(&cfg)?;       // EngineReport { collections: [...], errors: [...] }
@@ -333,9 +333,9 @@ export default defineConfig({
 
 ## Where to read next
 
-- Parsing internals → `duck-md-parser/src/parser.rs` then `block.rs`, `inline.rs`.
-- Transformer authoring → `duck-md-transform/src/pipeline.rs` + any `builtin/<name>.rs` as a template.
-- Schema authoring → `duck-md-schema/src/primitives.rs` for the trait pattern; `markdown.rs` for AST-aware schemas.
-- Engine wiring → `duck-md-core/src/engine.rs` from `pub fn run` downward.
-- TS surface → `duck-md-napi/mod.ts` (single file).
+- Parsing internals → `dmc-parser/src/parser.rs` then `block.rs`, `inline.rs`.
+- Transformer authoring → `dmc-transform/src/pipeline.rs` + any `builtin/<name>.rs` as a template.
+- Schema authoring → `dmc-schema/src/primitives.rs` for the trait pattern; `markdown.rs` for AST-aware schemas.
+- Engine wiring → `dmc-core/src/engine.rs` from `pub fn run` downward.
+- TS surface → `dmc-napi/mod.ts` (single file).
 - Performance → `docs/perf-plan.md` and `docs/benchmarks.md`.

@@ -1,0 +1,21 @@
+{
+	"name": "@duck/md-sidecar",
+	"version": "0.1.0",
+	"private": true,
+	"type": "module",
+	"bin": {
+		"dmc-sidecar": "./index.mjs"
+	},
+	"main": "index.mjs",
+	"files": [
+		"index.mjs"
+	],
+	"dependencies": {
+		"unified": "^11",
+		"remark-parse": "^11",
+		"remark-rehype": "^11",
+		"rehype-raw": "^7",
+		"rehype-stringify": "^10",
+		"vfile": "^6"
+	}
+}

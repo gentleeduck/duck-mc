@@ -1,5 +1,5 @@
 [package]
-name = "duck-md-fuzz"
+name = "dmc-fuzz"
 version = "0.0.0"
 publish = false
 edition = "2024"
@@ -9,9 +9,9 @@ cargo-fuzz = true
 
 [dependencies]
 libfuzzer-sys = "0.4"
-duck-md-lexer = { path = "../duck-md-lexer" }
-duck-md-parser = { path = "../duck-md-parser" }
-duck-md-core = { path = "../duck-md-core" }
+dmc-lexer = { path = "../dmc-lexer" }
+dmc-parser = { path = "../dmc-parser" }
+dmc-core = { path = "../dmc-core" }
 duck-diagnostic = "0.1.0"
 
 [[bin]]

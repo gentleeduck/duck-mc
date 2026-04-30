@@ -1,0 +1,22 @@
+---
+source: dmc-core/tests/snapshots.rs
+assertion_line: 76
+expression: out
+---
+{
+  "frontmatter": null,
+  "frontmatterRaw": "",
+  "content": "import { Callout } from './x'\n\n<Callout type=\"info\">Hi **bold**</Callout>\n",
+  "html": "<Callout type=\"info\"><p>Hi <strong>bold</strong></p></Callout>",
+  "body": "[REDACTED_FACTORY_STRING]",
+  "excerpt": "Hi bold",
+  "metadata": {
+    "readingTime": 1,
+    "wordCount": 2
+  },
+  "toc": [],
+  "imports": [
+    "import { Callout } from './x'\n"
+  ],
+  "exports": []
+}

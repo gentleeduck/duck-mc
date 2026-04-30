@@ -1,6 +1,6 @@
 #![no_main]
+use dmc_lexer::Lexer;
 use duck_diagnostic::DiagnosticEngine;
-use duck_md_lexer::Lexer;
 use libfuzzer_sys::fuzz_target;
 use std::cell::RefCell;
 

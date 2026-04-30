@@ -1,0 +1,60 @@
+---
+title: Hello dmc
+date: 2026-04-29
+tags: [lexer, parser, transform, demo]
+---
+
+import { Callout } from "./callout.tsx"
+import Button from "./button.tsx"
+
+# Heading 1
+
+A paragraph with **bold**, _italic_, ~~strike~~, `inline code`, a
+[link](https://example.com), and an ![image](https://example.com/x.png).
+
+## Heading 2
+
+A bare URL https://github.com/gentelduck/ui appears mid-sentence.
+Another autolink form: <https://docs.example.com>.
+
+> Blockquote line one.
+> Blockquote line two with a link https://example.com inside.
+
+- unordered one
+- unordered two
+- [x] checked task
+- [ ] open task
+
+1. ordered one
+2. ordered two
+
+```rust title="hello.rs"
+fn main() {
+  println!("hello");
+}
+```
+
+```bash
+npm install lodash
+```
+
+| col a | col b | col c |
+| :---- | :---: | ----: |
+| 1     | 2     | 3     |
+| 4     | 5     | 6     |
+
+<Callout type="info">
+  Children inside JSX. **Bold** still works here.
+</Callout>
+
+<Button onClick={() => alert("hi")} disabled />
+
+{/* this is a markdown comment */}
+
+Setext H1
+=========
+
+Setext H2
+---------
+
+---
