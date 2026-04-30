@@ -1,0 +1,31 @@
+# Code import demo
+
+Whole file inline (no range):
+
+```rust file="snippets/hello.rs"
+placeholder — replaced by transformer
+```
+
+Single line (`main` signature only):
+
+```rust file="snippets/hello.rs{3-3}"
+placeholder
+```
+
+Range plus single line (lines 1, 3-5):
+
+```rust file="snippets/hello.rs{1,3-5}"
+placeholder
+```
+
+TypeScript file, full body:
+
+```ts file="snippets/utils.ts"
+placeholder
+```
+
+Missing file path (transformer keeps original value):
+
+```rust file="snippets/does-not-exist.rs"
+this stays because the file is missing
+```
