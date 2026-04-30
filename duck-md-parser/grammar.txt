@@ -1,0 +1,97 @@
+; duck-md grammar
+; UPPER = lexer token (TokenKind variant)
+; lower = parser production
+; ?  optional   *  zero+   +  one+   |  alternative   (...)  group
+
+document     = block*
+
+block        = frontmatter
+             | import_stmt
+             | export_stmt
+             | heading
+             | code_block
+             | indented_code
+             | jsx_element
+             | jsx_expression
+             | md_comment
+             | unordered_list
+             | ordered_list
+             | blockquote
+             | thematic_break
+             | table
+             | paragraph
+             | SOFT_BREAK
+             | HARD_BREAK
+
+frontmatter  = FRONTMATTER_START FRONTMATTER_CONTENT? FRONTMATTER_END
+
+import_stmt  = IMPORT
+export_stmt  = EXPORT
+
+heading      = atx_heading | setext_heading
+atx_heading  = HEADING(n) inline*
+setext_heading
+             = paragraph SOFT_BREAK setext_underline
+setext_underline
+             = EQ+              (SOFT_BREAK | HARD_BREAK | EOF)
+             | THEMATIC_BREAK   (SOFT_BREAK | HARD_BREAK | EOF)
+
+code_block   = CODE_START(n) TEXT? token* CODE_END(n)?
+indented_code
+             = (WHITESPACE_4 line_remainder (SOFT_BREAK indented_continuation)?)+
+line_remainder
+             = token* (SOFT_BREAK | HARD_BREAK | EOF)
+
+unordered_list
+             = unordered_item ((SOFT_BREAK | HARD_BREAK)? unordered_item)*
+ordered_list = ordered_item   ((SOFT_BREAK | HARD_BREAK)? ordered_item)*
+unordered_item
+             = UNORDERED_LIST_ITEM (task_marker? inline*)
+ordered_item = ORDERED_LIST_ITEM   inline*
+task_marker  = WHITESPACE? BRACKET TEXT(" "|"x"|"X") BRACKET
+
+blockquote   = (BLOCK_QUOTE inline* (SOFT_BREAK | HARD_BREAK)?)+
+
+thematic_break
+             = THEMATIC_BREAK
+
+table        = pipe_line break alignment_line break (pipe_line break)*
+pipe_line    = "|" (cell "|")+
+alignment_line
+             = "|" (":"? "-"+ ":"? "|")+
+break        = SOFT_BREAK | HARD_BREAK
+
+paragraph    = inline+
+
+inline       = TEXT
+             | WHITESPACE
+             | AUTOLINK
+             | bold
+             | italic
+             | strike
+             | inline_code
+             | link
+             | image
+             | jsx_element
+             | jsx_expression
+             | md_comment
+
+bold         = BOLD(n)   inline* BOLD(n)?
+italic       = ITALIC(n) inline* ITALIC(n)?
+strike       = STRIKE(n) inline* STRIKE(n)?
+inline_code  = CODE_START(n) token* CODE_END(n)?
+link         = BRACKET inline* BRACKET (PAREN_OPEN token* PAREN_CLOSE)?
+image        = BANG BRACKET token* BRACKET (PAREN_OPEN token* PAREN_CLOSE)?
+md_comment   = MARKDOWN_COMMENT_START token* MARKDOWN_COMMENT_END?
+
+jsx_element  = JSX_OPEN_TAG_START
+               JSX_TAG_NAME?
+               jsx_attr*
+               ( JSX_SELF_CLOSING_END
+               | JSX_OPEN_TAG_END block*
+                 JSX_CLOSE_TAG_START JSX_TAG_NAME? JSX_CLOSE_TAG_END )
+
+jsx_attr     = JSX_ATTRIBUTE_NAME (EQ (STRING | jsx_expression))?
+
+jsx_expression
+             = EXPRESSION_START token* EXPRESSION_END?

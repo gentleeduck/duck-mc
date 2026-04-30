@@ -1,4 +1,4 @@
-//! Velite-parity schema builder. `s::*` mirrors velite's `s.*` API.
+//! Schema builder. `s::*`
 //!
 //! ```
 //! use duck_md_schema::{s, BoxSchema, Ctx, Schema};

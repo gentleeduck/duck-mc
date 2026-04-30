@@ -712,3 +712,94 @@ This is realistic for a medium Rust dev working on it as a side project.
 5. **Error recovery** - giving useful errors without crashing on malformed input
 
 For expression nesting specifically (JSX inside expressions inside JSX), you will need a depth counter and careful state tracking. Plan extra time here.
+
+---
+
+## Deferred lexer perf work (queued, not yet applied)
+
+Already shipped in lexer:
+
+- `Lexer::source: &'src str` (no source clone)
+- `Vec::with_capacity(source.len() / 8)` for the token buffer
+- `memchr`-based scanners: `skip_until_byte`, `skip_until_any2`, `skip_while_byte`, `skip_while_ascii`
+- `consume_till(c)` rewritten on `memchr` for ASCII delimiters
+- All `consume_while` call sites in `code.rs`, `typography.rs`, `jsx.rs`, `fontmatter.rs`, `lists.rs`, `whitespaces.rs` migrated to byte-level scanners
+- Old `consume_while` removed; `lex_newline` rewritten as a byte loop
+- `advance_bytes(n)` accounts for line + column with one `memchr_iter` newline scan
+
+Remaining ideas — apply only after benching shows real headroom. Each requires touching the parser too, so they are blocked on a parser-side pass:
+
+### 1. `Token.raw: Cow<'src, str>`
+
+Today `Token.raw: String` and lexer copies the lexeme on every emit (`get_current_lexeme().to_string()`). Switching to `Cow<'src, str>` makes the hot path zero-copy (always `Cow::Borrowed` from the source slice), and the parser's only mutation site (`block.rs:82` rewriting an ordered-list-item Text token) can use `Cow::Owned`.
+
+**Touches:** `duck-md-lexer/src/token.rs`, `lib.rs::emit`, every parser file that does `t.raw.clone()` (returns `Cow` not `String` after the switch — most call sites need `t.raw.to_string()` or `t.raw.into_owned()`).
+
+**Expected gain:** ~30 to 50 % lex throughput on text-heavy fixtures (skills.mdx tokens drop from 269 String allocs to 0).
+
+### 2. `Parser<'src>` lifetime threading
+
+Once Token carries `'src`, Parser must thread `'src` through. Mechanical but rippling change.
+
+**Touches:** `duck-md-parser/src/parser.rs`, `block.rs`, `inline.rs`, `jsx.rs`, `table.rs`. Each `Vec<Token>` becomes `Vec<Token<'src>>`, each `&Token` becomes `&Token<'src>`. AST node types (`Text { value: String }` etc) stay String — convert at insertion.
+
+**Expected gain:** zero by itself; required to unlock #1.
+
+### 3. `Span.file: Arc<str>` (in @duck-diagnostic)
+
+Every Token clones the filename String into its Span. Use `Arc<str>` interned once per lex.
+
+**Touches:** `@duck-diagnostic` crate (Span struct), then surface in lexer/parser. Breaking change for diagnostic v0.4.
+
+**Expected gain:** measurable on multi-file builds; near-zero single-file.
+
+### 4. Drop `Bold(u8) / Italic(u8) / CodeStart(u8) / Strike(u8) / Heading(u8) / CodeEnd(u8)` payloads
+
+Encode the count via `span.length` instead of the variant. Smaller `TokenKind` discriminant -> better cache hit rate, simpler matches.
+
+**Touches:** `token.rs` enum, every parser/codegen match arm referencing the count.
+
+### 5. `&'static str` diagnostic messages
+
+`Diagnostic::new(Code::Foo, "msg")` allocates `String` per emission. Accept `Cow<'static, str>` and use static literals.
+
+**Touches:** `@duck-diagnostic` API.
+
+### 6. WASM build target
+
+`wasm-pack build --target web` for browser-side MDX preview. No code changes needed; just CI + `wasm-bindgen` exports.
+
+### 7. Streaming `Iterator<Item = Token>` API
+
+Make Lexer impl `Iterator` so the parser pulls tokens lazily instead of consuming a full `Vec<Token>` first. Lets parsers short-circuit on early errors and unblocks LSP-style incremental parsing.
+
+**Touches:** lexer surface + every test/parser call site.
+
+### 8. CRLF normalization
+
+Lexer only sees `\n`. Windows MDX files with `\r\n` get the `\r` treated as inline whitespace (kind of works, but emits stray `Whitespace` tokens). Normalize at input boundary: `source.replace("\r\n", "\n")` once at construction, document the convention.
+
+### 9. Nested-expression depth limit
+
+`lex_expression` (`jsx.rs`) has no max depth. Adversarial input `{{{{{{...` will recurse unboundedly. Cap to 64 with a synthesized diagnostic.
+
+### 10. Fuzz target
+
+`cargo fuzz add lex_random_input` + assert no panic on any byte sequence. Will surface ~5-10 bugs in the current lexer.
+
+### 11. proptest snapshot
+
+Random MDX -> assert `lex(s).iter().map(|t| &t.raw).collect::<String>() == s`. Catches silent token drops.
+
+### 12. Drop grapheme-counting for non-ASCII column
+
+`advance()` (utils.rs) imports `unicode_segmentation` and grapheme-counts every non-ASCII char. Switch to `unicode_width::UnicodeWidthChar::width()` (faster, more correct for visual column tracking).
+
+**Touches:** `utils.rs::advance` only.
+
+### Order to apply
+
+If we open a parser-touching session: do #2 first (lifetime), then #1 (Cow), then #4 (drop payloads), then #5 (static msgs). #3 and #5 require diagnostic 0.4 bump.
+
+If we keep the lexer isolated: #8, #9, #10, #11, #12 are all lexer-local and can ship today.
+

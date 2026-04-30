@@ -1,6 +1,13 @@
+use duck_diagnostic::DiagnosticEngine;
+use duck_md_diagnostic::metadata::Origin;
+use duck_md_diagnostic::metadata::SourceMeta;
+use duck_md_lexer::Lexer;
+use duck_md_parser::Parser;
 use duck_md_parser::ast::*;
 use duck_md_transform::Pipeline;
 use serde::{Deserialize, Serialize};
+use std::cell::RefCell;
+use std::sync::Arc;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
@@ -32,14 +39,35 @@ pub struct CompileOutput {
 }
 
 pub fn compile(source: &str) -> CompileOutput {
-  let mut doc = duck_md_parser::parse(source);
-  Pipeline::with_defaults().run(&mut doc);
-  finalize(source, doc)
+  compile_with_pipeline(source, &Pipeline::with_defaults())
 }
 
 pub fn compile_with_pipeline(source: &str, pipeline: &Pipeline) -> CompileOutput {
-  let mut doc = duck_md_parser::parse(source);
-  pipeline.run(&mut doc);
+  // Each layer holds its own DiagnosticEngine, mirroring the Lexer pattern.
+  let meta = Arc::from(SourceMeta {
+    path: Arc::from("<inline>"),
+    version: 0,
+    origin: Origin::Inline("<inline>"),
+  });
+  let lex_engine = RefCell::new(DiagnosticEngine::new());
+  let mut lexer = Lexer::new(source, meta.clone(), lex_engine.borrow_mut());
+  let _ = lexer.scan_tokens();
+  let tokens = std::mem::take(&mut lexer.tokens);
+  drop(lexer);
+
+  let parse_engine = RefCell::new(DiagnosticEngine::new());
+  let mut doc = {
+    let mut parser = Parser::new(tokens, meta.clone(), parse_engine.borrow_mut());
+    parser.parse()
+  };
+
+  let transform_engine = RefCell::new(DiagnosticEngine::new());
+  pipeline.run(&mut doc, &meta, transform_engine.borrow_mut());
+
+  // Diagnostics are currently dropped at the compile() boundary. Wire into
+  // CompileOutput when consumers need them (LSP, CLI error-reporting, etc.).
+  let _ = (lex_engine, parse_engine, transform_engine);
+
   finalize(source, doc)
 }
 
@@ -52,7 +80,8 @@ fn finalize(source: &str, doc: Document) -> CompileOutput {
   for child in &doc.children {
     match child {
       Node::Frontmatter(f) => {
-        frontmatter = f.data.clone();
+        frontmatter =
+          serde_yaml::from_str::<serde_json::Value>(&f.raw).unwrap_or(serde_json::Value::Null);
         frontmatter_raw = f.raw.clone();
       },
       Node::Import(i) => imports.push(i.raw.clone()),
@@ -205,7 +234,7 @@ fn build_toc(doc: &Document) -> Vec<TocItem> {
       for c in &h.children {
         plain_node(c, &mut s);
       }
-      flat.push((h.level, s.trim().to_string(), h.id.clone()));
+      flat.push((h.level, s.trim().to_string(), h.slug()));
     }
   }
   nest(&flat)
