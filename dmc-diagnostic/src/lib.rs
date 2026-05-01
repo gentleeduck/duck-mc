@@ -18,6 +18,9 @@ use duck_diagnostic::{DiagnosticCode, Severity};
 use serde::{Deserialize, Serialize};
 
 pub mod metadata;
+mod print;
+
+pub use print::{format_all_smart, print_all_smart};
 
 /// Stable, machine-readable identifiers for diagnostics across the whole
 /// compile pipeline. Codes use disjoint string namespaces per layer:
