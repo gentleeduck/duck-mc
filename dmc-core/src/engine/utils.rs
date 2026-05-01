@@ -1,5 +1,3 @@
-use rayon::prelude::*;
-use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value, json};
 use std::path::{Path, PathBuf};
 
@@ -33,7 +31,7 @@ pub struct CollectionReport {
 /// Build a `dmc_schema::Ctx` from a compiled doc — this is what schema
 /// `transform`/`refine` predicates see when validating frontmatter (HTML,
 /// MDX body, TOC, plain text, file path, etc.).
-fn build_schema_ctx(
+pub fn build_schema_ctx(
   path: &Path,
   root: &Path,
   compiled: &crate::CompileOutput,
@@ -101,7 +99,7 @@ fn write_index(out_dir: &Path, report: &EngineReport, format: &str) -> std::io::
 
 /// Pack one compiled document into the velite-shaped JSON record:
 /// `{ ...frontmatter, code, raw, slug, permalink, path, ...optional html }`.
-fn build_velite_record(
+pub fn build_velite_record(
   compiled: crate::CompileOutput,
   frontmatter: Value,
   path: &Path,
@@ -317,16 +315,12 @@ fn minify_js(src: &str) -> String {
 
 /// True when the user configured any remark/rehype plugin — triggers the
 /// Node-side sidecar pipeline.
-fn has_js_plugins(cfg: &EngineConfig) -> bool {
+pub fn has_js_plugins(cfg: &EngineConfig) -> bool {
   // Match velite: when output.html is requested, run the JS pipeline so
   // user gets gfm + comment-strip + their plugins. Or when any plugin list
   // is non-empty.
-  let any_filled = |v: &Option<Value>| {
-    v.as_ref().and_then(|x| x.as_array()).map(|a| !a.is_empty()).unwrap_or(false)
-  };
-  if cfg.include_html {
-    return true;
-  }
+
+  let any_filled = |v: &Vec<Value>| !v.is_empty();
   any_filled(&cfg.markdown_remark_plugins)
     || any_filled(&cfg.markdown_rehype_plugins)
     || any_filled(&cfg.mdx_remark_plugins)
@@ -341,14 +335,8 @@ fn run_sidecar(markdown: &str, cfg: &EngineConfig) -> Option<String> {
   use std::io::Write;
   use std::process::{Command, Stdio};
   let entry = std::env::var("dmc_SIDECAR").ok().or_else(|| Some("dmc-sidecar/index.mjs".into()))?;
-  let merge = |a: &Option<Value>, b: &Option<Value>| -> Value {
-    let mut out = Vec::new();
-    for v in [a, b].iter() {
-      if let Some(arr) = v.as_ref().and_then(|x| x.as_array()) {
-        out.extend(arr.iter().cloned());
-      }
-    }
-    Value::Array(out)
+  let merge = |a: &Vec<Value>, b: &Vec<Value>| -> Value {
+    Value::Array(a.iter().chain(b.iter()).cloned().collect())
   };
   let req = json!({
       "markdown": markdown,

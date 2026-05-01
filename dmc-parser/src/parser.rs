@@ -14,7 +14,7 @@ pub struct Parser<'eng, 'tokens> {
   pub tokens: Vec<Token<'tokens>>,
   pub meta: Arc<SourceMeta>,
   pub pos: usize,
-  pub engine: RefMut<'eng, DiagnosticEngine<Code>>,
+  pub engine: &'eng mut DiagnosticEngine<Code>,
 }
 
 impl<'eng, 'tokens> Parser<'eng, 'tokens> {
@@ -23,7 +23,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
   pub fn new(
     tokens: Vec<Token<'tokens>>,
     meta: Arc<SourceMeta>,
-    engine: RefMut<'eng, DiagnosticEngine<Code>>,
+    engine: &'eng mut DiagnosticEngine<Code>,
   ) -> Self {
     Self { tokens, meta, pos: 0, engine }
   }
@@ -112,13 +112,13 @@ pub fn parse(source: &str) -> Document {
     version: 0,
     origin: Origin::Inline("<inline>"),
   });
-  let lex_engine = RefCell::new(DiagnosticEngine::new());
-  let mut lexer = Lexer::new(source, meta.clone(), lex_engine.borrow_mut());
+  let mut lex_engine = DiagnosticEngine::new();
+  let mut lexer = Lexer::new(source, meta.clone(), &mut lex_engine);
   let _ = lexer.scan_tokens();
   let tokens = std::mem::take(&mut lexer.tokens);
   drop(lexer);
 
-  let parse_engine = RefCell::new(DiagnosticEngine::new());
-  let mut p = Parser::new(tokens, meta, parse_engine.borrow_mut());
+  let mut parse_engine = DiagnosticEngine::new();
+  let mut p = Parser::new(tokens, meta, &mut parse_engine);
   p.parse()
 }

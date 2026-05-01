@@ -1,6 +1,11 @@
-use std::path::PathBuf;
+use std::{
+  cell::{RefCell, RefMut},
+  path::PathBuf,
+};
 
 use dmc::Engine;
+use dmc_diagnostic::Code;
+use duck_diagnostic::{DiagnosticEngine, print_all_smart};
 
 use crate::cli::config::ConfigFile;
 
@@ -20,6 +25,8 @@ impl BuildCmd {
   /// `strict` aborts on the first validation failure, `clean` wipes
   /// `output_dir` first.
   pub(crate) fn run(self) -> std::io::Result<()> {
+    let mut diag_engine = DiagnosticEngine::<Code>::new();
+
     let mut engine_cfg = ConfigFile::load_engine_cfg(&self.config)?;
     if self.strict {
       engine_cfg.strict = true;
@@ -28,20 +35,13 @@ impl BuildCmd {
       engine_cfg.clean = true;
     }
 
-    Engine::run(&engine_cfg)?;
+    Engine::run(&engine_cfg, &mut diag_engine)?;
 
-    // // TODO: refactor the code below
-    // for c in &report.collections {
-    //   println!("✓ {} — {} records → {}", c.name, c.records, c.output_path.display());
-    // }
-    // if !report.errors.is_empty() {
-    //   eprintln!();
-    //   for e in &report.errors {
-    //     eprintln!("  \x1b[31m✗\x1b[0m {}", e.file.display());
-    //     eprintln!("    \x1b[2m{}\x1b[0m", e.message);
-    //   }
-    //   eprintln!("\n  \x1b[31m{}\x1b[0m validation error(s)", report.errors.len());
-    // }
+    // Print every diagnostic at end. Per-diag: with-source when the primary
+    // label points at a readable file, compact otherwise (glob/config/IO
+    // errors that have no source to snippet).
+    print_all_smart(&diag_engine, None);
+
     Ok(())
   }
 }

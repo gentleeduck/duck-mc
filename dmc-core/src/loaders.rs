@@ -3,8 +3,10 @@
 //! `MatterLoader` runs the full mdx compile, `YamlLoader` / `JsonLoader`
 //! parse data files directly.
 
+use dmc_diagnostic::Code;
+use duck_diagnostic::DiagnosticEngine;
 use serde_json::Value;
-use std::path::Path;
+use std::{cell::RefMut, path::Path};
 
 /// Result of loading one source file: the structured data the schema
 /// validates against (frontmatter for mdx, the whole doc for yaml/json),
@@ -18,7 +20,12 @@ pub struct Loaded {
 /// the given path; `load` does the parse.
 pub trait Loader: Send + Sync {
   fn test(&self, path: &Path) -> bool;
-  fn load(&self, path: &Path, source: &str) -> Result<Loaded, String>;
+  fn load(
+    &self,
+    path: &Path,
+    source: &str,
+    diag_engine: &mut DiagnosticEngine<Code>,
+  ) -> Result<Loaded, String>;
 }
 
 /// Loader for `.md` / `.mdx` / `.markdown` — runs the full compile and
@@ -31,8 +38,13 @@ impl Loader for MatterLoader {
     matches!(path.extension().and_then(|s| s.to_str()), Some("md") | Some("mdx") | Some("markdown"))
   }
 
-  fn load(&self, _path: &Path, source: &str) -> Result<Loaded, String> {
-    let out = crate::compile(source);
+  fn load(
+    &self,
+    _path: &Path,
+    source: &str,
+    diag_engine: &mut DiagnosticEngine<Code>,
+  ) -> Result<Loaded, String> {
+    let out = crate::compile(source, diag_engine);
     let mut data = if let Value::Object(_) = out.frontmatter {
       out.frontmatter.clone()
     } else {
@@ -54,7 +66,12 @@ impl Loader for YamlLoader {
     matches!(path.extension().and_then(|s| s.to_str()), Some("yaml") | Some("yml"))
   }
 
-  fn load(&self, _path: &Path, source: &str) -> Result<Loaded, String> {
+  fn load(
+    &self,
+    _path: &Path,
+    source: &str,
+    _diag_engine: &mut DiagnosticEngine<Code>,
+  ) -> Result<Loaded, String> {
     let v: serde_yaml::Value =
       serde_yaml::from_str(source).map_err(|e| format!("yaml parse: {e}"))?;
     let json = serde_json::to_value(v).map_err(|e| format!("yaml→json: {e}"))?;
@@ -70,7 +87,12 @@ impl Loader for JsonLoader {
     matches!(path.extension().and_then(|s| s.to_str()), Some("json"))
   }
 
-  fn load(&self, _path: &Path, source: &str) -> Result<Loaded, String> {
+  fn load(
+    &self,
+    _path: &Path,
+    source: &str,
+    _diag_engine: &mut DiagnosticEngine<Code>,
+  ) -> Result<Loaded, String> {
     let v: Value = serde_json::from_str(source).map_err(|e| format!("json parse: {e}"))?;
     Ok(Loaded { data: v, content: source.to_string() })
   }

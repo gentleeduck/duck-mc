@@ -1,3 +1,4 @@
+use dmc_diagnostic::Code;
 use dmc_diagnostic::metadata::Origin;
 use dmc_diagnostic::metadata::SourceMeta;
 use dmc_lexer::Lexer;
@@ -7,6 +8,7 @@ use dmc_transform::Pipeline;
 use duck_diagnostic::DiagnosticEngine;
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
+use std::cell::RefMut;
 use std::sync::Arc;
 
 /// Reading-time + word-count summary derived from the document's plain text.
@@ -47,29 +49,31 @@ pub struct CompileOutput {
 /// One-shot compile of `source` using the default transform pipeline.
 /// Source identity defaults to `Origin::Inline("<inline>")` — use the
 /// `engine` module for file-aware compilation with real spans.
-pub fn compile(source: &str) -> CompileOutput {
-  compile_with_pipeline(source, &Pipeline::with_defaults())
+pub fn compile(source: &str, diag_engine: &mut DiagnosticEngine<Code>) -> CompileOutput {
+  compile_with_pipeline(source, &Pipeline::with_defaults(), diag_engine)
 }
 
 /// Like [`compile`] but lets the caller supply a custom pipeline. Diagnostics
 /// emitted by each layer are currently dropped at the boundary; consumers
 /// that need them (LSP / CLI) should drive the layers themselves.
-pub fn compile_with_pipeline(source: &str, pipeline: &Pipeline) -> CompileOutput {
+pub fn compile_with_pipeline(
+  source: &str,
+  pipeline: &Pipeline,
+  diag_engine: &mut DiagnosticEngine<Code>,
+) -> CompileOutput {
   // Each layer holds its own DiagnosticEngine, mirroring the Lexer pattern.
   let meta = Arc::from(SourceMeta {
     path: Arc::from("<inline>"),
     version: 0,
     origin: Origin::Inline("<inline>"),
   });
-  let lex_engine = RefCell::new(DiagnosticEngine::new());
-  let mut lexer = Lexer::new(source, meta.clone(), lex_engine.borrow_mut());
+  let mut lexer = Lexer::new(source, meta.clone(), diag_engine);
   let _ = lexer.scan_tokens();
   let tokens = std::mem::take(&mut lexer.tokens);
   drop(lexer);
 
-  let parse_engine = RefCell::new(DiagnosticEngine::new());
   let mut doc = {
-    let mut parser = Parser::new(tokens, meta.clone(), parse_engine.borrow_mut());
+    let mut parser = Parser::new(tokens, meta.clone(), diag_engine);
     parser.parse()
   };
 
@@ -78,7 +82,7 @@ pub fn compile_with_pipeline(source: &str, pipeline: &Pipeline) -> CompileOutput
 
   // NOTE: Diagnostics are currently dropped at the compile() boundary. Wire into
   // CompileOutput when consumers need them (LSP, CLI error-reporting, etc.).
-  let _ = (lex_engine, parse_engine, transform_engine);
+  let _ = diag_engine;
 
   finalize(source, doc)
 }
@@ -105,8 +109,8 @@ fn finalize(source: &str, doc: Document) -> CompileOutput {
   }
 
   let content = strip_frontmatter(source).to_string();
-  // let html = dmc_codegen::render_html(&doc);
-  // let body = dmc_codegen::render_mdx_body(&doc);
+  let html = dmc_codegen::render_html(&doc);
+  let body = dmc_codegen::render_mdx_body(&doc);
   let plain = plain_text(&doc);
   let excerpt = build_excerpt(&plain, 260);
   let metadata = build_metadata(&plain);
@@ -116,8 +120,8 @@ fn finalize(source: &str, doc: Document) -> CompileOutput {
     frontmatter,
     frontmatter_raw,
     content,
-    html: String::new(),
-    body: String::new(),
+    html,
+    body,
     excerpt,
     metadata,
     toc,

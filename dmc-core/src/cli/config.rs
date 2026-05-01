@@ -27,7 +27,6 @@ impl ConfigFile {
     let raw = std::fs::read_to_string(config_path)?;
     let cfg: ConfigFile = toml::from_str(&raw)
       .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e.to_string()))?;
-    println!("raw: {:#?}", cfg);
 
     Ok(EngineConfig {
       output_dir: cfg.output_dir,

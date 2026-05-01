@@ -1,4 +1,4 @@
-use std::{cell::RefMut, sync::Arc};
+use std::sync::Arc;
 
 use dmc_diagnostic::{Code, metadata::SourceMeta};
 use duck_diagnostic::{Diagnostic, DiagnosticEngine, Span};
@@ -22,7 +22,7 @@ pub struct Lexer<'eng, 'src> {
   pub current: usize,
   pub line: usize,
   pub column: usize,
-  pub engine: RefMut<'eng, DiagnosticEngine<Code>>,
+  pub engine: &'eng mut DiagnosticEngine<Code>,
   pub frontmatter_reserved: bool,
 }
 
@@ -31,7 +31,7 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
   pub fn new(
     source: &'src str,
     meta: Arc<SourceMeta>,
-    engine: RefMut<'eng, DiagnosticEngine<Code>>,
+    engine: &'eng mut DiagnosticEngine<Code>,
   ) -> Self {
     Self {
       source,
