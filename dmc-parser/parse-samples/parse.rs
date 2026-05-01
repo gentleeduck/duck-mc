@@ -144,9 +144,10 @@ fn main() -> io::Result<()> {
   }
 
   if !quiet && total_diags > 0 {
+    let color = std::io::IsTerminal::is_terminal(&std::io::stdout());
     println!("\n-- diagnostics ({}) --", total_diags);
-    println!("{}", lex_diags.format_all_plain(&source));
-    println!("{}", parse_diags.format_all_plain(&source));
+    print!("{}", dmc_diagnostic::format_all_smart(&lex_diags, color));
+    print!("{}", dmc_diagnostic::format_all_smart(&parse_diags, color));
   }
 
   if show_debug {
