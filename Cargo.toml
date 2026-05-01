@@ -25,7 +25,7 @@ serde_yaml = "0.9"
 thiserror = "1"
 miette = { version = "5", features = ["fancy"] }
 slug = "0.1"
-duck-diagnostic = "0.6.0"
+duck-diagnostic = "0.7.0"
 globwalk = "0.9"
 tempfile = "3"
 clap = { version = "4", features = ["derive"] }

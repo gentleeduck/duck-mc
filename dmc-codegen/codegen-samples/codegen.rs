@@ -175,11 +175,11 @@ fn main() -> io::Result<()> {
   if !quiet && total > 0 {
     let color = std::io::IsTerminal::is_terminal(&std::io::stdout());
     println!("\n-- diagnostics ({}) --", total);
-    print!("{}", dmc_diagnostic::format_all_smart(&lex_diags, color));
-    print!("{}", dmc_diagnostic::format_all_smart(&parse_diags, color));
-    print!("{}", dmc_diagnostic::format_all_smart(&transform_diags, color));
-    print!("{}", dmc_diagnostic::format_all_smart(&html_diags, color));
-    print!("{}", dmc_diagnostic::format_all_smart(&mdx_diags, color));
+    print!("{}", duck_diagnostic::format_all_smart(&lex_diags, color));
+    print!("{}", duck_diagnostic::format_all_smart(&parse_diags, color));
+    print!("{}", duck_diagnostic::format_all_smart(&transform_diags, color));
+    print!("{}", duck_diagnostic::format_all_smart(&html_diags, color));
+    print!("{}", duck_diagnostic::format_all_smart(&mdx_diags, color));
   }
 
   if !quiet {

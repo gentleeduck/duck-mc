@@ -604,9 +604,9 @@ dependencies = [
 
 [[package]]
 name = "duck-diagnostic"
-version = "0.6.0"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b592bfda3b8da43e2e8fa42e499989d151f2b81cd1879f4ed25eafce7e6951c3"
+checksum = "db746841e2cc40d44150bdc0b52ccb00773c6903e91a0f7841481156959357b2"
 dependencies = [
  "colored",
  "serde",
