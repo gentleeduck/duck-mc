@@ -4,19 +4,18 @@ use crate::cli::{build::BuildCmd, compile::CompileCmd, dev::DevCmd, init::InitCm
 
 pub mod build;
 pub mod compile;
-pub mod config;
 pub mod dev;
 pub mod init;
 
 #[derive(Parser)]
 #[command(name = "dmc `dmc`", version, about = "Rust MDX compiler")]
-pub(crate) struct Cli {
+pub struct Cli {
   #[command(subcommand)]
   pub cmd: Cmd,
 }
 
 #[derive(Subcommand)]
-pub(crate) enum Cmd {
+pub enum Cmd {
   /// Build all collections from dmc.toml.
   Build(BuildCmd),
   /// Scaffold a default dmc.toml in the current directory.

@@ -7,9 +7,10 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::engine::{
+  compile::Compiler,
   config::EngineConfig,
   sidecar::run_sidecar,
-  utils::{CollectionReport, build_schema_ctx, build_velite_record, has_js_plugins},
+  utils::{CollectionReport, build_schema_ctx, build_velite_record, minify_js, wrap_mdx_module},
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -34,14 +35,11 @@ impl Collection {
     cfg: &EngineConfig,
     diag_engine: &mut DiagnosticEngine<Code>,
   ) -> Result<CollectionReport, ()> {
-    let walker = globwalk::GlobWalkerBuilder::from_patterns(&self.base_dir, &[&self.pattern])
-      .build()
-      .map_err(|e| {
-        diag_engine.emit(diag!(Code::EmptyFrontMatter, format!("globwalk error: {}", e)));
-      })?;
+    let walker = globwalk::GlobWalkerBuilder::from_patterns(&self.base_dir, &[&self.pattern]).build().map_err(|e| {
+      diag_engine.emit(diag!(Code::EmptyFrontMatter, format!("globwalk error: {}", e)));
+    })?;
 
-    let paths =
-      walker.filter_map(|e| e.ok()).map(|e| e.path().to_path_buf()).collect::<Vec<PathBuf>>();
+    let paths = walker.filter_map(|e| e.ok()).map(|e| e.path().to_path_buf()).collect::<Vec<PathBuf>>();
 
     let collection_schema = self.schema.as_ref().and_then(|d| {
       dmc_schema::compile_descriptor(d)
@@ -50,9 +48,6 @@ impl Collection {
         })
         .ok()
     });
-
-    // NOTE: we can consider some other options like [`SIMD`]
-    // let diag_engine = std::sync::Mutex::new(diag_engine);
 
     let outcomes: Vec<(Option<Value>, DiagnosticEngine<Code>)> = paths
       .par_iter()
@@ -67,37 +62,23 @@ impl Collection {
           },
         };
 
-        let mut compiled = {
-          let mut pipeline = dmc_transform::Pipeline::with_defaults();
+        let local_compiler_cfg = cfg.compile.for_render();
+        let use_sidecar = cfg.compile.has_js_plugins();
 
-          // TODO: refactor the transfomers below later on
-          if !cfg.markdown_gfm {
-            pipeline = pipeline.add(dmc_transform::DisableGfm);
-          }
+        let mut compiled = Compiler::compile_with_pipeline(&source, path, &local_compiler_cfg, &mut local_diag_engine);
 
-          if cfg.copy_linked_files && cfg.output_assets.is_some() && cfg.output_base.is_some() {
-            pipeline = pipeline.add(dmc_transform::CopyLinkedFiles::new(
-              path.parent().unwrap_or(std::path::Path::new(".")).to_path_buf(),
-              cfg.output_assets.clone().unwrap(),
-              cfg.output_base.clone().unwrap(),
-            ));
-          }
-
-          crate::compile_with_pipeline(&source, &pipeline, &mut local_diag_engine)
-        };
-
-        if has_js_plugins(cfg) {
+        if use_sidecar {
           if let Some(html) = run_sidecar(&compiled.content, cfg) {
             compiled.html = html;
           }
         }
-        // TODO:
-        // if cfg.mdx_output_format.as_deref() == Some("module") {
-        //   compiled.body = wrap_mdx_module(&compiled.body, &compiled.imports);
-        // }
-        // if cfg.mdx_minify {
-        //   compiled.body = minify_js(&compiled.body);
-        // }
+
+        if cfg.compile.mdx_output_format.as_deref() == Some("module") {
+          compiled.body = wrap_mdx_module(&compiled.body, &compiled.imports);
+        }
+        if cfg.compile.mdx_minify {
+          compiled.body = minify_js(&compiled.body);
+        }
 
         let validated_frontmatter = match (&collection_schema, &compiled.frontmatter) {
           (Some(schema), fm) if !fm.is_null() => {
@@ -105,8 +86,7 @@ impl Collection {
             match schema.parse(fm, &ctx) {
               Ok(v) => v,
               Err(e) => {
-                local_diag_engine
-                  .emit(diag!(Code::EmptyFrontMatter, format!("schema error: {}", e)));
+                local_diag_engine.emit(diag!(Code::EmptyFrontMatter, format!("schema error: {}", e)));
                 compiled.frontmatter.clone()
               },
             }
@@ -114,15 +94,8 @@ impl Collection {
           _ => compiled.frontmatter.clone(),
         };
 
-        let include_html = cfg.include_html || has_js_plugins(cfg);
-        let rec = build_velite_record(
-          compiled,
-          validated_frontmatter,
-          path,
-          &self.base_dir,
-          &self.name,
-          include_html,
-        );
+        let include_html = cfg.include_html || use_sidecar;
+        let rec = build_velite_record(compiled, validated_frontmatter, path, &self.base_dir, &self.name, include_html);
 
         (Some(rec), local_diag_engine)
       })

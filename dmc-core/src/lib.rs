@@ -8,10 +8,9 @@
 //!   frontmatter against a [`dmc-schema`] schema, write the velite-style
 //!   index next to the build artifacts.
 
-mod compile;
+pub mod cli;
 pub mod engine;
 pub mod loaders;
 
-pub use compile::{CompileOutput, Metadata, TocItem, compile, compile_with_pipeline};
 pub use dmc_parser::{ast, parse};
 pub use engine::Engine;

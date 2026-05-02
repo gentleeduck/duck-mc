@@ -1,17 +1,12 @@
-use std::{
-  cell::{RefCell, RefMut},
-  path::PathBuf,
-};
+use std::path::PathBuf;
 
-use dmc::Engine;
+use crate::{Engine, engine::config::EngineConfig};
 use dmc_diagnostic::Code;
 use duck_diagnostic::{DiagnosticEngine, print_all_smart};
 
-use crate::cli::config::ConfigFile;
-
 /// `dmc build`: load config, run the engine once, print the report.
 #[derive(clap::Args)]
-pub(crate) struct BuildCmd {
+pub struct BuildCmd {
   #[arg(long, default_value = "dmc.toml")]
   pub config: PathBuf,
   #[arg(short, long)]
@@ -24,10 +19,10 @@ impl BuildCmd {
   /// `dmc build`: load config, run the engine once, print the report.
   /// `strict` aborts on the first validation failure, `clean` wipes
   /// `output_dir` first.
-  pub(crate) fn run(self) -> std::io::Result<()> {
+  pub fn run(self) -> std::io::Result<()> {
     let mut diag_engine = DiagnosticEngine::<Code>::new();
 
-    let mut engine_cfg = ConfigFile::load_engine_cfg(&self.config)?;
+    let mut engine_cfg = EngineConfig::load_engine_cfg(&self.config)?;
     if self.strict {
       engine_cfg.strict = true;
     }
@@ -35,7 +30,7 @@ impl BuildCmd {
       engine_cfg.clean = true;
     }
 
-    Engine::run(&engine_cfg, &mut diag_engine)?;
+    Engine::run(&engine_cfg, Some(&self.config), &mut diag_engine)?;
 
     // Print every diagnostic at end. Per-diag: with-source when the primary
     // label points at a readable file, compact otherwise (glob/config/IO

@@ -6,7 +6,9 @@
 use dmc_diagnostic::Code;
 use duck_diagnostic::DiagnosticEngine;
 use serde_json::Value;
-use std::{cell::RefMut, path::Path};
+use std::path::Path;
+
+use crate::engine::compile::Compiler;
 
 /// Result of loading one source file: the structured data the schema
 /// validates against (frontmatter for mdx, the whole doc for yaml/json),
@@ -44,7 +46,7 @@ impl Loader for MatterLoader {
     source: &str,
     diag_engine: &mut DiagnosticEngine<Code>,
   ) -> Result<Loaded, String> {
-    let out = crate::compile(source, diag_engine);
+    let out = Compiler::compile(source, diag_engine);
     let mut data = if let Value::Object(_) = out.frontmatter {
       out.frontmatter.clone()
     } else {

@@ -1,11 +1,12 @@
-use std::{path::PathBuf, sync::Mutex};
+use std::path::PathBuf;
 
-use dmc::compile;
 use dmc_diagnostic::Code;
 use duck_diagnostic::DiagnosticEngine;
 
+use crate::engine::compile::Compiler;
+
 #[derive(clap::Args)]
-pub(crate) struct CompileCmd {
+pub struct CompileCmd {
   #[arg(long, default_value = "dmc.toml")]
   pub path: PathBuf,
 }
@@ -13,9 +14,11 @@ pub(crate) struct CompileCmd {
 impl CompileCmd {
   /// `dmc compile`: read one mdx file, run the default pipeline, print
   /// the resulting `CompileOutput` as pretty JSON to stdout.
-  pub(crate) fn run(self, diag_engine: &mut DiagnosticEngine<Code>) -> std::io::Result<()> {
+  pub fn run(self) -> std::io::Result<()> {
+    let mut diag_engine = DiagnosticEngine::<Code>::new();
+
     let src = std::fs::read_to_string(&self.path)?;
-    let out = compile(&src, diag_engine);
+    let out = Compiler::compile(&src, &mut diag_engine);
     let json = serde_json::to_string_pretty(&out).unwrap();
     println!("{}", json);
     Ok(())
