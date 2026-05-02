@@ -5,18 +5,27 @@ use napi_derive::napi;
 use serde_json::Value;
 use std::path::PathBuf;
 
+use dmc::engine::collection::Collection as CollectionDef;
+use dmc::engine::compile::{CompileConfig, Compiler};
+use dmc::engine::config::EngineConfig;
+use dmc::Engine;
+use dmc_diagnostic::Code;
+use duck_diagnostic::DiagnosticEngine;
+
 #[napi]
 pub fn compile(source: String) -> Result<Value> {
-  let out = dmc::compile(&source);
+  let mut diag = DiagnosticEngine::<Code>::new();
+  let out = Compiler::compile(&source, &mut diag);
   serde_json::to_value(&out).map_err(|e| Error::from_reason(e.to_string()))
 }
 
 #[napi]
 pub fn compile_many(sources: Vec<String>) -> Result<Vec<Value>> {
+  let mut diag = DiagnosticEngine::<Code>::new();
   sources
     .into_iter()
     .map(|s| {
-      let out = dmc::compile(&s);
+      let out = Compiler::compile(&s, &mut diag);
       serde_json::to_value(&out).map_err(|e| Error::from_reason(e.to_string()))
     })
     .collect()
@@ -54,48 +63,46 @@ pub struct BuildInput {
 }
 
 #[napi(object)]
-pub struct BuildCollectionReport {
-  pub name: String,
-  pub records: u32,
-  pub output_path: String,
-}
-
-#[napi(object)]
-pub struct BuildErrorReport {
-  pub file: String,
-  pub message: String,
-}
-
-#[napi(object)]
 pub struct BuildReport {
-  pub collections: Vec<BuildCollectionReport>,
-  pub errors: Vec<BuildErrorReport>,
+  pub diagnostics: Vec<String>,
+}
+
+fn array_or_default(v: Option<Value>) -> Vec<Value> {
+  match v {
+    Some(Value::Array(a)) => a,
+    _ => Vec::new(),
+  }
 }
 
 #[napi]
 pub fn build(input: BuildInput) -> Result<BuildReport> {
-  let cfg = dmc::EngineConfig {
+  let compile = CompileConfig {
+    markdown_gfm: input.markdown_gfm.unwrap_or(true),
+    emit_html: true,
+    emit_body: true,
+    mdx_minify: input.mdx_minify.unwrap_or(false),
+    mdx_output_format: input.mdx_output_format,
+    markdown_remark_plugins: array_or_default(input.markdown_remark_plugins),
+    markdown_rehype_plugins: array_or_default(input.markdown_rehype_plugins),
+    mdx_remark_plugins: array_or_default(input.mdx_remark_plugins),
+    mdx_rehype_plugins: array_or_default(input.mdx_rehype_plugins),
+    copy_linked_files: input.copy_linked_files.unwrap_or(false),
+    output_assets: input.output_assets,
+    output_base: input.output_base,
+  };
+
+  let cfg = EngineConfig {
     output_dir: PathBuf::from(input.output_dir),
     root: PathBuf::from(input.root.unwrap_or_else(|| ".".into())),
     strict: input.strict.unwrap_or(false),
     clean: input.clean.unwrap_or(false),
-    output_assets: input.output_assets.map(PathBuf::from),
-    output_base: input.output_base,
     output_name: input.output_name,
     output_format: input.output_format,
-    markdown_remark_plugins: input.markdown_remark_plugins,
-    markdown_rehype_plugins: input.markdown_rehype_plugins,
-    mdx_remark_plugins: input.mdx_remark_plugins,
-    mdx_rehype_plugins: input.mdx_rehype_plugins,
-    copy_linked_files: input.copy_linked_files.unwrap_or(false),
-    mdx_output_format: input.mdx_output_format,
-    mdx_minify: input.mdx_minify.unwrap_or(false),
-    markdown_gfm: input.markdown_gfm.unwrap_or(true),
     include_html: input.include_html.unwrap_or(false),
     collections: input
       .collections
       .into_iter()
-      .map(|c| dmc::CollectionConfig {
+      .map(|c| CollectionDef {
         name: c.name,
         pattern: c.pattern,
         base_dir: PathBuf::from(c.base_dir),
@@ -103,22 +110,13 @@ pub fn build(input: BuildInput) -> Result<BuildReport> {
         single: c.single.unwrap_or(false),
       })
       .collect(),
+    compile,
   };
-  let rep = dmc::run(&cfg).map_err(|e| Error::from_reason(e.to_string()))?;
+
+  let mut diag = DiagnosticEngine::<Code>::new();
+  Engine::run(&cfg, None, &mut diag).map_err(|e| Error::from_reason(e.to_string()))?;
+
   Ok(BuildReport {
-    collections: rep
-      .collections
-      .into_iter()
-      .map(|c| BuildCollectionReport {
-        name: c.name,
-        records: c.records as u32,
-        output_path: c.output_path.to_string_lossy().to_string(),
-      })
-      .collect(),
-    errors: rep
-      .errors
-      .into_iter()
-      .map(|e| BuildErrorReport { file: e.file.to_string_lossy().to_string(), message: e.message })
-      .collect(),
+    diagnostics: diag.iter().map(|d| format!("{:?}", d)).collect(),
   })
 }

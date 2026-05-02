@@ -1,93 +1,96 @@
 use std::path::PathBuf;
+use std::sync::mpsc::channel;
+use std::time::{Duration, Instant};
 
-use crate::cli::config::ConfigFile;
+use dmc_diagnostic::Code;
+use duck_diagnostic::{DiagnosticEngine, print_all_smart};
+use notify_debouncer_mini::{new_debouncer, notify::RecursiveMode};
 
+use crate::{Engine, engine::config::EngineConfig};
+
+/// `dmc dev`: initial build, then watch every collection's `base_dir`
+/// (plus the config file itself) and rebuild on change.
 #[derive(clap::Args)]
-pub(crate) struct DevCmd {
+pub struct DevCmd {
   #[arg(long, default_value = "dmc.toml")]
   pub config: PathBuf,
+  #[arg(short, long)]
+  pub strict: bool,
+  #[arg(long)]
+  pub clean: bool,
+  /// Debounce window for filesystem events (ms).
+  #[arg(long, default_value_t = 100)]
+  pub debounce: u64,
 }
 
 impl DevCmd {
-  /// `dmc dev`: initial build, then watch every collection's `base_dir`
-  /// via notify; rebuild on .md / .mdx / .yaml / .json change.
-  pub(crate) fn run(self) -> std::io::Result<()> {
-    // use notify_debouncer_mini::{new_debouncer, notify::RecursiveMode};
-    // use std::sync::mpsc::channel;
-    // use std::time::{Duration, Instant};
+  pub fn run(self) -> std::io::Result<()> {
+    let mut cfg = EngineConfig::load_engine_cfg(&self.config)?;
+    if self.strict {
+      cfg.strict = true;
+    }
+    if self.clean {
+      cfg.clean = true;
+    }
 
-    let cfg = ConfigFile::load_engine_cfg(&self.config)?;
-    // print_build_result(dmc::run(&cfg)?);
+    rebuild(&cfg, &self.config, "initial");
 
-    // let (tx, rx) = channel();
-    // let mut deb = new_debouncer(Duration::from_millis(50), tx)
-    //   .map_err(|e| std::io::Error::other(e.to_string()))?;
-    // let mut roots: Vec<PathBuf> = cfg.collections.iter().map(|c| c.base_dir.clone()).collect();
-    // roots.push(config.clone());
-    // for r in &roots {
-    //   if r.exists() {
-    //     deb
-    //       .watcher()
-    //       .watch(r, RecursiveMode::Recursive)
-    //       .map_err(|e| std::io::Error::other(e.to_string()))?;
-    //   }
-    // }
-    // println!("👀 watching {} root(s) — Ctrl-C to stop", roots.len());
-    // while let Ok(events) = rx.recv() {
-    //   let Ok(events) = events else { continue };
-    //   let start = Instant::now();
-    //   let cfg = match ConfigFile::load_engine_cfg(&config) {
-    //     Ok(c) => c,
-    //     Err(e) => {
-    //       eprintln!("config reload failed: {e}");
-    //       continue;
-    //     },
-    //   };
-    //   // Determine which collections were affected. If config file changed, rebuild all.
-    //   let touched_paths: Vec<_> = events.iter().map(|e| e.path.clone()).collect();
-    //   let config_changed =
-    //     touched_paths.iter().any(|p| p.canonicalize().ok() == config.canonicalize().ok());
-    //   let scoped: Vec<_> = if config_changed {
-    //     cfg.collections.to_vec()
-    //   } else {
-    //     cfg
-    //       .collections
-    //       .iter()
-    //       .filter(|c| {
-    //         let base = c.base_dir.canonicalize().unwrap_or_else(|_| c.base_dir.clone());
-    //         touched_paths.iter().any(|p| {
-    //           let p_abs = p.canonicalize().unwrap_or_else(|_| p.clone());
-    //           p_abs.starts_with(&base)
-    //         })
-    //       })
-    //       .cloned()
-    //       .collect()
-    //   };
-    //   if scoped.is_empty() {
-    //     continue;
-    //   }
-    //   let scoped_cfg = dmc::EngineConfig { collections: scoped, ..cfg };
-    //   match dmc::run(&scoped_cfg) {
-    //     Ok(rep) => {
-    //       println!("\n↻ rebuilt {} collection(s) in {:?}", rep.collections.len(), start.elapsed());
-    //       print_build_result(rep);
-    //     },
-    //     Err(e) => eprintln!("build error: {e}"),
-    //   }
-    // }
+    let (tx, rx) = channel();
+    let mut deb = new_debouncer(Duration::from_millis(self.debounce), tx)
+      .map_err(|e| std::io::Error::other(e.to_string()))?;
+
+    let mut roots: Vec<PathBuf> = cfg.collections.iter().map(|c| c.base_dir.clone()).collect();
+    roots.push(self.config.clone());
+    for r in &roots {
+      if r.exists() {
+        deb
+          .watcher()
+          .watch(r, RecursiveMode::Recursive)
+          .map_err(|e| std::io::Error::other(e.to_string()))?;
+      }
+    }
+
+    println!("watching {} root(s) - Ctrl-C to stop", roots.len());
+
+    while let Ok(events) = rx.recv() {
+      let Ok(events) = events else { continue };
+      let touched: Vec<PathBuf> = events.iter().map(|e| e.path.clone()).collect();
+      let cfg_canon = self.config.canonicalize().ok();
+      let config_changed = touched.iter().any(|p| p.canonicalize().ok() == cfg_canon);
+
+      if config_changed {
+        match EngineConfig::load_engine_cfg(&self.config) {
+          Ok(mut next) => {
+            if self.strict {
+              next.strict = true;
+            }
+            if self.clean {
+              next.clean = true;
+            }
+            cfg = next;
+          },
+          Err(e) => {
+            eprintln!("config reload failed: {e}");
+            continue;
+          },
+        }
+      }
+
+      rebuild(&cfg, &self.config, if config_changed { "config" } else { "files" });
+    }
+
     Ok(())
   }
 }
 
-///// Pretty-print a build's outcome to stdout: per-collection record counts
-///// + any non-fatal validation errors.
-// fn print_build_result(report: dmc::EngineReport) {
-//   for c in &report.collections {
-//     println!("✓ {} — {} records → {}", c.name, c.records, c.output_path.display());
-//   }
-//   if !report.errors.is_empty() {
-//     for e in &report.errors {
-//       eprintln!("  \x1b[31m✗\x1b[0m {}: \x1b[2m{}\x1b[0m", e.file.display(), e.message);
-//     }
-//   }
-// }
+fn rebuild(cfg: &EngineConfig, config_path: &PathBuf, trigger: &str) {
+  let mut diag_engine = DiagnosticEngine::<Code>::new();
+  let started = Instant::now();
+  let result = Engine::run(cfg, Some(config_path), &mut diag_engine);
+  let elapsed = started.elapsed();
+  print_all_smart(&diag_engine, None);
+  match result {
+    Ok(()) => println!("rebuilt ({trigger}) in {:?}", elapsed),
+    Err(e) => eprintln!("build error ({trigger}): {e}"),
+  }
+}
