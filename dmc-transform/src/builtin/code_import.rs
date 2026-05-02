@@ -94,19 +94,14 @@ impl Transformer for CodeImport {
     "code-import"
   }
 
-  fn transform(
-    &self,
-    doc: &mut Document,
-    meta: &SourceMeta,
-    engine: &mut duck_diagnostic::DiagnosticEngine<Code>,
-  ) {
+  fn transform(&self, doc: &mut Document, meta: &SourceMeta, engine: &mut duck_diagnostic::DiagnosticEngine<Code>) {
     let base_dir = self.base_dir.clone().or_else(|| match &meta.origin {
       Origin::File(p) => p.parent().map(|p| p.to_path_buf()),
       _ => None,
     });
 
     // Walk continues even on warning so absolute `file=` paths still resolve.
-    if base_dir.is_none() && self.base_dir.is_none() {
+    if base_dir.is_none() {
       engine.emit(Diagnostic::new(
         Code::BaseDirNotFound,
         format!(
@@ -159,14 +154,8 @@ impl Visitor for Apply {
         },
         Err(e) => {
           self.pending.push(
-            Diagnostic::new(
-              Code::ImportFileNotFound,
-              format!("code-import: cannot read {} ({})", path.display(), e),
-            )
-            .with_label(Label::primary(
-              cb.span.clone(),
-              Some(format!("imported from {}", self.meta_path)),
-            )),
+            Diagnostic::new(Code::ImportFileNotFound, format!("code-import: cannot read {} ({})", path.display(), e))
+              .with_label(Label::primary(cb.span.clone(), Some(format!("imported from {}", self.meta_path)))),
           );
         },
       }
