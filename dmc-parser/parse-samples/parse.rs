@@ -18,7 +18,6 @@ use dmc_parser::Parser;
 use dmc_parser::ast::*;
 use duck_diagnostic::DiagnosticEngine;
 use serde_json::{Value, json};
-use std::cell::RefCell;
 use std::io::{self, Read};
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -63,27 +62,26 @@ fn main() -> io::Result<()> {
     },
   };
 
+  // Single diagnostic engine threaded through every phase.
+  let mut diag = DiagnosticEngine::new();
+
   // Lex.
-  let lex_engine = RefCell::new(DiagnosticEngine::new());
-  let mut lexer = Lexer::new(&source, meta.clone(), lex_engine.borrow_mut());
+  let mut lexer = Lexer::new(&source, meta.clone(), &mut diag);
   let _ = lexer.scan_tokens();
   let tokens = std::mem::take(&mut lexer.tokens);
   drop(lexer);
 
   // Parse.
-  let parse_engine = RefCell::new(DiagnosticEngine::new());
   let doc = {
-    let mut parser = Parser::new(tokens.clone(), meta.clone(), parse_engine.borrow_mut());
+    let mut parser = Parser::new(tokens.clone(), meta.clone(), &mut diag);
     parser.parse()
   };
 
-  let lex_diags = lex_engine.borrow();
-  let parse_diags = parse_engine.borrow();
-  let lex_errs = lex_diags.error_count();
-  let lex_warns = lex_diags.warning_count();
-  let parse_errs = parse_diags.error_count();
-  let parse_warns = parse_diags.warning_count();
-  let total_diags = lex_diags.iter().count() + parse_diags.iter().count();
+  let lex_errs = diag.error_count();
+  let lex_warns = diag.warning_count();
+  let parse_errs = 0;
+  let parse_warns = 0;
+  let total_diags = diag.iter().count();
 
   // JSON mode → full structured dump, exit early.
   if show_json {
@@ -146,8 +144,7 @@ fn main() -> io::Result<()> {
   if !quiet && total_diags > 0 {
     let color = std::io::IsTerminal::is_terminal(&std::io::stdout());
     println!("\n-- diagnostics ({}) --", total_diags);
-    print!("{}", duck_diagnostic::format_all_smart(&lex_diags, color));
-    print!("{}", duck_diagnostic::format_all_smart(&parse_diags, color));
+    print!("{}", duck_diagnostic::format_all_smart(&diag, color));
   }
 
   if show_debug {

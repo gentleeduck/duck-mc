@@ -29,7 +29,6 @@ use dmc_transform::{
 };
 use duck_diagnostic::DiagnosticEngine;
 use serde_json::{Value, json};
-use std::cell::RefCell;
 use std::io::{self, Read};
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -86,15 +85,16 @@ fn main() -> io::Result<()> {
     },
   };
 
+  // Single diagnostic engine threaded through every phase.
+  let mut diag = DiagnosticEngine::new();
+
   // Lex + parse.
-  let lex_engine = RefCell::new(DiagnosticEngine::new());
-  let mut lexer = Lexer::new(&source, meta.clone(), lex_engine.borrow_mut());
+  let mut lexer = Lexer::new(&source, meta.clone(), &mut diag);
   let _ = lexer.scan_tokens();
   let tokens = std::mem::take(&mut lexer.tokens);
   drop(lexer);
-  let parse_engine = RefCell::new(DiagnosticEngine::new());
   let mut doc = {
-    let mut parser = Parser::new(tokens.clone(), meta.clone(), parse_engine.borrow_mut());
+    let mut parser = Parser::new(tokens.clone(), meta.clone(), &mut diag);
     parser.parse()
   };
 
@@ -115,17 +115,11 @@ fn main() -> io::Result<()> {
   };
 
   // Run transforms.
-  let transform_engine = RefCell::new(DiagnosticEngine::new());
-  pipeline.run(&mut doc, &meta, transform_engine.borrow_mut());
+  pipeline.run(&mut doc, &meta, &mut diag);
 
-  let lex_diags = lex_engine.borrow();
-  let parse_diags = parse_engine.borrow();
-  let transform_diags = transform_engine.borrow();
-  let errors = lex_diags.error_count() + parse_diags.error_count() + transform_diags.error_count();
-  let warnings =
-    lex_diags.warning_count() + parse_diags.warning_count() + transform_diags.warning_count();
-  let total =
-    lex_diags.iter().count() + parse_diags.iter().count() + transform_diags.iter().count();
+  let errors = diag.error_count();
+  let warnings = diag.warning_count();
+  let total = diag.iter().count();
 
   // JSON mode → full structured dump, exit early.
   if show_json {
@@ -206,9 +200,7 @@ fn main() -> io::Result<()> {
   if !quiet && total > 0 {
     let color = std::io::IsTerminal::is_terminal(&std::io::stdout());
     println!("\n-- diagnostics ({}) --", total);
-    print!("{}", duck_diagnostic::format_all_smart(&lex_diags, color));
-    print!("{}", duck_diagnostic::format_all_smart(&parse_diags, color));
-    print!("{}", duck_diagnostic::format_all_smart(&transform_diags, color));
+    print!("{}", duck_diagnostic::format_all_smart(&diag, color));
   }
 
   if show_debug {

@@ -1,7 +1,6 @@
 use dmc_diagnostic::{Code, metadata::SourceMeta};
 use dmc_parser::ast::Document;
 use duck_diagnostic::DiagnosticEngine;
-use std::cell::RefMut;
 
 /// One AST→AST pass. Implementations typically build a private `Visitor` and
 /// drive it across the document. `transform` takes `&self` so a transformer
@@ -68,7 +67,7 @@ impl Pipeline {
     &self,
     doc: &mut Document,
     meta: &SourceMeta,
-    mut engine: RefMut<'_, DiagnosticEngine<Code>>,
+    mut engine: &'_ mut DiagnosticEngine<Code>,
   ) {
     for t in &self.transformers {
       t.transform(doc, meta, &mut engine);
@@ -84,7 +83,7 @@ impl Pipeline {
     use std::sync::Arc;
     let meta =
       SourceMeta { path: Arc::from("<test>"), version: 0, origin: Origin::Inline("<test>") };
-    let engine = std::cell::RefCell::new(DiagnosticEngine::new());
-    self.run(doc, &meta, engine.borrow_mut());
+    let mut engine = DiagnosticEngine::new();
+    self.run(doc, &meta, &mut engine);
   }
 }

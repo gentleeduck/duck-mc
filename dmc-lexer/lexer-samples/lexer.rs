@@ -14,7 +14,6 @@ use dmc_lexer::Lexer;
 use dmc_lexer::token::Token;
 use duck_diagnostic::DiagnosticEngine;
 use serde_json::{Value, json};
-use std::cell::RefCell;
 use std::io::{self, Read};
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -85,12 +84,11 @@ fn run_one(path: &PathBuf, mode: &Mode) -> io::Result<(usize, usize)> {
 }
 
 fn lex_and_print(label: &str, source: &str, mode: &Mode, meta: Arc<SourceMeta>) -> (usize, usize) {
-  let engine = RefCell::new(DiagnosticEngine::new());
-  let mut lexer = Lexer::new(source, meta, engine.borrow_mut());
+  let mut engine = DiagnosticEngine::new();
+  let mut lexer = Lexer::new(source, meta, &mut engine);
   let _ = lexer.scan_tokens();
   let tokens = std::mem::take(&mut lexer.tokens);
   drop(lexer);
-  let engine = engine.borrow();
   let (e, w) = (engine.error_count(), engine.warning_count());
 
   if mode.show_json {

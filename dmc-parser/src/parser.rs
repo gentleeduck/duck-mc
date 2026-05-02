@@ -4,7 +4,6 @@ use dmc_diagnostic::metadata::{Origin, SourceMeta};
 use dmc_lexer::Lexer;
 use dmc_lexer::token::{Token, TokenKind};
 use duck_diagnostic::{Diagnostic, DiagnosticEngine, Span};
-use std::cell::{RefCell, RefMut};
 use std::sync::Arc;
 
 /// Token-stream cursor + diagnostic engine. Lifetime `'tokens` ties borrowed
