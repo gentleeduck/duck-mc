@@ -2,24 +2,24 @@
   {
     "body": "function _createMdxContent(props) {\n  const _components = (props && props.components) || {};\n  const { Fragment, jsx, jsxs } = arguments[0];\n  return jsxs(Fragment, { children: [jsxs(\"h1\", { id: \"hi\", children: [jsxs(\"a\", { href: \"#hi\", \"aria-label\": \"Link to section\", children: [\"Hi\"] })] })] });\n}\nreturn _createMdxContent(arguments[0]);\n",
     "content": "# Hi\n",
-    "contentType": "mdx",
     "excerpt": "Hi",
-    "flattenedPath": "index",
     "metadata": {
       "readingTime": 1,
       "wordCount": 1
     },
+    "toc": [
+      {
+        "title": "Hi",
+        "url": "#hi",
+        "items": []
+      }
+    ],
+    "contentType": "mdx",
+    "flattenedPath": "index",
     "permalink": "index",
     "slug": "docs/index",
     "sourceFileDir": "./docs",
     "sourceFileName": "index.mdx",
-    "sourceFilePath": "./docs/index.mdx",
-    "toc": [
-      {
-        "items": [],
-        "title": "Hi",
-        "url": "#hi"
-      }
-    ]
+    "sourceFilePath": "./docs/index.mdx"
   }
 ]
