@@ -33,6 +33,44 @@ pub enum Node {
   SoftBreak(BreakNode),
 }
 
+impl Node {
+  pub fn children_of(node: &Node) -> &[Node] {
+    match node {
+      Node::Document(n) => &n.children,
+      Node::Heading(n) => &n.children,
+      Node::Paragraph(n) => &n.children,
+      Node::Bold(n) | Node::Italic(n) | Node::Strikethrough(n) => &n.children,
+      Node::Link(n) => &n.children,
+      Node::Blockquote(n) => &n.children,
+      Node::List(n) => &n.children,
+      Node::ListItem(n) => &n.children,
+      Node::TaskListItem(n) => &n.children,
+      Node::TableCell(n) => &n.children,
+      Node::JsxElement(n) => &n.children,
+      Node::JsxFragment(n) => &n.children,
+      _ => &[],
+    }
+  }
+
+  pub fn children_of_mut(node: &mut Node) -> Option<&mut Vec<Node>> {
+    match node {
+      Node::Document(n) => Some(&mut n.children),
+      Node::Heading(n) => Some(&mut n.children),
+      Node::Paragraph(n) => Some(&mut n.children),
+      Node::Bold(n) | Node::Italic(n) | Node::Strikethrough(n) => Some(&mut n.children),
+      Node::Link(n) => Some(&mut n.children),
+      Node::Blockquote(n) => Some(&mut n.children),
+      Node::List(n) => Some(&mut n.children),
+      Node::ListItem(n) => Some(&mut n.children),
+      Node::TaskListItem(n) => Some(&mut n.children),
+      Node::TableCell(n) => Some(&mut n.children),
+      Node::JsxElement(n) => Some(&mut n.children),
+      Node::JsxFragment(n) => Some(&mut n.children),
+      _ => None,
+    }
+  }
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Document {
   pub children: Vec<Node>,
@@ -65,22 +103,20 @@ pub struct Heading {
 }
 
 impl Heading {
-  /// Compute the URL-anchor slug from the heading's plain-text content.
-  /// Recomputed on each call — heading owns no derived state.
+  /// URL-anchor slug from the heading's plain-text content. Recomputed each
+  /// call; the heading owns no derived state.
   pub fn slug(&self) -> String {
     slug::slugify(Self::plain_text(&self.children))
   }
 
-  /// Flatten inline nodes to bare text. Recurses into emphasis + link wrappers
-  /// (so the slug survives an autolink-headings pass), but skips JSX/images.
+  /// Flatten inline nodes to bare text. Recurses through emphasis and link
+  /// wrappers but skips JSX and images.
   fn plain_text(nodes: &[Node]) -> String {
     let mut s = String::new();
     for n in nodes {
       match n {
         Node::Text(t) => s.push_str(&t.value),
-        Node::Bold(i) | Node::Italic(i) | Node::Strikethrough(i) => {
-          s.push_str(&Self::plain_text(&i.children))
-        },
+        Node::Bold(i) | Node::Italic(i) | Node::Strikethrough(i) => s.push_str(&Self::plain_text(&i.children)),
         Node::Link(l) => s.push_str(&Self::plain_text(&l.children)),
         Node::InlineCode(c) => s.push_str(&c.value),
         _ => {},

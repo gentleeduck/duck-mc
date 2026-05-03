@@ -100,14 +100,18 @@ fn main() -> io::Result<()> {
   };
   pipeline.run(&mut doc, &meta, &mut diag);
 
-  // Render. Codegen emits diagnostics into the same shared engine.
+  // Each emitter owns its own diag during render; merge after.
   let html = if want_html {
-    HtmlEmitter::render(&doc, &mut diag)
+    let (s, d) = HtmlEmitter::render(&doc);
+    diag.extend(d);
+    s
   } else {
     String::new()
   };
   let mdx = if want_mdx {
-    MdxBodyEmitter::render(&doc, &mut diag)
+    let (s, d) = MdxBodyEmitter::render(&doc);
+    diag.extend(d);
+    s
   } else {
     String::new()
   };

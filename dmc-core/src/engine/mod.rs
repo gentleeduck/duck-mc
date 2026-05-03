@@ -5,6 +5,7 @@ use duck_diagnostic::DiagnosticEngine;
 
 use crate::engine::config::EngineConfig;
 
+pub mod accumlator;
 pub mod collection;
 pub mod compile;
 pub mod config;
@@ -17,11 +18,9 @@ pub struct Engine;
 
 impl Engine {
   /// Execute one build: optionally clean `output_dir`, process every
-  /// collection in parallel via rayon, then emit the top-level entry
-  /// (`index.js` + `index.d.ts`) that re-exports each collection's
-  /// `<name>.json`. When `config_path` points at a TS/JS config, the
-  /// generated `index.d.ts` infers per-collection record types via
-  /// `typeof import(<config>)`.
+  /// collection in parallel via rayon, then emit `index.js` + `index.d.ts`
+  /// re-exporting each `<name>.json`. With a TS/JS `config_path`, the
+  /// generated `index.d.ts` infers record types via `typeof import(...)`.
   pub fn run(
     cfg: &EngineConfig,
     config_path: Option<&Path>,
