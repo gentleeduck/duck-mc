@@ -49,7 +49,12 @@ assert_cmd.workspace = true
 predicates.workspace = true
 insta.workspace = true
 criterion.workspace = true
+plotters.workspace = true
 
 [[bench]]
 name = "compile"
 harness = false
+
+[[example]]
+name = "bench"
+path = "examples/bench.rs"

@@ -35,6 +35,7 @@ predicates = "3"
 insta = { version = "1", features = ["json", "redactions"] }
 syntect = { version = "5", default-features = false, features = ["default-fancy"] }
 criterion = "0.5"
+plotters = { version = "0.3", default-features = false, features = ["svg_backend", "line_series", "bitmap_encoder"] }
 
 # Workspace crates
 dmc-diagnostic = { path = "dmc-diagnostic" }
