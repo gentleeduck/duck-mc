@@ -26,10 +26,9 @@ pub struct Collection {
 }
 
 impl Collection {
-  /// Compile every file matched by `c.pattern` (in parallel via rayon),
-  /// validate frontmatter against the collection's schema, optionally run
-  /// JS sidecars + MDX module wrap + minify, then write the
-  /// velite-compatible index file (`{name}.json`).
+  /// Compile every file matched by `pattern` in parallel, validate
+  /// frontmatter against `schema`, optionally run JS sidecars + MDX module
+  /// wrap + minify, then write `{name}.json`.
   pub(crate) fn process(
     &self,
     cfg: &EngineConfig,

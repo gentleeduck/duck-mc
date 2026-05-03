@@ -25,19 +25,19 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
 
     self.consume_whitespaces();
 
-    while let Some(cc) = self.get_current_char()
+    while let Some(cc) = self.current_char()
       && (cc.is_alphabetic() || cc == '_')
     {
       self.lex_jsx_attribute();
-      if self.get_current_char() == Some(' ') {
+      if self.current_char() == Some(' ') {
         self.consume_whitespaces();
       }
     }
 
     // self-close: />
-    if self.get_current_char() == Some('/') {
+    if self.current_char() == Some('/') {
       self.advance(); // /
-      if self.get_current_char() == Some('>') {
+      if self.current_char() == Some('>') {
         self.advance(); // >
       }
       return self.emit(TokenKind::JsxSelfClosingEnd);
@@ -57,7 +57,7 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
     self.emit(TokenKind::JsxAttributeName);
 
     // If the next char is not `=`, this is a boolean attribute - nothing more to do.
-    let next = self.get_current_char();
+    let next = self.current_char();
     if next != Some('=') {
       return;
     }
@@ -65,15 +65,15 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
     self.advance(); // consume the =
     self.emit(TokenKind::Eq);
 
-    match self.get_current_char() {
+    match self.current_char() {
       Some(kind) if kind == '"' || kind == '\'' => {
         self.advance(); // consume the ' | "
         self.emit(TokenKind::Quote);
 
-        self.consume_till(kind);
+        self.consume_until(kind);
         self.emit(TokenKind::String);
 
-        if let Some(c) = self.get_current_char()
+        if let Some(c) = self.current_char()
           && c == kind
         {
           self.advance();
@@ -88,7 +88,7 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
 
         let mut depth = 1usize;
         let mut terminated = false;
-        while let Some(c) = self.get_current_char() {
+        while let Some(c) = self.current_char() {
           match c {
             '{' => {
               self.advance();
@@ -107,7 +107,7 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
               self.advance();
             },
             '\n' => {
-              self.emit_diagnostic(
+              self.diag(
                 Diagnostic::new(
                   Code::UnterminatedExpression,
                   "unterminated jsx attribute expression",
@@ -131,7 +131,7 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
         }
 
         if !terminated && self.is_eof() {
-          self.emit_diagnostic(
+          self.diag(
             Diagnostic::new(Code::UnterminatedExpression, "unterminated jsx attribute expression")
               .with_label(Label::primary(
                 Span::from_zero_based("", start_line, start_col, 1),
@@ -146,7 +146,7 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
         }
       },
       _ => {
-        self.emit_diagnostic(
+        self.diag(
           Diagnostic::new(Code::InvalidJsxAttribute, "invalid jsx attribute")
             .with_label(Label::primary(
               Span::from_zero_based("", self.line, self.column, 1),
@@ -177,7 +177,7 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
       if self.is_eof() {
         // emit the inner text we have so far
         self.emit(TokenKind::Text);
-        self.emit_diagnostic(
+        self.diag(
           Diagnostic::new(Code::UnterminatedExpression, "unterminated markdown comment")
             .with_label(Label::primary(
               Span::from_zero_based("", start_line, start_col, 3),
@@ -252,7 +252,7 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
         Some('\n') => {
           // expressions cannot span multiple lines unless inside nested braces
           if depth == 1 {
-            self.emit_diagnostic(
+            self.diag(
               Diagnostic::new(Code::UnterminatedExpression, "unterminated expression")
                 .with_label(Label::primary(
                   Span::from_zero_based("", start_line, start_col, 1),
@@ -274,7 +274,7 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
       }
     }
 
-    self.emit_diagnostic(
+    self.diag(
       Diagnostic::new(Code::UnterminatedExpression, "unterminated expression")
         .with_label(Label::primary(
           Span::from_zero_based("", start_line, start_col, 1),

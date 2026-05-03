@@ -92,3 +92,17 @@ pub fn run_sidecar(markdown: &str, cfg: &EngineConfig) -> Option<String> {
   let parsed: Value = serde_json::from_str(&line).ok()?;
   parsed.get("html").and_then(|v| v.as_str()).map(String::from)
 }
+
+/// Drop every live child in the pool; subsequent `run_sidecar` calls
+/// re-spawn fresh children. Bench-only; not part of the normal build flow.
+pub fn shutdown_pool() {
+  if let Some(pool) = POOL.get() {
+    for slot in pool {
+      if let Ok(mut g) = slot.lock() {
+        // Dropping the Sidecar drops its ChildStdin -> the node child sees
+        // stdin close, hits readline 'close', exits 0.
+        *g = None;
+      }
+    }
+  }
+}

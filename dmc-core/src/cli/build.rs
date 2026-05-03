@@ -16,13 +16,12 @@ pub struct BuildCmd {
 }
 
 impl BuildCmd {
-  /// `dmc build`: load config, run the engine once, print the report.
-  /// `strict` aborts on the first validation failure, `clean` wipes
-  /// `output_dir` first.
+  /// Load config, run the engine once, print the report. `strict` aborts
+  /// on the first validation failure; `clean` wipes `output_dir` first.
   pub fn run(self) -> std::io::Result<()> {
     let mut diag_engine = DiagnosticEngine::<Code>::new();
 
-    let mut engine_cfg = EngineConfig::load_engine_cfg(&self.config)?;
+    let mut engine_cfg = EngineConfig::load(&self.config)?;
     if self.strict {
       engine_cfg.strict = true;
     }
@@ -32,9 +31,8 @@ impl BuildCmd {
 
     Engine::run(&engine_cfg, Some(&self.config), &mut diag_engine)?;
 
-    // Print every diagnostic at end. Per-diag: with-source when the primary
-    // label points at a readable file, compact otherwise (glob/config/IO
-    // errors that have no source to snippet).
+    // With-source rendering when the primary label points at a readable
+    // file; compact otherwise (glob/config/IO errors with no source).
     print_all_smart(&diag_engine, None);
 
     Ok(())

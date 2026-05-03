@@ -48,12 +48,10 @@ impl Schema for TransformSchema {
   }
 }
 
-/// Predicate signature for `RefineSchema`: returns `Ok(())` when the value
-/// passes, `Err(message)` to surface a single root-level validation error.
+/// `Ok(())` passes; `Err(msg)` surfaces a single root-level error.
 pub type RefinePredicate = Box<dyn Fn(&Value) -> Result<(), String> + Send + Sync>;
 
-/// Predicate signature for `SuperRefineSchema`: appends zero or more errors
-/// into the caller-provided buffer instead of returning a single failure.
+/// Pushes zero or more errors into the caller-provided buffer.
 pub type SuperRefinePredicate = Box<dyn Fn(&Value, &mut Vec<String>) + Send + Sync>;
 
 pub struct RefineSchema {

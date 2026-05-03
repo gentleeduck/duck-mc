@@ -6,9 +6,9 @@ use dmc_parser::ast::*;
 use duck_diagnostic::{Diagnostic, Label};
 use std::path::PathBuf;
 
-/// Replace `<ComponentPreview name="X" />` with a `CodeBlock` containing the
-/// source of the registry component named `X`. `registry_index` is the JSON
-/// manifest; `registry_root` is the directory referenced paths are relative to.
+/// Replace `<ComponentPreview name="X" />` with a `CodeBlock` carrying the
+/// source of registry component `X`. `registry_index` is the JSON manifest;
+/// `registry_root` is the directory referenced paths resolve against.
 #[derive(Default)]
 pub struct ComponentPreview {
   pub registry_index: Option<PathBuf>,
@@ -16,12 +16,13 @@ pub struct ComponentPreview {
 }
 
 impl ComponentPreview {
-  /// Both paths required; `Default` leaves them `None` → pass is a no-op.
+  /// Both paths required. `Default` leaves them `None` so the pass no-ops.
   pub fn new(registry_index: PathBuf, registry_root: PathBuf) -> Self {
     Self { registry_index: Some(registry_index), registry_root: Some(registry_root) }
   }
 
-  /// Index may be a JSON array of `{name, ...}` or an object keyed by name.
+  /// Lookup by name. Index may be a JSON array of `{name, ...}` objects or
+  /// an object keyed by name.
   fn lookup_entry<'a>(index: &'a serde_json::Value, name: &str) -> Option<&'a serde_json::Value> {
     if let Some(arr) = index.as_array() {
       arr.iter().find(|e| e.get("name").and_then(|v| v.as_str()) == Some(name))
@@ -48,15 +49,15 @@ impl Transformer for ComponentPreview {
     &self,
     doc: &mut Document,
     #[allow(unused_variables)] meta: &SourceMeta,
-    engine: &mut duck_diagnostic::DiagnosticEngine<Code>,
+    diag_engine: &mut duck_diagnostic::DiagnosticEngine<Code>,
   ) {
-    // Both paths required — without them the pass is silently a no-op.
+    // Both paths required; missing either silently no-ops the pass.
     let Some(idx) = &self.registry_index else { return };
     let Some(root) = &self.registry_root else { return };
     let raw = match std::fs::read_to_string(idx) {
       Ok(r) => r,
       Err(e) => {
-        engine.emit(Diagnostic::new(
+        diag_engine.emit(Diagnostic::new(
           Code::RegistryIndexUnreadable,
           format!("component-preview: cannot read registry index {} ({})", idx.display(), e),
         ));
@@ -66,7 +67,7 @@ impl Transformer for ComponentPreview {
     let index: serde_json::Value = match serde_json::from_str(&raw) {
       Ok(v) => v,
       Err(e) => {
-        engine.emit(Diagnostic::new(
+        diag_engine.emit(Diagnostic::new(
           Code::RegistryIndexMalformed,
           format!("component-preview: registry index {} is not valid JSON ({})", idx.display(), e),
         ));
@@ -76,7 +77,7 @@ impl Transformer for ComponentPreview {
     let mut v = Apply { index, root: root.clone(), pending: Vec::new() };
     walk_root(&mut doc.children, &mut v);
     for d in v.pending.drain(..) {
-      engine.emit(d);
+      diag_engine.emit(d);
     }
   }
 }
@@ -100,11 +101,8 @@ impl Visitor for Apply {
     };
     let Some(name) = name_opt else {
       self.pending.push(
-        Diagnostic::new(
-          Code::MissingComponentAttr,
-          "component-preview: missing required `name` attribute".to_string(),
-        )
-        .with_label(Label::primary(span, Some("on this <ComponentPreview>".into()))),
+        Diagnostic::new(Code::MissingComponentAttr, "component-preview: missing required `name` attribute".to_string())
+          .with_label(Label::primary(span, Some("on this <ComponentPreview>".into()))),
       );
       return NodeAction::Keep;
     };
@@ -138,12 +136,7 @@ impl Visitor for Apply {
     match std::fs::read_to_string(&abs) {
       Ok(content) => {
         let lang = abs.extension().and_then(|s| s.to_str()).map(String::from);
-        *node = Node::CodeBlock(CodeBlock {
-          lang,
-          meta: Some(format!("title=\"{name}\"")),
-          value: content,
-          span,
-        });
+        *node = Node::CodeBlock(CodeBlock { lang, meta: Some(format!("title=\"{name}\"")), value: content, span });
         NodeAction::KeepSkipChildren
       },
       Err(e) => {

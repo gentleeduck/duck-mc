@@ -4,10 +4,9 @@ use dmc_diagnostic::Code;
 use dmc_diagnostic::metadata::SourceMeta;
 use dmc_parser::ast::*;
 
-/// Inspect each fenced code block; if its first line matches `npm install …`,
-/// `npx create-…`, or `npx …`, derive the equivalent yarn/pnpm/bun forms and
-/// stash them on `CodeBlock.commands` so renderers can produce package-manager
-/// tabs.
+/// Detect `npm install ...`, `npx create-...`, and `npx ...` first-lines in
+/// fenced code blocks and replace them with a `<PackageManagerTabs>` JSX
+/// element carrying the equivalent yarn/pnpm/bun invocations.
 #[derive(Default)]
 pub struct NpmCommand;
 
@@ -20,7 +19,7 @@ impl Transformer for NpmCommand {
     &self,
     doc: &mut Document,
     #[allow(unused_variables)] meta: &SourceMeta,
-    #[allow(unused_variables)] engine: &mut duck_diagnostic::DiagnosticEngine<Code>,
+    #[allow(unused_variables)] diag_engine: &mut duck_diagnostic::DiagnosticEngine<Code>,
   ) {
     let mut v = Apply;
     walk_root(&mut doc.children, &mut v);
@@ -30,8 +29,7 @@ impl Transformer for NpmCommand {
 struct Apply;
 
 impl NpmCommand {
-  /// Map the first line of a code block (`npm install foo`, `npx create-x`,
-  /// `npx tool`) to the equivalent yarn / pnpm / bun invocations.
+  /// Map the block's first line to npm/yarn/pnpm/bun forms.
   fn derive(value: &str) -> Option<[(&'static str, String); 4]> {
     let line = value.lines().next()?.trim();
     if let Some(rest) = line.strip_prefix("npm install") {
@@ -80,8 +78,7 @@ impl Visitor for Apply {
       })
       .collect();
 
-    let jsx =
-      Node::JsxSelfClosing(JsxSelfClosing { name: "PackageManagerTabs".to_string(), attrs, span });
+    let jsx = Node::JsxSelfClosing(JsxSelfClosing { name: "PackageManagerTabs".to_string(), attrs, span });
 
     NodeAction::Replace(vec![jsx])
   }

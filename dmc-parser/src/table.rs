@@ -3,9 +3,8 @@ use crate::parser::Parser;
 use dmc_lexer::token::TokenKind;
 
 impl<'eng, 'tokens> Parser<'eng, 'tokens> {
-  /// Reconstruct the upcoming "logical line" of source from tokens, stopping at
-  /// the first hard/soft break, EOF, or block-level boundary token. Returns
-  /// `(text, num_tokens_consumed_to_reach_break)`.
+  /// Reconstruct the upcoming logical line from tokens, stopping at the first
+  /// break, EOF, or block-level boundary token. Returns `(text, token_count)`.
   fn collect_line_text(&self) -> Option<(String, usize)> {
     let mut text = String::new();
     let mut count = 0usize;
@@ -27,9 +26,8 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     if count == 0 { None } else { Some((text, count)) }
   }
 
-  /// Speculatively try to parse a GFM table starting at the cursor. Reads
-  /// header + alignment + body rows, rolls back `pos` on any mismatch so the
-  /// caller can fall through to `parse_paragraph`.
+  /// Speculatively parse a GFM table at the cursor. Rolls back `pos` on any
+  /// mismatch so the caller can fall through to `parse_paragraph`.
   pub(crate) fn try_parse_table(&mut self) -> Option<Node> {
     let saved = self.pos;
     let span = self.current_span();
@@ -81,15 +79,13 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
   }
 }
 
-/// Quick shape check: line begins and ends with `|` and has at least two
-/// pipes (so it can split into >=1 cell).
+/// True when `s` starts and ends with `|` and has at least two pipes.
 fn looks_like_table_row(s: &str) -> bool {
   let t = s.trim();
   t.starts_with('|') && t.ends_with('|') && t.matches('|').count() >= 2
 }
 
-/// Parse the `|:---|---:|:---:|` alignment row. `None` if any cell isn't a
-/// run of `-` optionally fenced by `:` markers.
+/// Parse the `|:---|---:|:---:|` alignment row. `None` on any malformed cell.
 fn parse_alignment_row(s: &str) -> Option<Vec<TableAlign>> {
   let t = s.trim();
   if !t.starts_with('|') || !t.ends_with('|') {
@@ -118,7 +114,7 @@ fn parse_alignment_row(s: &str) -> Option<Vec<TableAlign>> {
   Some(aligns)
 }
 
-/// Split `|a|b|c|` into the cell strings between pipes (no trim — caller
+/// Split `|a|b|c|` into the cell strings between pipes (no trim; caller
 /// trims when materialising the cell).
 fn split_cells(s: &str) -> Vec<String> {
   let t = s.trim();
@@ -129,9 +125,9 @@ fn split_cells(s: &str) -> Vec<String> {
   inner.split('|').map(|c| c.to_string()).collect()
 }
 
-/// Build one `TableRow` from raw cell strings. Cell content currently lands
-/// as a single `Text` child — inline parsing inside cells is a TODO. All
-/// cells share the row's span until per-cell ranges are tracked.
+/// Build one `TableRow` from raw cell strings. Cell content lands as a single
+/// `Text` child (inline parsing inside cells is a TODO). All cells share the
+/// row's span until per-cell ranges are tracked.
 fn make_row(cells: &[String], span: &duck_diagnostic::Span) -> TableRow {
   TableRow {
     cells: cells

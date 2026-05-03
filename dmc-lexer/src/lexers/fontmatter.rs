@@ -10,7 +10,7 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
 
     // thematic break if: not exactly 3 dashes, already reserved, not at file start,
     // or no closing --- exists in the remaining source
-    if self.get_current_lexeme().len() != 3
+    if self.current_lexeme().len() != 3
       || self.frontmatter_reserved
       || self.current > 3
       || !self.source[self.current..].contains("\n---")

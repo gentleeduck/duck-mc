@@ -1,7 +1,7 @@
 use clap::Parser;
 use dmc::cli::{Cli, Cmd, build::BuildCmd, compile::CompileCmd, dev::DevCmd, init::InitCmd};
 
-/// `dmc` CLI entry point. Dispatches the parsed subcommand.
+/// `dmc` CLI entry point.
 fn main() -> std::io::Result<()> {
   let cli = Cli::parse();
   match cli.cmd {

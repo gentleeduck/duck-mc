@@ -7,9 +7,7 @@ pub struct InitCmd {
 }
 
 impl InitCmd {
-  /// `dmc init`: scaffold a fully-annotated `dmc.toml` at `path` (refuses
-  /// to overwrite existing files). Every field is shown with its default,
-  /// commented unless required.
+  /// Scaffold an annotated `dmc.toml` at `path`. Refuses to overwrite.
   pub fn run(self) -> std::io::Result<()> {
     if self.path.exists() {
       eprintln!("refusing to overwrite existing {}", self.path.display());

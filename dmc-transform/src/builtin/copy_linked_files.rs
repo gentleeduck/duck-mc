@@ -9,12 +9,9 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
 /// Copy referenced asset files (image `src`s and relative `href`s) into
-/// `assets_dir`, hash-name them via `name_template`, and rewrite the AST node
-/// to point at the published URL under `base_url`.
-///
-/// `map` caches `raw → url` so repeated references hash the file only once.
-/// Diagnostics: `AssetSourceMissing` (TW003) on read failure, `AssetCopyFailed`
-/// (T008) on destination write failure.
+/// `assets_dir`, hash-name them via `name_template`, and rewrite the AST
+/// node to point at the published URL under `base_url`. `map` caches
+/// `raw -> url` so repeated references hash the file only once.
 pub struct CopyLinkedFiles {
   pub source_dir: PathBuf,
   pub assets_dir: PathBuf,
@@ -50,12 +47,12 @@ impl Transformer for CopyLinkedFiles {
     &self,
     doc: &mut Document,
     _meta: &SourceMeta,
-    engine: &mut duck_diagnostic::DiagnosticEngine<Code>,
+    diag_engine: &mut duck_diagnostic::DiagnosticEngine<Code>,
   ) {
     let mut v = Apply { config: self, pending: Vec::new() };
     walk_root(&mut doc.children, &mut v);
     for d in v.pending.drain(..) {
-      engine.emit(d);
+      diag_engine.emit(d);
     }
   }
 }
@@ -66,7 +63,7 @@ struct Apply<'a> {
 }
 
 impl<'a> Apply<'a> {
-  fn handle(&mut self, raw_slot: &mut String, span: Span, kind: &'static str) {
+  fn rewrite_slot(&mut self, raw_slot: &mut String, span: Span, kind: &'static str) {
     match self.config.publish(raw_slot) {
       Outcome::Skip => {},
       Outcome::Published(url) => *raw_slot = url,
@@ -97,12 +94,12 @@ impl<'a> Visitor for Apply<'a> {
     match node {
       Node::Image(i) => {
         let span = i.span.clone();
-        self.handle(&mut i.src, span, "image");
+        self.rewrite_slot(&mut i.src, span, "image");
       },
       Node::Link(l) => {
         if l.href.starts_with("./") || l.href.starts_with("../") {
           let span = l.span.clone();
-          self.handle(&mut l.href, span, "link");
+          self.rewrite_slot(&mut l.href, span, "link");
         }
       },
       _ => {},
@@ -136,8 +133,7 @@ impl CopyLinkedFiles {
     let hash8 = &hash.to_hex().to_string()[..8];
     let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("asset");
     let ext = path.extension().and_then(|s| s.to_str()).unwrap_or("bin");
-    let filename =
-      self.name_template.replace("[name]", stem).replace("[hash:8]", hash8).replace("[ext]", ext);
+    let filename = self.name_template.replace("[name]", stem).replace("[hash:8]", hash8).replace("[ext]", ext);
     let dest = self.assets_dir.join(&filename);
     if let Err(e) = std::fs::create_dir_all(&self.assets_dir) {
       return Outcome::CopyFailed(self.assets_dir.clone(), e);

@@ -1,7 +1,6 @@
-//! Per-extension source loaders that turn a file's raw bytes into a
-//! `Loaded { data, content }` pair the engine can hand to schema validation.
-//! `MatterLoader` runs the full mdx compile, `YamlLoader` / `JsonLoader`
-//! parse data files directly.
+//! Per-extension loaders: bytes -> `Loaded { data, content }` for schema
+//! validation. `MatterLoader` runs the full mdx compile; `YamlLoader` /
+//! `JsonLoader` parse data files directly.
 
 use dmc_diagnostic::Code;
 use duck_diagnostic::DiagnosticEngine;
@@ -10,16 +9,14 @@ use std::path::Path;
 
 use crate::engine::compile::Compiler;
 
-/// Result of loading one source file: the structured data the schema
-/// validates against (frontmatter for mdx, the whole doc for yaml/json),
-/// plus the original `content` string for downstream consumers.
+/// One loaded source file: schema-validated `data` (frontmatter for mdx,
+/// the whole doc for yaml/json) plus the original `content` string.
 pub struct Loaded {
   pub data: Value,
   pub content: String,
 }
 
-/// Pluggable file-type loader. `test` decides whether this loader handles
-/// the given path; `load` does the parse.
+/// Pluggable per-extension loader: `test` claims a path, `load` parses it.
 pub trait Loader: Send + Sync {
   fn test(&self, path: &Path) -> bool;
   fn load(
@@ -30,9 +27,9 @@ pub trait Loader: Send + Sync {
   ) -> Result<Loaded, String>;
 }
 
-/// Loader for `.md` / `.mdx` / `.markdown` — runs the full compile and
-/// stashes the entire `CompileOutput` under `data.__compiled` so the schema
-/// can refine it (e.g. `transform: ctx => ctx.html`).
+/// `.md` / `.mdx` / `.markdown` loader. Runs the full compile and stashes
+/// the `CompileOutput` under `data.__compiled` so the schema can refine it
+/// (e.g. `transform: ctx => ctx.html`).
 pub struct MatterLoader;
 
 impl Loader for MatterLoader {
@@ -59,8 +56,8 @@ impl Loader for MatterLoader {
   }
 }
 
-/// Loader for `.yaml` / `.yml` — parses to `serde_yaml::Value`, then
-/// converts to `serde_json::Value` for schema interop.
+/// `.yaml` / `.yml` loader. Parses to `serde_yaml::Value`, then converts
+/// to `serde_json::Value` for schema interop.
 pub struct YamlLoader;
 
 impl Loader for YamlLoader {
@@ -81,7 +78,7 @@ impl Loader for YamlLoader {
   }
 }
 
-/// Loader for `.json` — straight `serde_json::from_str`.
+/// `.json` loader. Straight `serde_json::from_str`.
 pub struct JsonLoader;
 
 impl Loader for JsonLoader {
@@ -100,8 +97,7 @@ impl Loader for JsonLoader {
   }
 }
 
-/// Ordered list of loaders consulted in turn — first match wins. Default
-/// registers Matter / Yaml / Json in that order.
+/// Ordered loader chain; first match wins. Defaults: Matter, Yaml, Json.
 pub struct LoaderRegistry {
   loaders: Vec<Box<dyn Loader>>,
 }
@@ -112,7 +108,7 @@ impl LoaderRegistry {
     Self { loaders: vec![Box::new(MatterLoader), Box::new(YamlLoader), Box::new(JsonLoader)] }
   }
 
-  /// Pick the first loader whose `test()` accepts `path`, or `None`.
+  /// First loader whose `test()` accepts `path`, or `None`.
   pub fn pick(&self, path: &Path) -> Option<&dyn Loader> {
     self.loaders.iter().find(|l| l.test(path)).map(|l| l.as_ref())
   }

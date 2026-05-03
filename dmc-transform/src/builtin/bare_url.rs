@@ -4,9 +4,8 @@ use dmc_diagnostic::Code;
 use dmc_diagnostic::metadata::SourceMeta;
 use dmc_parser::ast::*;
 
-/// Wraps bare `http(s)://…` substrings inside `Text` nodes in synthesised
-/// `Link` nodes. Runs against `Paragraph`, `Heading`, and inline emphasis
-/// containers.
+/// Wrap bare `http(s)://...` substrings in `Text` nodes with synthesised
+/// `Link` nodes. Scans `Paragraph`, `Heading`, and inline emphasis containers.
 #[derive(Default)]
 pub struct BareUrlAutolink;
 
@@ -18,19 +17,18 @@ impl Transformer for BareUrlAutolink {
     &self,
     doc: &mut Document,
     #[allow(unused_variables)] meta: &SourceMeta,
-    #[allow(unused_variables)] engine: &mut duck_diagnostic::DiagnosticEngine<Code>,
+    #[allow(unused_variables)] diag_engine: &mut duck_diagnostic::DiagnosticEngine<Code>,
   ) {
     let mut v = Apply;
     walk_root(&mut doc.children, &mut v);
   }
 }
 
-/// Visitor state. Carries no config — splitting logic lives on the impl.
 struct Apply;
 
 impl Apply {
-  /// Rewrite a child list, expanding any `Text` whose value contains a URL
-  /// into `[Text, Link, Text, ...]` pieces. Non-Text nodes pass through.
+  /// Expand any `Text` whose value contains a URL into `[Text, Link, Text,
+  /// ...]` pieces. Non-Text nodes pass through.
   fn rewrite_children(nodes: Vec<Node>) -> Vec<Node> {
     let mut out = Vec::new();
     for n in nodes {
@@ -43,9 +41,7 @@ impl Apply {
         let span = t.span.clone();
         for piece in pieces {
           match piece {
-            Piece::Text(s) if !s.is_empty() => {
-              out.push(Node::Text(Text { value: s, span: span.clone() }))
-            },
+            Piece::Text(s) if !s.is_empty() => out.push(Node::Text(Text { value: s, span: span.clone() })),
             Piece::Text(_) => {},
             Piece::Url(url) => out.push(Node::Link(Link {
               href: url.clone(),
@@ -62,9 +58,8 @@ impl Apply {
     out
   }
 
-  /// Scan `s` for `http://` / `https://` runs and split into alternating
-  /// `Piece::Text` + `Piece::Url` pieces. URL boundary = whitespace, `)`,
-  /// `<`, or `>`.
+  /// Split `s` into alternating `Text` / `Url` pieces around `http(s)://`
+  /// runs. URL boundary is whitespace, `)`, `<`, or `>`.
   fn split_by_url(s: &str) -> Vec<Piece> {
     let mut out = Vec::new();
     let mut rest = s;
@@ -76,9 +71,7 @@ impl Apply {
         rest = &rest[idx + 1..];
         continue;
       }
-      let url_end = after
-        .find(|c: char| c.is_whitespace() || c == ')' || c == '<' || c == '>')
-        .unwrap_or(after.len());
+      let url_end = after.find(|c: char| c.is_whitespace() || c == ')' || c == '<' || c == '>').unwrap_or(after.len());
       let url = &after[..url_end];
       if !before.is_empty() {
         out.push(Piece::Text(before.to_string()));

@@ -6,29 +6,27 @@ use dmc_lexer::token::{Token, TokenKind};
 use duck_diagnostic::{Diagnostic, DiagnosticEngine, Span};
 use std::sync::Arc;
 
-/// Token-stream cursor + diagnostic engine. Lifetime `'tokens` ties borrowed
-/// lexemes back to the original source; `'eng` ties the diagnostic engine
-/// borrow to the caller's `RefCell`.
+/// Token-stream cursor + diagnostic engine. `'tokens` ties borrowed lexemes to
+/// the source; `'eng` ties the engine borrow to the caller.
 pub struct Parser<'eng, 'tokens> {
   pub tokens: Vec<Token<'tokens>>,
   pub meta: Arc<SourceMeta>,
   pub pos: usize,
-  pub engine: &'eng mut DiagnosticEngine<Code>,
+  pub diag_engine: &'eng mut DiagnosticEngine<Code>,
 }
 
 impl<'eng, 'tokens> Parser<'eng, 'tokens> {
-  /// Build a parser positioned at the first token. Diagnostics are emitted
-  /// into `engine`, mirroring the lexer's pattern.
+  /// Build a parser positioned at the first token.
   pub fn new(
     tokens: Vec<Token<'tokens>>,
     meta: Arc<SourceMeta>,
-    engine: &'eng mut DiagnosticEngine<Code>,
+    diag_engine: &'eng mut DiagnosticEngine<Code>,
   ) -> Self {
-    Self { tokens, meta, pos: 0, engine }
+    Self { tokens, meta, pos: 0, diag_engine }
   }
 
-  /// Drive the top-level loop until EOF, producing a `Document`. Force-advances
-  /// on no-progress so a malformed token can never wedge the parser.
+  /// Drive the top-level loop until EOF. Force-advances on no-progress so a
+  /// malformed token cannot wedge the parser.
   pub fn parse(&mut self) -> Document {
     let span = self.tokens.first().map(|t| t.span.clone()).unwrap_or_else(default_span);
     let mut children = Vec::new();
@@ -44,17 +42,14 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     Document { children, span }
   }
 
-  /// Forward a fully-built diagnostic to the engine. Mirrors `Lexer::emit_diagnostic`.
+  /// Forward a fully-built diagnostic to the engine.
   pub(crate) fn emit_diagnostic(&mut self, diagnostic: Diagnostic<Code>) {
-    self.engine.emit(diagnostic);
+    self.diag_engine.emit(diagnostic);
   }
 
-  /// Build a primary-labelled diagnostic at the current cursor and emit it.
-  /// Severity is carried by the `Code` and read by consumers via
-  /// `DiagnosticCode::severity()`.
+  /// Build a primary-labelled diagnostic at the cursor and emit it.
   pub(crate) fn diag(&mut self, code: Code, message: impl Into<String>) {
-    let (line, column) =
-      self.tokens.get(self.pos).map(|t| (t.span.line, t.span.column)).unwrap_or((0, 0));
+    let (line, column) = self.tokens.get(self.pos).map(|t| (t.span.line, t.span.column)).unwrap_or((0, 0));
     let span = Span::from_zero_based(self.meta.path.clone(), line, column, 1);
     self.emit_diagnostic(duck_diagnostic::diag!(code, span, message.into()));
   }
@@ -64,8 +59,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     self.diag(code, message);
   }
 
-  /// Span of the token at the cursor. Used when constructing AST nodes so
-  /// they carry real source coordinates instead of a placeholder.
+  /// Span of the token at the cursor, or a default span at EOF.
   pub(crate) fn current_span(&self) -> Span {
     self.tokens.get(self.pos).map(|t| t.span.clone()).unwrap_or_else(default_span)
   }
@@ -80,10 +74,9 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     self.tokens.get(self.pos).map(|t| &t.kind)
   }
 
-  /// Raw lexeme of the upcoming token with its source-tied `'tokens`
-  /// lifetime — decouples from the `&self` borrow when callers need to keep
-  /// the slice across mutating calls.
-  pub(crate) fn peek_raw_src(&self) -> Option<&'tokens str> {
+  /// Raw lexeme of the upcoming token with its source-tied `'tokens` lifetime,
+  /// decoupled from the `&self` borrow so callers can hold it across mutations.
+  pub(crate) fn peek_raw(&self) -> Option<&'tokens str> {
     self.tokens.get(self.pos).map(|t| t.raw)
   }
 
@@ -102,15 +95,11 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
   }
 }
 
-/// Lex + parse `source` in one shot, dropping all diagnostics. Convenience
-/// wrapper for tests + the `parse` bin; production callers should construct
-/// their own `DiagnosticEngine` and inspect it after parsing.
+/// Lex + parse `source` in one shot, dropping all diagnostics. Convenience for
+/// tests + the `parse` bin; production callers should construct their own
+/// `DiagnosticEngine`.
 pub fn parse(source: &str) -> Document {
-  let meta = Arc::from(SourceMeta {
-    path: Arc::from("<inline>"),
-    version: 0,
-    origin: Origin::Inline("<inline>"),
-  });
+  let meta = Arc::from(SourceMeta { path: Arc::from("<inline>"), version: 0, origin: Origin::Inline("<inline>") });
   let mut lex_engine = DiagnosticEngine::new();
   let mut lexer = Lexer::new(source, meta.clone(), &mut lex_engine);
   let _ = lexer.scan_tokens();

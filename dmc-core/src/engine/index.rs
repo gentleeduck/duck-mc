@@ -1,14 +1,11 @@
-//! Top-level entry-point emission: `index.js` + `index.d.ts` that
-//! re-export every collection's compiled `<name>.json` plus the typed
-//! shape consumers see.
+//! Top-level entry emission: `index.js` + `index.d.ts` that re-export
+//! every collection's `<name>.json`.
 //!
 //! Two `.d.ts` modes:
-//!   - **Velite-style** (when the user's config file is .ts/.js/.mjs):
-//!     re-import the user's config, infer record types via
-//!     `typeof import(..)['collections']`.
-//!   - **Self-contained** (TOML configs or no config): per-collection TS
-//!     interface derived from the collection's `schema = { ... }` table
-//!     when present, otherwise the generic `DocRecord` shape.
+//! - **Velite-style** (config is `.ts`/`.js`/`.mjs`): re-import the user's
+//!   config, infer record types via `typeof import(..)['collections']`.
+//! - **Self-contained** (TOML / no config): per-collection TS interface
+//!   from `schema = { ... }`, else the generic `DocRecord` shape.
 
 use std::path::Path;
 
@@ -17,7 +14,7 @@ use crate::engine::schema_ts::schema_to_ts_object;
 
 use crate::engine::utils::{pascal_case, relative_from};
 
-/// Public entry point: pick the right `.d.ts` mode and write both files.
+/// Pick the right `.d.ts` mode and write `index.js` + `index.d.ts`.
 pub fn write_index(
   out_dir: &Path,
   collections: &[Collection],

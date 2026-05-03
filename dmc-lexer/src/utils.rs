@@ -1,8 +1,7 @@
 use crate::{Lexer, token::TokenKind};
 
 impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
-  /// Dispatch the next character to the matching sub-lexer. Run from the main
-  /// `scan_tokens` loop after `c` has been consumed.
+  /// Dispatch the just-consumed `c` to the matching sub-lexer.
   pub(crate) fn lex_tokens(&mut self, c: char) {
     match c {
       '\n' => self.lex_newline(),
@@ -28,22 +27,21 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
       '<' => self.lex_text(),
       '>' => self.emit(TokenKind::BlockQuote),
       '=' => self.emit(TokenKind::Eq),
-      'i' if self.column == 1 && self.starts_with_at_start("import") => self.lex_import(),
-      'e' if self.column == 1 && self.starts_with_at_start("export") => self.lex_export(),
+      'i' if self.column == 1 && self.lexeme_starts_with("import") => self.lex_import(),
+      'e' if self.column == 1 && self.lexeme_starts_with("export") => self.lex_export(),
       '{' if self.peek() == Some('/') && self.peek_next() == Some('*') => self.lex_md_comment(),
       '{' => self.lex_expression(),
       _ => self.lex_text(),
     };
   }
 
-  /// Whether the slice from `self.start` onward begins with `prefix`. Used to
-  /// recognise ESM keywords (`import`, `export`) at line start.
-  pub(crate) fn starts_with_at_start(&self, prefix: &str) -> bool {
+  /// Whether the in-progress lexeme (slice from `self.start`) begins with `prefix`.
+  pub(crate) fn lexeme_starts_with(&self, prefix: &str) -> bool {
     self.source.get(self.start..).is_some_and(|s| s.starts_with(prefix))
   }
 
-  /// Lookahead test for `<...>` autolinks. Returns true when the upcoming `>`
-  /// closes either a URL (`<https://...>`) or an email (`<a@b.c>`).
+  /// Lookahead test for `<...>` autolinks. True when the upcoming `>` closes
+  /// either a URL (`<https://...>`) or an email (`<a@b.c>`).
   pub(crate) fn is_angle_autolink(&self) -> bool {
     let rest = match self.source.get(self.current..) {
       Some(s) => s,
@@ -78,16 +76,16 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
     false
   }
 
-  /// Consume `<...>` and emit a single `Autolink` token. Caller has already
-  /// advanced past the opening `<`.
+  /// Consume `<...>` and emit a single `Autolink`. Caller has already advanced
+  /// past the opening `<`.
   pub(crate) fn lex_angle_autolink(&mut self) {
-    while let Some(c) = self.get_current_char() {
+    while let Some(c) = self.current_char() {
       if c == '>' {
         break;
       }
       self.advance();
     }
-    if self.get_current_char() == Some('>') {
+    if self.current_char() == Some('>') {
       self.advance();
     }
     self.emit(TokenKind::Autolink);
@@ -146,12 +144,12 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
 
   /// Source slice between `start` and `current` - the lexeme of the
   /// in-progress token. Borrows from the original source.
-  pub(crate) fn get_current_lexeme(&self) -> &'src str {
+  pub(crate) fn current_lexeme(&self) -> &'src str {
     self.source.get(self.start..self.current).unwrap_or("")
   }
 
-  /// Whether the char under the cursor equals `expected` (no consume).
-  pub(crate) fn match_current_char(&mut self, expected: char) -> bool {
+  /// Whether the char under the cursor equals `expected`. Does not consume.
+  pub(crate) fn peek_is(&mut self, expected: char) -> bool {
     if let Some(c) = self.source[self.current..].chars().next()
       && c == expected
     {
@@ -160,9 +158,9 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
     false
   }
 
-  /// Advance until the cursor sits on `c` (or EOF). For ASCII delimiters this
-  /// uses `memchr` for one SIMD scan; non-ASCII falls back to a char loop.
-  pub(crate) fn consume_till(&mut self, c: char) {
+  /// Advance until the cursor sits on `c` (or EOF). ASCII delimiters use
+  /// `memchr` for one SIMD scan; non-ASCII falls back to a char loop.
+  pub(crate) fn consume_until(&mut self, c: char) {
     if c.is_ascii() {
       let bytes = self.source.as_bytes();
       let rest = &bytes[self.current..];
@@ -190,7 +188,7 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
   }
 
   /// Same as `peek` but takes `&mut self` for ergonomic chaining.
-  pub(crate) fn get_current_char(&mut self) -> Option<char> {
+  pub(crate) fn current_char(&mut self) -> Option<char> {
     self.source[self.current..].chars().next()
   }
 
@@ -198,7 +196,7 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
   /// `Whitespace` token if any was consumed.
   pub(crate) fn consume_whitespaces(&mut self) {
     let mut n = 0;
-    while let Some(c) = self.get_current_char() {
+    while let Some(c) = self.current_char() {
       if c == ' ' || c == '\t' {
         self.advance();
         n += 1;
@@ -213,10 +211,10 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
 
   // ---------- byte-level fast scanners ----------
 
-  /// Bulk-skip `n` bytes from `current`. Updates `line` + `column` correctly
-  /// by counting newlines + chars after the last newline. Source slice between
-  /// `current..current+n` MUST be valid UTF-8 (always true when `n` came from a
-  /// `memchr` hit on an ASCII delimiter, since ASCII bytes are char boundaries).
+  /// Bulk-skip `n` bytes from `current`. Updates `line` + `column` by counting
+  /// newlines + chars after the last newline. The `current..current+n` slice
+  /// MUST be valid UTF-8 (true when `n` came from a `memchr` hit on an ASCII
+  /// delimiter, since ASCII bytes are char boundaries).
   pub(crate) fn advance_bytes(&mut self, n: usize) {
     if n == 0 {
       return;
@@ -239,9 +237,8 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
     self.current += n;
   }
 
-  /// Skip until the first `delim` byte (or EOF). Equivalent to
-  /// `consume_while(|c, _| c != delim_as_char)` for ASCII delimiters but
-  /// 5-10x faster via `memchr`.
+  /// Skip until the first `delim` byte (or EOF). 5-10x faster than a char loop
+  /// via `memchr`.
   pub(crate) fn skip_until_byte(&mut self, delim: u8) {
     let rest = &self.source.as_bytes()[self.current..];
     let n = memchr::memchr(delim, rest).unwrap_or(rest.len());

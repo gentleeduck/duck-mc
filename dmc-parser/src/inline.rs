@@ -3,8 +3,7 @@ use crate::parser::Parser;
 use dmc_lexer::token::TokenKind;
 
 impl<'eng, 'tokens> Parser<'eng, 'tokens> {
-  /// Accumulate inline nodes until a top-level break (HardBreak, SoftBreak, Eof,
-  /// a new heading, frontmatter start, or a top-level Import/Export statement).
+  /// Accumulate inline nodes until any top-level break token.
   pub(crate) fn collect_inline_until_break(&mut self) -> Vec<Node> {
     self.collect_inline(&|kind| {
       matches!(
@@ -21,14 +20,13 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     })
   }
 
-  /// Accumulate inline nodes for the body of a single list item. Terminates on
-  /// the same conditions as `collect_inline_until_break`.
+  /// Inline body of one list item. Same stop set as `collect_inline_until_break`.
   pub(crate) fn collect_inline_for_list_item(&mut self) -> Vec<Node> {
     self.collect_inline_until_break()
   }
 
   /// Collect inline nodes until `stop(kind)` returns true. The stopping token
-  /// itself is left on the stream.
+  /// is left on the stream.
   pub(crate) fn collect_inline(&mut self, stop: &dyn Fn(&TokenKind) -> bool) -> Vec<Node> {
     let mut out = Vec::new();
     while let Some(t) = self.peek() {
@@ -232,8 +230,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     out
   }
 
-  /// Tokens that always terminate inline collection regardless of which
-  /// emphasis level we're in. Shared across nested `collect_inline` calls.
+  /// Tokens that terminate inline collection regardless of nesting depth.
   pub(crate) fn is_top_level_break(k: &TokenKind) -> bool {
     matches!(
       k,

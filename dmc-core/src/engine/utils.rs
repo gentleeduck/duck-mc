@@ -3,24 +3,22 @@ use std::path::{Component, Path, PathBuf};
 
 use crate::engine::{compile::CompileOutput, config::EngineConfig};
 
-/// Aggregated outcome of a build: per-collection summaries plus any
-/// non-fatal errors encountered.
+/// Build outcome: per-collection summaries plus non-fatal errors.
 #[derive(Debug, Default)]
 pub struct EngineReport {
   pub collections: Vec<CollectionReport>,
   pub errors: Vec<EngineError>,
 }
 
-/// Single non-fatal failure during compilation (read fail, schema reject,
-/// etc.). The build continues unless `EngineConfig.strict` is set.
+/// One non-fatal compile failure (read fail, schema reject, ...). The
+/// build continues unless `EngineConfig.strict` is set.
 #[derive(Debug)]
 pub struct EngineError {
   pub file: PathBuf,
   pub message: String,
 }
 
-/// Per-collection summary: how many records were emitted and where the
-/// index file landed.
+/// Per-collection summary: record count and output path.
 #[derive(Debug, Default)]
 pub struct CollectionReport {
   pub name: String,
@@ -28,9 +26,8 @@ pub struct CollectionReport {
   pub output_path: PathBuf,
 }
 
-/// Build a `dmc_schema::Ctx` from a compiled doc — this is what schema
-/// `transform`/`refine` predicates see when validating frontmatter (HTML,
-/// MDX body, TOC, plain text, file path, etc.).
+/// `dmc_schema::Ctx` from a compiled doc. What schema `transform`/`refine`
+/// predicates see (HTML, MDX body, TOC, plain text, path, ...).
 pub fn build_schema_ctx(path: &Path, root: &Path, compiled: &CompileOutput, cfg: &EngineConfig) -> dmc_schema::Ctx {
   let mut ctx = dmc_schema::Ctx::new(path.to_path_buf(), root.to_path_buf(), compiled.content.clone());
   ctx.html = Some(compiled.html.clone());
@@ -47,7 +44,7 @@ pub fn build_schema_ctx(path: &Path, root: &Path, compiled: &CompileOutput, cfg:
   ctx
 }
 
-/// Pack one compiled document into the velite-shaped JSON record:
+/// Pack one compiled doc into a velite-shaped JSON record:
 /// `{ ...frontmatter, code, raw, slug, permalink, path, ...optional html }`.
 pub fn build_velite_record(
   compiled: CompileOutput,
@@ -108,9 +105,8 @@ pub fn build_velite_record(
   Value::Object(map)
 }
 
-/// Wrap the raw MDX body string in an ES-module shell so consumers can
-/// `import { default as Content } from "./post.mjs"` and render it
-/// directly. Hoists frontmatter imports above the function definition.
+/// Wrap the raw MDX body in an ES-module shell, hoisting frontmatter
+/// imports above the function. Consumers `import` the default export.
 pub fn wrap_mdx_module(body: &str, imports: &[String]) -> String {
   // Strip user imports from the body — they re-emit at module scope.
   let mut stripped = body.to_string();
@@ -145,9 +141,9 @@ pub fn wrap_mdx_module(body: &str, imports: &[String]) -> String {
   out
 }
 
-/// Best-effort JS minifier: strip comments, collapse whitespace, drop
-/// blank lines. Tiny + safe — not a full parser, so corner cases (regex
-/// literals, multi-line strings) are handled by skipping over them.
+/// Best-effort JS minifier: strips comments, collapses whitespace, drops
+/// blank lines. Not a full parser; corner cases (regex literals,
+/// multi-line strings) are skipped over.
 pub fn minify_js(src: &str) -> String {
   #[derive(Clone, Copy, PartialEq)]
   enum St {
@@ -258,8 +254,8 @@ pub fn minify_js(src: &str) -> String {
   out
 }
 
-/// Mirror velite's permalink algorithm: collection name + `slug` (or the
-/// file stem when no slug exists). Produces the public URL for one record.
+/// Velite's permalink algorithm: collection name + `slug` (or file stem
+/// when no slug). Returns the public URL for one record.
 fn velite_permalink(abs: &str, rel: &str, collection: &str) -> String {
   let lc = collection.to_lowercase();
   let needle = format!("/{lc}/");
@@ -267,8 +263,7 @@ fn velite_permalink(abs: &str, rel: &str, collection: &str) -> String {
   after.trim_end_matches(".mdx").trim_end_matches(".md").to_string()
 }
 
-/// True when `s` is a bare JS identifier (safe to emit unquoted as an
-/// object property name).
+/// True when `s` is a bare JS identifier (safe to emit unquoted).
 pub fn is_js_ident(s: &str) -> bool {
   let mut chars = s.chars();
   match chars.next() {
@@ -279,7 +274,7 @@ pub fn is_js_ident(s: &str) -> bool {
 }
 
 /// `kebab-case` / `snake_case` / `space case` -> `PascalCase`. Empty
-/// input becomes `"Doc"` so the caller can always concatenate a suffix.
+/// input -> `"Doc"` so the caller can always concatenate a suffix.
 pub fn pascal_case(name: &str) -> String {
   let mut out = String::with_capacity(name.len());
   let mut upper = true;
@@ -298,9 +293,8 @@ pub fn pascal_case(name: &str) -> String {
   if out.is_empty() { "Doc".into() } else { out }
 }
 
-/// Compute a POSIX-style relative path from `from_dir` to `target`. Best
-/// effort: canonicalises both sides when possible, falls back to the raw
-/// paths otherwise. Always emits forward slashes (TS/ESM specifier shape).
+/// POSIX-style relative path from `from_dir` to `target`. Canonicalises
+/// when possible; always emits forward slashes (TS/ESM specifier shape).
 pub fn relative_from(from_dir: &Path, target: &Path) -> String {
   let from_abs = from_dir.canonicalize().unwrap_or_else(|_| from_dir.to_path_buf());
   let to_abs = target.canonicalize().unwrap_or_else(|_| target.to_path_buf());

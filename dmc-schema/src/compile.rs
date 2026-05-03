@@ -99,8 +99,7 @@ pub fn compile_descriptor(d: &Value) -> Result<Box<dyn Schema>, String> {
       DefaultSchema { inner, fallback }.boxed()
     },
     "transform" | "refine" => {
-      // JS-side transforms / refines run in the napi adapter after the Rust
-      // pass; Rust unwraps to the inner schema for type validation only.
+      // JS-side hooks run in the napi adapter; Rust only validates the inner schema.
       compile_descriptor(d.get("inner").ok_or(format!("{kind} missing 'inner'"))?)?
     },
     "raw" => RawSchema.boxed(),

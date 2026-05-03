@@ -3,9 +3,9 @@ use std::path::PathBuf;
 
 use crate::engine::{collection::Collection, compile::CompileConfig};
 
-/// Top-level engine config. Drives [`run`] - collections to compile, where
-/// to write output, schema strictness, JS plugin hooks (remark/rehype that
-/// run via a Node sidecar), and feature flags such as GFM toggling.
+/// Top-level engine config. Drives `Engine::run`: collections, output
+/// location, schema strictness, JS plugin hooks (remark/rehype via the
+/// Node sidecar), and feature flags such as GFM toggling.
 #[derive(Deserialize, Serialize, Default, Clone)]
 #[serde(default)]
 pub struct EngineConfig {
@@ -23,13 +23,12 @@ pub struct EngineConfig {
 }
 
 impl EngineConfig {
-  /// Read `dmc.toml` (or a `.ts` / `.js` / `.mjs` config) and lift it
-  /// into an `EngineConfig`. Routes through `load_ts_config` for JS-flavoured
-  /// configs.
-  pub(crate) fn load_engine_cfg(config_path: &PathBuf) -> std::io::Result<EngineConfig> {
+  /// Read `dmc.toml` (or a `.ts` / `.js` / `.mjs` config) into an
+  /// `EngineConfig`. Routes through `load_ts` for JS-flavoured configs.
+  pub(crate) fn load(config_path: &PathBuf) -> std::io::Result<EngineConfig> {
     let ext = config_path.extension().and_then(|s| s.to_str()).unwrap_or("");
     if matches!(ext, "ts" | "js" | "mjs") {
-      return Self::load_ts_config(config_path);
+      return Self::load_ts(config_path);
     }
     let raw = std::fs::read_to_string(config_path)?;
     let cfg: EngineConfig = toml::from_str(&raw)
@@ -39,9 +38,9 @@ impl EngineConfig {
   }
 
   /// Spawn a Node sidecar that imports the user's TS/JS config and prints
-  /// the resolved `EngineConfig` as JSON on stdout. Used so config files can
-  /// reference JS plugins (remark / rehype) and runtime helpers.
-  fn load_ts_config(config: &PathBuf) -> std::io::Result<EngineConfig> {
+  /// the resolved `EngineConfig` as JSON. Lets configs reference JS plugins
+  /// (remark / rehype) and runtime helpers.
+  fn load_ts(config: &PathBuf) -> std::io::Result<EngineConfig> {
     use std::io::Write;
     let abs = std::fs::canonicalize(config)?;
     let script = include_str!("../../scripts/load-config.mjs");

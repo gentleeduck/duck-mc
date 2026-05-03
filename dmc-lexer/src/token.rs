@@ -11,7 +11,7 @@ pub struct Token<'src> {
 }
 
 impl<'src> Token<'src> {
-  /// Build a token from kind + span + an owned raw lexeme.
+  /// Build a token from kind + span + raw lexeme slice.
   pub fn new(kind: TokenKind, span: Span, raw: &'src str) -> Self {
     Self { kind, span, raw }
   }
@@ -94,8 +94,8 @@ pub enum TokenKind {
 
 impl TokenKind {
   /// Whether this kind is dropped from the emitted stream by `Lexer::emit`.
-  /// Currently: `Whitespace`, `Newline`, `Quote`. Indented-code-block markers
-  /// (4+ leading spaces) are exempted there as a special case.
+  /// `Whitespace`, `Newline`, `Quote`. Indented-code-block markers (4+ leading
+  /// spaces) are exempted as a special case.
   pub fn is_trivia(&self) -> bool {
     matches!(self, TokenKind::Whitespace | TokenKind::Newline | TokenKind::Quote)
   }

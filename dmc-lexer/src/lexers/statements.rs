@@ -11,8 +11,8 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
     self.lex_statement("export", TokenKind::Export);
   }
 
-  /// Verify the keyword, then consume the rest of the statement up to the
-  /// closing newline (tracking `{}` depth so multi-line ESM is captured).
+  /// Verify `keyword`, then consume the rest of the statement up to the
+  /// closing newline. Tracks `{}` depth so multi-line ESM is captured.
   fn lex_statement(&mut self, keyword: &str, kind: TokenKind) {
     // start points at the first char of the keyword. The first char has been
     // consumed by the caller (advance()), so `current` points at the second char.

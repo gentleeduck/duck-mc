@@ -8,8 +8,8 @@ use notify_debouncer_mini::{new_debouncer, notify::RecursiveMode};
 
 use crate::{Engine, engine::config::EngineConfig};
 
-/// `dmc dev`: initial build, then watch every collection's `base_dir`
-/// (plus the config file itself) and rebuild on change.
+/// Initial build, then watch every collection's `base_dir` (plus the
+/// config file) and rebuild on change.
 #[derive(clap::Args)]
 pub struct DevCmd {
   #[arg(long, default_value = "dmc.toml")]
@@ -25,7 +25,7 @@ pub struct DevCmd {
 
 impl DevCmd {
   pub fn run(self) -> std::io::Result<()> {
-    let mut cfg = EngineConfig::load_engine_cfg(&self.config)?;
+    let mut cfg = EngineConfig::load(&self.config)?;
     if self.strict {
       cfg.strict = true;
     }
@@ -59,7 +59,7 @@ impl DevCmd {
       let config_changed = touched.iter().any(|p| p.canonicalize().ok() == cfg_canon);
 
       if config_changed {
-        match EngineConfig::load_engine_cfg(&self.config) {
+        match EngineConfig::load(&self.config) {
           Ok(mut next) => {
             if self.strict {
               next.strict = true;

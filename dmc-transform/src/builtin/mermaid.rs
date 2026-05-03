@@ -11,20 +11,18 @@ use std::process::{Command, Stdio};
 use std::sync::{Mutex, OnceLock};
 
 /// Render `mermaid` code blocks to inline SVG via the external `mmdc` CLI
-/// (`@mermaid-js/mermaid-cli`). On success the `CodeBlock` is replaced with a
-/// `<MermaidSvg svg="..." />` JsxSelfClosing.
-///
-/// Diagnostics: [`Code::MmdcUnavailable`] (warning, no-op when CLI absent),
-/// [`Code::MermaidRenderFailed`] (per-block error with captured stderr).
+/// (`@mermaid-js/mermaid-cli`). On success the `CodeBlock` is replaced with
+/// `<MermaidSvg svg="..." />`. No-ops with [`Code::MmdcUnavailable`] when
+/// the CLI is missing; per-block failures emit [`Code::MermaidRenderFailed`].
 #[derive(Default)]
 pub struct Mermaid {
   /// Reserved for a future "write SVGs to disk + reference them" mode.
   pub output_dir: Option<PathBuf>,
-  /// Cache of rendered SVGs, keyed by `code_block.hash`.
+  /// Rendered-SVG cache keyed by `code_block.hash`.
   cache: Mutex<HashMap<u64, String>>,
 }
 
-/// Statically guards the CLI availability check.
+/// One-shot CLI availability probe.
 static MMDC_AVAILABLE: OnceLock<bool> = OnceLock::new();
 
 impl Mermaid {
@@ -52,12 +50,12 @@ impl Mermaid {
       hasher.finish()
     };
 
-    // L1: Check the in-memory cache
+    // L1: in-memory cache
     if let Some(svg) = self.cache.lock().unwrap().get(&key) {
       return Ok(svg.clone());
     }
 
-    // L2: Check the disk cache
+    // L2: disk cache
     if let Some(dir) = &self.output_dir {
       let path = dir.join(format!("{key}.svg"));
       match std::fs::read_to_string(&path) {
@@ -81,8 +79,7 @@ impl Mermaid {
   }
 
   /// Returns captured stderr (or a synthesised reason) on failure.
-  /// TODO: supprot for `--background` and `--theme` flags and `--configFile` so the user
-  /// can customize the output.
+  /// TODO: support `--background`, `--theme`, and `--configFile` flags.
   fn render_mmdc(source: &str) -> Result<String, String> {
     let mut child = Command::new("mmdc")
       .args(["--input", "-", "--output", "-", "--outputFormat", "svg"])
@@ -114,10 +111,10 @@ impl Transformer for Mermaid {
     &self,
     doc: &mut Document,
     _meta: &SourceMeta,
-    engine: &mut duck_diagnostic::DiagnosticEngine<Code>,
+    diag_engine: &mut duck_diagnostic::DiagnosticEngine<Code>,
   ) {
     if !Self::mmdc_available() {
-      engine.emit(Diagnostic::new(
+      diag_engine.emit(Diagnostic::new(
         Code::MmdcUnavailable,
         "mermaid: `mmdc` is not on PATH; mermaid blocks left as code (install with `npm i -g @mermaid-js/mermaid-cli`)",
       ));
@@ -126,7 +123,7 @@ impl Transformer for Mermaid {
     let mut v = Apply { pending: Vec::new(), mermaid: self };
     walk_root(&mut doc.children, &mut v);
     for d in v.pending.drain(..) {
-      engine.emit(d);
+      diag_engine.emit(d);
     }
   }
 }
@@ -147,22 +144,15 @@ impl<'a> Visitor for Apply<'a> {
       Ok(svg) => {
         *node = Node::JsxSelfClosing(JsxSelfClosing {
           name: "MermaidSvg".into(),
-          attrs: vec![JsxAttr {
-            name: "svg".into(),
-            value: JsxAttrValue::String(svg),
-            span: span.clone(),
-          }],
+          attrs: vec![JsxAttr { name: "svg".into(), value: JsxAttrValue::String(svg), span: span.clone() }],
           span,
         });
         NodeAction::KeepSkipChildren
       },
       Err(err) => {
         self.pending.push(
-          Diagnostic::new(
-            Code::MermaidRenderFailed,
-            format!("mermaid: mmdc failed — {}", err.trim()),
-          )
-          .with_label(Label::primary(span, Some("for this mermaid block".into()))),
+          Diagnostic::new(Code::MermaidRenderFailed, format!("mermaid: mmdc failed - {}", err.trim()))
+            .with_label(Label::primary(span, Some("for this mermaid block".into()))),
         );
         NodeAction::Keep
       },

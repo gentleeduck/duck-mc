@@ -14,12 +14,11 @@ impl FileSchema {
   }
 }
 
-
 impl Schema for FileSchema {
   fn parse(&self, value: &Value, ctx: &Ctx) -> Result<Value, ValidationError> {
     let raw = value.as_str().ok_or_else(|| ValidationError::root("file path must be a string"))?;
     let resolved = resolve_asset(ctx, raw, self.allow_non_relative)?;
-    let url = ctx_publish_asset(ctx, &resolved)?;
+    let url = publish_asset(ctx, &resolved)?;
     Ok(Value::String(url))
   }
 }
@@ -36,15 +35,14 @@ impl ImageSchema {
   }
 }
 
-
 impl Schema for ImageSchema {
   fn parse(&self, value: &Value, ctx: &Ctx) -> Result<Value, ValidationError> {
     let raw = value.as_str().ok_or_else(|| ValidationError::root("image path must be a string"))?;
     let resolved = resolve_asset(ctx, raw, self.absolute_root.is_some())?;
-    let url = ctx_publish_asset(ctx, &resolved)?;
+    let url = publish_asset(ctx, &resolved)?;
     let (w, h) = image::image_dimensions(&resolved).unwrap_or((0, 0));
     let mut out = json!({ "src": url, "width": w, "height": h });
-    if let Some((dataurl, bw, bh)) = make_blur(&resolved) {
+    if let Some((dataurl, bw, bh)) = blur_preview(&resolved) {
       let map = out.as_object_mut().unwrap();
       map.insert("blurDataURL".into(), Value::String(dataurl));
       map.insert("blurWidth".into(), Value::from(bw));
@@ -54,7 +52,7 @@ impl Schema for ImageSchema {
   }
 }
 
-fn make_blur(path: &PathBuf) -> Option<(String, u32, u32)> {
+fn blur_preview(path: &PathBuf) -> Option<(String, u32, u32)> {
   use base64::Engine;
   let img = image::open(path).ok()?;
   let target_w: u32 = 8;
@@ -83,7 +81,7 @@ fn resolve_asset(ctx: &Ctx, raw: &str, allow_abs: bool) -> Result<PathBuf, Valid
   Ok(dir.join(raw))
 }
 
-fn ctx_publish_asset(ctx: &Ctx, path: &PathBuf) -> Result<String, ValidationError> {
+fn publish_asset(ctx: &Ctx, path: &PathBuf) -> Result<String, ValidationError> {
   let cfg = ctx
     .assets
     .as_ref()

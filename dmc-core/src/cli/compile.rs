@@ -12,8 +12,8 @@ pub struct CompileCmd {
 }
 
 impl CompileCmd {
-  /// `dmc compile`: read one mdx file, run the default pipeline, print
-  /// the resulting `CompileOutput` as pretty JSON to stdout.
+  /// Read one mdx file, run the default pipeline, print `CompileOutput`
+  /// as pretty JSON to stdout.
   pub fn run(self) -> std::io::Result<()> {
     let mut diag_engine = DiagnosticEngine::<Code>::new();
 

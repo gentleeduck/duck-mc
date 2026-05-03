@@ -4,9 +4,8 @@ use dmc_diagnostic::Code;
 use dmc_lexer::token::TokenKind;
 
 impl<'eng, 'tokens> Parser<'eng, 'tokens> {
-  /// Caller is positioned at `JsxOpenTagStart`. Consumes through the matching
-  /// close (or self-close), returns either a JsxElement, JsxSelfClosing, or
-  /// JsxFragment node.
+  /// Cursor at `JsxOpenTagStart`. Consumes through the matching close (or
+  /// self-close) and returns a `JsxElement`, `JsxSelfClosing`, or `JsxFragment`.
   pub(crate) fn parse_jsx(&mut self) -> Node {
     let span = self.current_span();
     self.advance();
@@ -35,7 +34,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       _ => {
         self.warn(
           Code::RecoveredUnterminatedJsx,
-          format!("unterminated JSX open tag <{name}> — synthesizing self-close"),
+          format!("unterminated JSX open tag <{name}> -- synthesizing self-close"),
         );
         return Node::JsxSelfClosing(JsxSelfClosing { name, attrs, span });
       },
@@ -74,9 +73,8 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     }
   }
 
-  /// Consume a run of `name`, `name="str"`, `name={expr}` attributes. Bare
-  /// names map to `JsxAttrValue::Boolean`. Stops at the first non-attribute
-  /// token (typically `>` / `/>`).
+  /// Consume `name`, `name="str"`, `name={expr}` attributes. Bare names map
+  /// to `JsxAttrValue::Boolean`. Stops at the first non-attribute token.
   fn parse_jsx_attrs(&mut self) -> Vec<JsxAttr> {
     let mut out = Vec::new();
     while let Some(TokenKind::JsxAttributeName) = self.peek_kind() {
@@ -118,7 +116,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     out
   }
 
-  /// Standalone `{expr}` expression. Caller positioned at ExpressionStart.
+  /// Standalone `{expr}`. Cursor at `ExpressionStart`.
   pub(crate) fn parse_jsx_expression(&mut self) -> Node {
     let span = self.current_span();
     self.advance();
@@ -138,7 +136,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     Node::JsxExpression(JsxExpression { value: s, span })
   }
 
-  /// Skip a markdown comment `{/* ... */}`. Caller is positioned at MarkdownCommentStart.
+  /// Skip a markdown comment `{/* ... */}`. Cursor at `MarkdownCommentStart`.
   pub(crate) fn skip_md_comment(&mut self) {
     self.advance();
     while let Some(t) = self.peek() {

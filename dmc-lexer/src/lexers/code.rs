@@ -4,8 +4,8 @@ use crate::{Lexer, token::TokenKind};
 use dmc_diagnostic::Code;
 
 impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
-  /// Entry point for `` ` ``. Counts opening backticks and dispatches to the
-  /// fenced (>=3) or inline (1-2) flavor.
+  /// Entry for `` ` ``. Counts opening backticks and dispatches to the fenced
+  /// (>=3) or inline (1-2) flavor.
   pub(crate) fn lex_code(&mut self) {
     // first backtick already consumed by caller - its column is one back
     let open_line = self.line;
@@ -22,8 +22,8 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
     }
   }
 
-  /// Handle a `\`\`\`...\`\`\`` fence. Emits `CodeStart` + info-string `Text`
-  /// + body `Text` + `CodeEnd`, or a diagnostic if no closing fence is found.
+  /// Lex a `` ```...``` `` fence: `CodeStart` + info-string `Text` + body
+  /// `Text` + `CodeEnd`. Diagnoses an unterminated fence.
   fn lex_fenced_code(&mut self, count: u8, open_line: usize, open_col: usize) {
     self.emit(TokenKind::CodeStart(count));
 
@@ -43,7 +43,7 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
     loop {
       if self.is_eof() {
         self.emit(TokenKind::Text);
-        self.emit_diagnostic(
+        self.diag(
           Diagnostic::new(Code::UnterminatedCodeBlock, "unterminated code block")
             .with_label(Label::primary(
               Span::from_zero_based("", open_line, open_col, count as usize),
@@ -91,8 +91,8 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
     }
   }
 
-  /// Handle inline backtick code (single or double `\``). Emits a diagnostic
-  /// if the matching closing backtick(s) don't appear before EOL.
+  /// Lex inline backtick code (1-2 `` ` ``). Diagnoses if the matching
+  /// closing backtick(s) don't appear before EOL.
   fn lex_inline_code(&mut self, count: u8, open_line: usize, open_col: usize) {
     self.emit(TokenKind::CodeStart(count));
 
@@ -103,9 +103,9 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
 
     if self.peek() == Some('`') {
       self.skip_while_byte(b'`');
-      self.emit(TokenKind::CodeEnd(self.get_current_lexeme().len() as u8));
+      self.emit(TokenKind::CodeEnd(self.current_lexeme().len() as u8));
     } else {
-      self.emit_diagnostic(
+      self.diag(
         Diagnostic::new(Code::UnterminatedCodeBlock, "unterminated inline code")
           .with_label(Label::primary(
             Span::from_zero_based("", open_line, open_col, count as usize),

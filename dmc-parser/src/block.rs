@@ -18,8 +18,8 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
 
     match self.peek_kind()? {
       TokenKind::FrontmatterStart => Some(self.parse_frontmatter()),
-      TokenKind::Import => Some(self.consume_import()),
-      TokenKind::Export => Some(self.consume_export()),
+      TokenKind::Import => Some(self.import_node()),
+      TokenKind::Export => Some(self.export_node()),
       TokenKind::Heading(_) => Some(self.parse_heading()),
       TokenKind::CodeStart(n) if *n >= 3 => Some(self.parse_code_block()),
       TokenKind::JsxOpenTagStart => Some(self.parse_jsx()),
@@ -50,7 +50,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
   }
 
   /// Consume `FrontmatterStart .. FrontmatterEnd`. Inner YAML is left as raw
-  /// text — interpretation (e.g. `serde_yaml::from_str`) is the caller's job.
+  /// text; interpretation is the caller's job.
   fn parse_frontmatter(&mut self) -> Node {
     let span = self.current_span();
     self.advance();
@@ -69,7 +69,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
   }
 
   /// Collect consecutive list items of one flavor (ordered or unordered) into
-  /// a `List` node. Caller has already verified the first marker matches.
+  /// a `List` node.
   fn parse_list(&mut self, ordered: bool) -> Node {
     let span = self.current_span();
     let mut items: Vec<Node> = Vec::new();
@@ -96,7 +96,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       // first Text token so the inline content starts with the actual body.
       if ordered {
         let is_text = matches!(self.peek_kind(), Some(TokenKind::Text));
-        let raw_opt: Option<&'tokens str> = if is_text { self.peek_raw_src() } else { None };
+        let raw_opt: Option<&'tokens str> = if is_text { self.peek_raw() } else { None };
         if let Some(raw) = raw_opt {
           let trimmed = raw.strip_prefix('.').unwrap_or(raw).trim_start_matches([' ', '\t']);
           if trimmed.is_empty() {
@@ -118,8 +118,8 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     Node::List(List { ordered, start, children: items, span })
   }
 
-  /// Parse the body of a single list item. Detects + promotes to
-  /// `TaskListItem` if a GFM `[ ]` / `[x]` checkbox prefix follows the marker.
+  /// Parse the body of one list item. Promotes to `TaskListItem` if a GFM
+  /// `[ ]` / `[x]` checkbox prefix follows the marker.
   fn parse_one_list_item(&mut self, ordered: bool) -> Node {
     let span = self.current_span();
     // GFM task-list prefix `[ ]` / `[x]` / `[X]` for unordered lists.
@@ -153,8 +153,8 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     Node::ListItem(ListItem { children: inline, span })
   }
 
-  /// Each `>` line becomes one inner `Paragraph`. Stops when the next line
-  /// does not start with `BlockQuote`.
+  /// Each `>` line becomes one inner `Paragraph`. Stops at the first line
+  /// without a leading `BlockQuote` token.
   fn parse_blockquote(&mut self) -> Node {
     let span = self.current_span();
     let mut paras: Vec<Node> = Vec::new();
@@ -175,25 +175,23 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     Node::Blockquote(Blockquote { children: paras, span })
   }
 
-  /// Wrap the upcoming `Import` token's raw lexeme into an `Import` node. The
-  /// lexer has already captured the full multi-line statement.
-  fn consume_import(&mut self) -> Node {
+  /// Wrap the upcoming `Import` token's raw lexeme into an `Import` node.
+  fn import_node(&mut self) -> Node {
     let span = self.current_span();
     let raw = self.peek().map(|t| t.raw.to_string()).unwrap_or_default();
     self.advance();
     Node::Import(Import { raw, span })
   }
 
-  /// Symmetric counterpart to `consume_import` for `export ...` statements.
-  fn consume_export(&mut self) -> Node {
+  /// Counterpart to `import_node` for `export ...` statements.
+  fn export_node(&mut self) -> Node {
     let span = self.current_span();
     let raw = self.peek().map(|t| t.raw.to_string()).unwrap_or_default();
     self.advance();
     Node::Export(Export { raw, span })
   }
 
-  /// ATX heading (`#` x N + inline content). Anchor slug is derived lazily
-  /// via `Heading::slug()` — not baked into the AST.
+  /// ATX heading. Anchor slug is derived lazily via `Heading::slug()`.
   fn parse_heading(&mut self) -> Node {
     let span = self.current_span();
     let level = match self.peek_kind() {
@@ -206,7 +204,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
   }
 
   /// 4-space indented code block. Strips the leading 4 spaces from each line
-  /// and joins them with `\n`. Stops at the first non-indented line.
+  /// and joins with `\n`. Stops at the first non-indented line.
   fn parse_indented_code(&mut self) -> Node {
     let span = self.current_span();
     let mut buf = String::new();
@@ -253,19 +251,17 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     Node::CodeBlock(CodeBlock { lang: None, meta: None, value: buf, span })
   }
 
-  /// Default fallback block. Also handles setext headings: if the trailing
-  /// soft break is followed by a run of `=` or `-`, the paragraph is rewritten
-  /// as a level-1 / level-2 `Heading`.
+  /// Default fallback block. Also handles setext headings: a trailing soft
+  /// break followed by a run of `=` or `-` rewrites the paragraph as a
+  /// level-1 / level-2 `Heading`.
   fn parse_paragraph(&mut self) -> Node {
     let span = self.current_span();
     let children = self.collect_inline_until_break();
-    // Setext heading: a paragraph followed by a SoftBreak and then a line of
-    // pure `=` (level 1) or `-` (level 2) characters.
     if matches!(self.peek_kind(), Some(TokenKind::SoftBreak)) {
       let saved = self.pos;
       self.advance();
-      if let Some(lvl) = self.peek_setext_underline() {
-        self.consume_setext_underline();
+      if let Some(lvl) = self.setext_underline_level() {
+        self.eat_setext_underline();
         return Node::Heading(Heading { level: lvl, children, span });
       }
       self.pos = saved;
@@ -273,9 +269,9 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     Node::Paragraph(Paragraph { children, span })
   }
 
-  /// Return Some(1) for an `=` underline, Some(2) for `-` underline, else None.
-  /// Position is left untouched.
-  fn peek_setext_underline(&self) -> Option<u8> {
+  /// `Some(1)` for an `=` underline, `Some(2)` for a `-` underline, else
+  /// `None`. Cursor is left untouched.
+  fn setext_underline_level(&self) -> Option<u8> {
     let t = self.tokens.get(self.pos)?;
     match &t.kind {
       TokenKind::Eq => {
@@ -308,8 +304,8 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     }
   }
 
-  /// Consume the underline tokens that `peek_setext_underline` matched.
-  fn consume_setext_underline(&mut self) {
+  /// Consume the underline tokens that `setext_underline_level` matched.
+  fn eat_setext_underline(&mut self) {
     if let Some(t) = self.tokens.get(self.pos) {
       match t.kind {
         TokenKind::Eq => {
@@ -325,9 +321,9 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     }
   }
 
-  /// Fenced code block. First inline `Text` becomes the info string; the rest
-  /// of the body is concatenated until the matching `CodeEnd(n)`. The info
-  /// string is split at the first whitespace into `(lang, meta)`.
+  /// Fenced code block. The first inline `Text` becomes the info string; the
+  /// body is concatenated until the matching `CodeEnd(n)`. The info string
+  /// splits at the first whitespace into `(lang, meta)`.
   fn parse_code_block(&mut self) -> Node {
     let span = self.current_span();
     let fence_n = match self.peek_kind() {

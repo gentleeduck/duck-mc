@@ -1,10 +1,7 @@
-//! `dmc-schema` descriptor -> TypeScript type emitter. Used by the
-//! `index` module to produce per-collection typed interfaces in the
-//! generated `index.d.ts`.
-//!
-//! Mirrors the descriptor `kind`s accepted by
-//! `dmc_schema::compile_descriptor`. Anything outside the supported set
-//! falls back to `unknown` so an unknown shape never fails the build.
+//! `dmc-schema` descriptor -> TypeScript type emitter. Drives the typed
+//! interfaces in the generated `index.d.ts`. Mirrors the `kind`s accepted
+//! by `dmc_schema::compile_descriptor`; unknown shapes fall back to
+//! `unknown` so the build never fails on an unrecognised descriptor.
 
 use serde_json::Value;
 
@@ -12,8 +9,7 @@ use crate::engine::utils::is_js_ident;
 
 const INDENT: &str = "  ";
 
-/// Translate a dmc-schema descriptor into a TypeScript type string at
-/// `indent` levels of nesting (0 at the top of an interface body).
+/// Descriptor -> TS type string at `indent` levels (0 = top of interface body).
 pub fn schema_to_ts(v: &Value, indent: usize) -> String {
   let kind = match v.get("kind").and_then(|k| k.as_str()) {
     Some(k) => k,
@@ -93,8 +89,7 @@ pub fn schema_to_ts(v: &Value, indent: usize) -> String {
   }
 }
 
-/// Convenience entry: render the top-level object body of a collection
-/// schema as a `{ ... }` block at indent 0.
+/// Render the top-level object body as a `{ ... }` block at indent 0.
 pub fn schema_to_ts_object(v: &Value) -> String {
   render_object(v, 0)
 }
@@ -131,7 +126,7 @@ fn render_object(v: &Value, indent: usize) -> String {
   out
 }
 
-/// Render a JSON literal (string/number/bool/null) as a TS literal type.
+/// JSON literal (string/number/bool/null) -> TS literal type string.
 fn literal_value(v: &Value) -> Option<String> {
   match v {
     Value::String(s) => Some(format!("'{}'", s.replace('\'', "\\'"))),

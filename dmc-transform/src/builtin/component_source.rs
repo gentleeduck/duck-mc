@@ -7,12 +7,9 @@ use duck_diagnostic::{Diagnostic, Label};
 use std::path::PathBuf;
 use std::sync::Arc;
 
-/// Replace `<ComponentSource path="…" />` with a `CodeBlock` carrying the
-/// contents of the file at `path` (resolved against `base_dir`). The block's
-/// `lang` is set from the file extension.
-///
-/// Path resolution mirrors `CodeImport`: explicit `base_dir` → mdx parent →
-/// cwd (with [`Code::BaseDirNotFound`] warning).
+/// Replace `<ComponentSource path="..." />` with a `CodeBlock` carrying the
+/// file contents (resolved against `base_dir`). `lang` comes from the file
+/// extension. Path resolution mirrors [`CodeImport`].
 #[derive(Default)]
 pub struct ComponentSource {
   pub base_dir: Option<PathBuf>,
@@ -39,7 +36,7 @@ impl Transformer for ComponentSource {
     &self,
     doc: &mut Document,
     meta: &SourceMeta,
-    engine: &mut duck_diagnostic::DiagnosticEngine<Code>,
+    diag_engine: &mut duck_diagnostic::DiagnosticEngine<Code>,
   ) {
     let base_dir = self.base_dir.clone().or_else(|| match &meta.origin {
       Origin::File(p) => p.parent().map(|p| p.to_path_buf()),
@@ -47,7 +44,7 @@ impl Transformer for ComponentSource {
     });
 
     if base_dir.is_none() && self.base_dir.is_none() {
-      engine.emit(Diagnostic::new(
+      diag_engine.emit(Diagnostic::new(
         Code::BaseDirNotFound,
         format!(
           "component-source: source has no on-disk parent (origin = {:?}); relative `path=` cannot be resolved",
@@ -59,7 +56,7 @@ impl Transformer for ComponentSource {
     let mut v = Apply { base_dir, meta_path: meta.path.clone(), pending: Vec::new() };
     walk_root(&mut doc.children, &mut v);
     for d in v.pending.drain(..) {
-      engine.emit(d);
+      diag_engine.emit(d);
     }
   }
 }
@@ -83,11 +80,8 @@ impl Visitor for Apply {
     };
     let Some(rel) = path else {
       self.pending.push(
-        Diagnostic::new(
-          Code::MissingComponentAttr,
-          "component-source: missing required `path` attribute".to_string(),
-        )
-        .with_label(Label::primary(span, Some("on this <ComponentSource>".into()))),
+        Diagnostic::new(Code::MissingComponentAttr, "component-source: missing required `path` attribute".to_string())
+          .with_label(Label::primary(span, Some("on this <ComponentSource>".into()))),
       );
       return NodeAction::Keep;
     };
@@ -98,12 +92,7 @@ impl Visitor for Apply {
     match std::fs::read_to_string(&abs) {
       Ok(content) => {
         let lang = abs.extension().and_then(|s| s.to_str()).map(String::from);
-        *node = Node::CodeBlock(CodeBlock {
-          lang,
-          meta: Some(format!("title=\"{}\"", rel)),
-          value: content,
-          span,
-        });
+        *node = Node::CodeBlock(CodeBlock { lang, meta: Some(format!("title=\"{}\"", rel)), value: content, span });
         NodeAction::KeepSkipChildren
       },
       Err(e) => {

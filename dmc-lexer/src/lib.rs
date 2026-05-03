@@ -9,11 +9,10 @@ mod lexers;
 pub mod token;
 mod utils;
 
-/// Streaming lexer for MDX. Holds a borrowed view of the source plus cursor
-/// state (`start` = current token's begin, `current` = scanner head, `line` /
-/// `column` = position bookkeeping for diagnostics). `frontmatter_reserved`
-/// flips to `true` once a YAML frontmatter block has been emitted so a later
-/// `---` line is unambiguously a thematic break.
+/// Streaming lexer for MDX. `start` = current token's begin, `current` =
+/// scanner head, `line`/`column` track position for diagnostics.
+/// `frontmatter_reserved` flips to `true` once a YAML frontmatter block has
+/// been emitted so a later `---` line is unambiguously a thematic break.
 pub struct Lexer<'eng, 'src> {
   pub source: &'src str,
   pub meta: Arc<SourceMeta>,
@@ -22,17 +21,13 @@ pub struct Lexer<'eng, 'src> {
   pub current: usize,
   pub line: usize,
   pub column: usize,
-  pub engine: &'eng mut DiagnosticEngine<Code>,
+  pub diag_engine: &'eng mut DiagnosticEngine<Code>,
   pub frontmatter_reserved: bool,
 }
 
 impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
-  /// Build a fresh lexer over `source`. Diagnostics are emitted into `engine`.
-  pub fn new(
-    source: &'src str,
-    meta: Arc<SourceMeta>,
-    engine: &'eng mut DiagnosticEngine<Code>,
-  ) -> Self {
+  /// Build a fresh lexer over `source`. Diagnostics flow into `diag_engine`.
+  pub fn new(source: &'src str, meta: Arc<SourceMeta>, diag_engine: &'eng mut DiagnosticEngine<Code>) -> Self {
     Self {
       source,
       meta,
@@ -41,13 +36,13 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
       current: 0,
       line: 0,
       column: 0,
-      engine,
+      diag_engine,
       frontmatter_reserved: false,
     }
   }
 
-  /// Scan the entire source into `self.tokens`. Always succeeds; errors flow
-  /// through the diagnostic engine, not the `Result`.
+  /// Scan the entire source into `self.tokens`. Always succeeds; errors are
+  /// reported through the diagnostic engine, not the `Result`.
   pub fn scan_tokens(&mut self) -> Result<(), std::io::Error> {
     while !self.is_eof() {
       self.start = self.current;
@@ -61,8 +56,8 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
   }
 
   /// Forward a diagnostic to the engine.
-  pub(crate) fn emit_diagnostic(&mut self, diagnostic: Diagnostic<Code>) {
-    self.engine.emit(diagnostic);
+  pub(crate) fn diag(&mut self, diagnostic: Diagnostic<Code>) {
+    self.diag_engine.emit(diagnostic);
   }
 
   /// Emit a token spanning `[self.start, self.current)`. Skips trivia unless
@@ -73,7 +68,7 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
       let line_leading = matches!(kind, TokenKind::Whitespace)
         && self.column == length
         && length >= 4
-        && self.get_current_lexeme().chars().all(|c| c == ' ');
+        && self.current_lexeme().chars().all(|c| c == ' ');
       if !line_leading {
         self.start = self.current;
         return;
@@ -81,7 +76,7 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
     }
 
     let span = Span::from_zero_based(self.meta.path.clone(), self.line, self.column, length);
-    self.tokens.push(Token::new(kind, span, self.get_current_lexeme()));
+    self.tokens.push(Token::new(kind, span, self.current_lexeme()));
     self.start = self.current;
   }
 }

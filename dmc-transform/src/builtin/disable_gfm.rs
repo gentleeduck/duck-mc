@@ -2,9 +2,9 @@ use crate::pipeline::Transformer;
 use dmc_diagnostic::{Code, metadata::SourceMeta};
 use dmc_parser::ast::*;
 
-/// Strip GFM-only constructs by serialising them back to plain markdown:
-/// `~~strike~~` becomes literal text, tables flatten to pipe-delimited text,
-/// task list items lose their checkbox state and become plain list items.
+/// Serialise GFM-only constructs back to plain markdown. `~~strike~~`
+/// becomes literal text, tables flatten to pipe-delimited text, task list
+/// items lose their checkbox state and become plain list items.
 #[derive(Default)]
 pub struct DisableGfm;
 
@@ -16,15 +16,15 @@ impl Transformer for DisableGfm {
     &self,
     doc: &mut Document,
     #[allow(unused_variables)] meta: &SourceMeta,
-    #[allow(unused_variables)] engine: &mut duck_diagnostic::DiagnosticEngine<Code>,
+    #[allow(unused_variables)] diag_engine: &mut duck_diagnostic::DiagnosticEngine<Code>,
   ) {
     Self::rewrite(&mut doc.children);
   }
 }
 
 impl DisableGfm {
-  /// Walk a `children` Vec, rewriting any GFM-only node into a plain
-  /// equivalent. Recurses into containers along the way.
+  /// Rewrite any GFM-only node in `nodes` to a plain equivalent. Recurses
+  /// into containers.
   fn rewrite(nodes: &mut [Node]) {
     for node in nodes.iter_mut() {
       match node {
@@ -48,10 +48,8 @@ impl DisableGfm {
             }
             buf.push('\n');
           }
-          *node = Node::Paragraph(Paragraph {
-            children: vec![Node::Text(Text { value: buf, span: span.clone() })],
-            span,
-          });
+          *node =
+            Node::Paragraph(Paragraph { children: vec![Node::Text(Text { value: buf, span: span.clone() })], span });
         },
         Node::TaskListItem(it) => {
           let span = it.span.clone();
@@ -79,8 +77,7 @@ impl DisableGfm {
     }
   }
 
-  /// Flatten an inline subtree into a plain markdown-ish string. Used by
-  /// `rewrite` when serialising a GFM container's contents into a Text node.
+  /// Append a markdown-ish flattening of `nodes` to `buf`.
   fn flatten(nodes: &[Node], buf: &mut String) {
     for n in nodes {
       match n {

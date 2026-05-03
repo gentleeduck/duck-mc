@@ -98,7 +98,6 @@ impl PathSchema {
   }
 }
 
-
 impl Schema for PathSchema {
   fn parse(&self, _value: &Value, ctx: &Ctx) -> Result<Value, ValidationError> {
     let rel = ctx.file_path.strip_prefix(&ctx.root).unwrap_or(&ctx.file_path);

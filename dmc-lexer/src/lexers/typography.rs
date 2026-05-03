@@ -17,16 +17,16 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
       self.advance();
     }
 
-    if !self.match_current_char(' ') {
+    if !self.peek_is(' ') {
       return self.lex_text();
     }
 
     self.emit(TokenKind::Heading(level))
   }
 
-  /// Consume a run of plain text up to the next "interesting" character
-  /// (delimiter, fence, JSX boundary, escape). Handles backslash escapes for
-  /// the standard markdown escapable set.
+  /// Consume a run of plain text up to the next interesting char (delimiter,
+  /// fence, JSX boundary, escape). Honours backslash escapes for the standard
+  /// markdown escapable set.
   pub(crate) fn lex_text(&mut self) {
     while let Some(c) = self.peek() {
       if c == '\\' {
@@ -94,9 +94,9 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
     // the first '*' is already consumed by caller
 
     self.skip_while_byte(b'*');
-    let at_line_end = self.get_current_char() == Some('\n') || self.is_eof();
+    let at_line_end = self.current_char() == Some('\n') || self.is_eof();
 
-    match self.get_current_lexeme() {
+    match self.current_lexeme() {
       "*" => self.emit(TokenKind::Italic(1)),
       "**" => self.emit(TokenKind::Bold(2)),
       "***" if at_line_end => self.emit(TokenKind::ThematicBreak),
@@ -109,7 +109,7 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
   pub(crate) fn lex_strike(&mut self) {
     // first '~' already consumed by caller
     self.skip_while_byte(b'~');
-    let lex = self.get_current_lexeme();
+    let lex = self.current_lexeme();
     if lex.len() == 2 {
       self.emit(TokenKind::Strike(2));
     } else {
@@ -122,9 +122,9 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
     // the first '_' is already consumed by caller
 
     self.skip_while_byte(b'_');
-    let c = self.get_current_char();
+    let c = self.current_char();
 
-    match self.get_current_lexeme() {
+    match self.current_lexeme() {
       "_" => self.emit(TokenKind::Italic(1)),
       "__" => self.emit(TokenKind::Bold(2)),
       "___" if c == Some('\n') => self.emit(TokenKind::ThematicBreak),
@@ -132,9 +132,9 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
     }
   }
 
-  /// Lex a markdown link `[text](href)`. `[text]` part runs first; the
-  /// optional `(href)` is consumed if present. Diagnostic on either side
-  /// going unterminated.
+  /// Lex a markdown link `[text](href)`. The `[text]` part runs first; the
+  /// optional `(href)` is consumed if present. Diagnoses either side going
+  /// unterminated.
   pub(crate) fn lex_link(&mut self) {
     // caller consumed '['; record opener column (one back).
     let open_line = self.line;
@@ -143,8 +143,8 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
     self.skip_until_any2(b']', b'\n');
     self.emit(TokenKind::Text);
 
-    if self.get_current_char() != Some(']') {
-      self.emit_diagnostic(
+    if self.current_char() != Some(']') {
+      self.diag(
         Diagnostic::new(Code::UnterminatedExpression, "unterminated link")
           .with_label(Label::primary(
             Span::from_zero_based("", open_line, open_col, 1),
@@ -163,18 +163,18 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
     self.emit(TokenKind::Bracket);
 
     // optional `(href)`
-    if self.get_current_char() == Some('(') {
+    if self.current_char() == Some('(') {
       let paren_line = self.line;
       let paren_col = self.column;
       self.advance();
       self.emit(TokenKind::ParenOpen);
       self.skip_until_any2(b')', b'\n');
       self.emit(TokenKind::Text);
-      if self.get_current_char() == Some(')') {
+      if self.current_char() == Some(')') {
         self.advance();
         self.emit(TokenKind::ParenClose);
       } else {
-        self.emit_diagnostic(
+        self.diag(
           Diagnostic::new(Code::UnterminatedExpression, "unterminated link target")
             .with_label(Label::primary(
               Span::from_zero_based("", paren_line, paren_col, 1),
@@ -194,7 +194,7 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
   pub(crate) fn lex_image(&mut self) {
     self.emit(TokenKind::Bang);
 
-    if let Some(c) = self.get_current_char()
+    if let Some(c) = self.current_char()
       && c == '['
     {
       self.advance();
@@ -202,8 +202,8 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
     }
   }
 
-  /// Lex an HTML comment `<!-- ... -->`. Falls back to `lex_text` if `<` is
-  /// not actually starting `<!--`.
+  /// Lex an HTML comment `<!-- ... -->`. Falls back to `lex_text` when the
+  /// `<` doesn't actually start `<!--`.
   pub(crate) fn lex_comment(&mut self) {
     // caller consumed '<', dispatch confirmed peek() == '!'
     // check for <!-- without advancing, so we can fall back cleanly

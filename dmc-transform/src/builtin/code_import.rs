@@ -7,20 +7,20 @@ use duck_diagnostic::{Diagnostic, Label};
 use std::path::PathBuf;
 use std::sync::Arc;
 
-/// Resolve `file=path[{ranges}]` directives inside fenced code-block info
-/// strings. Reads the named file from disk, replacing the block's body with
-/// the file contents (optionally sliced by 1-based line ranges).
+/// Resolve `file=path[{ranges}]` directives in fenced code-block info
+/// strings, replacing the block's body with the file contents (optionally
+/// sliced by 1-based line ranges).
 ///
-/// Path resolution order (first hit wins):
-/// 1. explicit `base_dir` (set via [`CodeImport::with_base_dir`])
-/// 2. parent dir of `meta.origin` if it's [`Origin::File`]
-/// 3. cwd — emits a [`Code::BaseDirNotFound`] warning, paths must be absolute
+/// Path resolution (first hit wins):
+/// 1. explicit `base_dir` (via [`CodeImport::with_base_dir`])
+/// 2. parent dir of `meta.origin` when it's [`Origin::File`]
+/// 3. cwd, with a [`Code::BaseDirNotFound`] warning (paths must be absolute)
 pub struct CodeImport {
   pub base_dir: Option<PathBuf>,
 }
 
-/// Parsed `file=path[{ranges}]` directive: the file path plus an optional
-/// list of 1-based inclusive line ranges to slice from the imported source.
+/// Parsed `file=path[{ranges}]`: the file path plus optional 1-based
+/// inclusive line ranges.
 type FileMeta = (String, Option<Vec<(usize, usize)>>);
 
 impl Default for CodeImport {
@@ -52,7 +52,7 @@ impl CodeImport {
     None
   }
 
-  /// Discards malformed tokens silently.
+  /// Parse `1,3-5,8` style ranges. Malformed tokens drop silently.
   fn parse_ranges(spec: &str) -> Vec<(usize, usize)> {
     let mut out = Vec::new();
     for token in spec.split(',') {
@@ -73,7 +73,8 @@ impl CodeImport {
     out
   }
 
-  /// 1-based inclusive ranges; each picked line gets a trailing `\n`.
+  /// Pick 1-based inclusive line ranges from `src`. Each line keeps a
+  /// trailing `\n`.
   fn slice_lines(src: &str, ranges: &[(usize, usize)]) -> String {
     let lines: Vec<&str> = src.lines().collect();
     let mut out = String::new();
@@ -94,7 +95,12 @@ impl Transformer for CodeImport {
     "code-import"
   }
 
-  fn transform(&self, doc: &mut Document, meta: &SourceMeta, engine: &mut duck_diagnostic::DiagnosticEngine<Code>) {
+  fn transform(
+    &self,
+    doc: &mut Document,
+    meta: &SourceMeta,
+    diag_engine: &mut duck_diagnostic::DiagnosticEngine<Code>,
+  ) {
     let base_dir = self.base_dir.clone().or_else(|| match &meta.origin {
       Origin::File(p) => p.parent().map(|p| p.to_path_buf()),
       _ => None,
@@ -102,7 +108,7 @@ impl Transformer for CodeImport {
 
     // Walk continues even on warning so absolute `file=` paths still resolve.
     if base_dir.is_none() {
-      engine.emit(Diagnostic::new(
+      diag_engine.emit(Diagnostic::new(
         Code::BaseDirNotFound,
         format!(
           "code-import: source has no on-disk parent (origin = {:?}); relative `file=` paths cannot be resolved",
@@ -114,7 +120,7 @@ impl Transformer for CodeImport {
     let mut v = Apply { base_dir, meta_path: meta.path.clone(), pending: Vec::new() };
     walk_root(&mut doc.children, &mut v);
     for d in v.pending.drain(..) {
-      engine.emit(d);
+      diag_engine.emit(d);
     }
   }
 }

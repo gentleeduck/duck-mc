@@ -1,35 +1,33 @@
 //! Unified diagnostic codes for the dmc pipeline.
 //!
-//! Every layer (lexer, parser, transform) emits its diagnostics into a single
-//! `DiagnosticEngine<Code>` shared across the whole compile flow. Per-layer
-//! variants are gated behind cargo features so a crate that only needs lexer
-//! codes can opt out of parser + transform variants at compile time.
+//! Every layer (lexer, parser, transform, codegen) emits into one shared
+//! `DiagnosticEngine<Code>`. Per-layer variants are gated behind cargo
+//! features so a crate that only needs lexer codes can opt out of the rest.
 //!
 //! ## Feature flags
-//! - `lexer`     — enables `E***` lexer-emitted variants
-//! - `parser`    — enables `P***` / `PW***` parser-emitted variants
-//! - `transform` — enables `T***` / `TW***` transform-emitted variants
-//! - `codegen`   — enables `G***` / `GW***` codegen-emitted variants
+//! - `lexer`     - `E***` lexer-emitted variants
+//! - `parser`    - `P***` / `PW***` parser-emitted variants
+//! - `transform` - `T***` / `TW***` transform-emitted variants
+//! - `codegen`   - `G***` / `GW***` codegen-emitted variants
 //!
-//! In a normal full build (e.g. via `dmc-core`) all features are
-//! active and every variant compiles.
+//! A normal full build (e.g. via `dmc-core`) enables all features.
 
 use duck_diagnostic::{DiagnosticCode, Severity};
 use serde::{Deserialize, Serialize};
 
 pub mod metadata;
 
-/// Stable, machine-readable identifiers for diagnostics across the whole
-/// compile pipeline. Codes use disjoint string namespaces per layer:
+/// Stable, machine-readable diagnostic identifiers spanning the whole
+/// pipeline. Codes use disjoint string namespaces per layer:
 ///
-/// - `E***`  — lexer errors  (feature `lexer`)
-/// - `W***`  — lexer warnings (feature `lexer`)
-/// - `P***`  — parser errors  (feature `parser`)
-/// - `PW***` — parser warnings (feature `parser`)
-/// - `T***`  — transform errors  (feature `transform`)
-/// - `TW***` — transform warnings (feature `transform`)
-/// - `G***`  — codegen errors  (feature `codegen`)
-/// - `GW***` — codegen warnings (feature `codegen`)
+/// - `E***`  - lexer errors  (feature `lexer`)
+/// - `W***`  - lexer warnings (feature `lexer`)
+/// - `P***`  - parser errors  (feature `parser`)
+/// - `PW***` - parser warnings (feature `parser`)
+/// - `T***`  - transform errors  (feature `transform`)
+/// - `TW***` - transform warnings (feature `transform`)
+/// - `G***`  - codegen errors  (feature `codegen`)
+/// - `GW***` - codegen warnings (feature `codegen`)
 ///
 /// `Custom { code, severity }` is the escape hatch for third-party
 /// transformers that want to emit through the same engine without forking
@@ -37,200 +35,170 @@ pub mod metadata;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Code {
   // ===================================================================
-  // Lexer — feature = "lexer"
+  // Lexer - feature = "lexer"
   // ===================================================================
-  /// E001 — Source byte that the dispatcher cannot map to any token rule.
+  /// E001 - Source byte the dispatcher cannot map to any token rule.
   #[cfg(feature = "lexer")]
   InvalidCharacter,
-  /// E002 — Frontmatter `---` opened but inner YAML is malformed.
+  /// E002 - Frontmatter `---` opened but inner YAML is malformed.
   #[cfg(feature = "lexer")]
   InvalidFrontMatter,
-  /// E003 — Quoted string literal opened but no matching closer before
-  /// EOL or EOF.
+  /// E003 - Quoted string literal opened without a closer before EOL/EOF.
   #[cfg(feature = "lexer")]
   UnterminatedString,
-  /// E004 — `{ ... }` expression opened but brace depth never returned to
-  /// zero.
+  /// E004 - `{ ... }` expression opened but brace depth never returned to zero.
   #[cfg(feature = "lexer")]
   UnterminatedExpression,
-  /// E005 — EOF reached mid-construct where more input was required.
+  /// E005 - EOF reached mid-construct where more input was required.
   #[cfg(feature = "lexer")]
   UnexpectedEof,
-  /// E006 — `<Tag /` seen but the `>` that completes the self-close is
-  /// missing.
+  /// E006 - `<Tag /` seen but the closing `>` is missing.
   #[cfg(feature = "lexer")]
   InvalidJsxSelfClosingTag,
-  /// E007 — `<Tag ...` open tag never reached `>` or `/>` before a hard
-  /// break / EOF.
+  /// E007 - `<Tag ...` open tag never reached `>` or `/>` before a hard break/EOF.
   #[cfg(feature = "lexer")]
   UnterminatedJsxTag,
-  /// E008 — `</Tag` close tag malformed — missing name or `>`.
+  /// E008 - `</Tag` close tag malformed: missing name or `>`.
   #[cfg(feature = "lexer")]
   InvalidJsxClosingTag,
-  /// E009 — JSX attribute `name=` had no value (string / `{expr}`)
-  /// following.
+  /// E009 - JSX attribute `name=` had no following value (string / `{expr}`).
   #[cfg(feature = "lexer")]
   InvalidJsxAttribute,
-  /// E010 — Fenced code block opened but matching closer of equal length
-  /// never appeared before EOF.
+  /// E010 - Fenced code block opened without an equal-length closer before EOF.
   #[cfg(feature = "lexer")]
   UnterminatedCodeBlock,
 
-  /// W001 — Frontmatter parsed cleanly but the YAML body was empty.
+  /// W001 - Frontmatter parsed cleanly but YAML body was empty.
   #[cfg(feature = "lexer")]
   EmptyFrontMatter,
 
   // ===================================================================
-  // Parser — feature = "parser"
+  // Parser - feature = "parser"
   // ===================================================================
-  /// P001 — `[text](href)` opened but `]` never seen before a hard break
-  /// / EOF.
+  /// P001 - `[text](href)` opened but `]` never seen before a hard break/EOF.
   #[cfg(feature = "parser")]
   UnterminatedLink,
-  /// P002 — `![alt](src)` opened but `]` never seen before a hard break
-  /// / EOF.
+  /// P002 - `![alt](src)` opened but `]` never seen before a hard break/EOF.
   #[cfg(feature = "parser")]
   UnterminatedImage,
-  /// P003 — Backtick run inline never closes on the same line.
+  /// P003 - Backtick run inline never closes on the same line.
   #[cfg(feature = "parser")]
   UnterminatedInlineCode,
-  /// P004 — Fenced code block opened but matching ` ``` ` (or longer)
-  /// never seen.
+  /// P004 - Fenced code block opened but matching ` ``` ` (or longer) never seen.
   #[cfg(feature = "parser")]
   UnterminatedCodeBlockBlock,
-  /// P005 — `<Tag ...` opened but no `>` / `/>` before the next block
-  /// break.
+  /// P005 - `<Tag ...` opened but no `>` / `/>` before the next block break.
   #[cfg(feature = "parser")]
   UnterminatedJsxOpenTag,
-  /// P006 — `</Tag` opened but no `>` before the next block break.
+  /// P006 - `</Tag` opened but no `>` before the next block break.
   #[cfg(feature = "parser")]
   UnterminatedJsxCloseTag,
-  /// P007 — `{ ... }` expression opened but no closing `}` at matching
-  /// depth.
+  /// P007 - `{ ... }` expression opened but no closing `}` at matching depth.
   #[cfg(feature = "parser")]
   UnterminatedJsxExpression,
-  /// P008 — `{/* ... */}` markdown comment opened but no `*/}` before
-  /// EOF.
+  /// P008 - `{/* ... */}` markdown comment opened but no `*/}` before EOF.
   #[cfg(feature = "parser")]
   UnterminatedMdComment,
-  /// P009 — Frontmatter `---` opened but no closing `---` line found.
+  /// P009 - Frontmatter `---` opened but no closing `---` line found.
   #[cfg(feature = "parser")]
   UnterminatedFrontmatter,
-  /// P010 — `<Foo>` close-tag name does not match the most recent open
-  /// tag.
+  /// P010 - `<Foo>` close-tag name does not match the most recent open tag.
   #[cfg(feature = "parser")]
   MismatchedJsxCloseTag,
-  /// P011 — Table header line had N cells but alignment row had M
-  /// (M != N).
+  /// P011 - Table header line had N cells but alignment row had M (M != N).
   #[cfg(feature = "parser")]
   TableShapeMismatch,
-  /// P012 — Setext underline `===` / `---` appeared without a preceding
-  /// paragraph.
+  /// P012 - Setext underline `===` / `---` appeared without a preceding paragraph.
   #[cfg(feature = "parser")]
   StraySetextUnderline,
-  /// P013 — JSX attribute appeared with `=` but no value (string /
-  /// `{expr}`).
+  /// P013 - JSX attribute appeared with `=` but no value (string / `{expr}`).
   #[cfg(feature = "parser")]
   MissingJsxAttributeValue,
-  /// P014 — List item used an ordered marker number that overflows
-  /// `u32`.
+  /// P014 - List item used an ordered marker number that overflows `u32`.
   #[cfg(feature = "parser")]
   ListMarkerOverflow,
 
-  /// PW001 — Frontmatter parsed but YAML content was empty.
+  /// PW001 - Frontmatter parsed but YAML content was empty.
   #[cfg(feature = "parser")]
   EmptyFrontmatter,
-  /// PW002 — YAML in frontmatter failed to parse — recovered by treating
-  /// as null.
+  /// PW002 - YAML in frontmatter failed to parse; recovered by treating as null.
   #[cfg(feature = "parser")]
   InvalidFrontmatterYaml,
-  /// PW003 — Heading level > 6 was clamped to 6.
+  /// PW003 - Heading level > 6 was clamped to 6.
   #[cfg(feature = "parser")]
   HeadingLevelClamped,
-  /// PW004 — Auto-recovery synthesised a self-close for `<Tag ...` to
-  /// keep parsing.
+  /// PW004 - Auto-recovery synthesised a self-close for `<Tag ...` to keep parsing.
   #[cfg(feature = "parser")]
   RecoveredUnterminatedJsx,
 
   // ===================================================================
-  // Transform — feature = "transform"
+  // Transform - feature = "transform"
   // ===================================================================
-  /// T001 — `CodeImport`: `file=path` referenced a path that could not
-  /// be read from disk.
+  /// T001 - `CodeImport`: `file=path` referenced a path that could not be read.
   #[cfg(feature = "transform")]
   ImportFileNotFound,
-  /// T002 — `CodeImport`: `{ranges}` spec was malformed.
+  /// T002 - `CodeImport`: `{ranges}` spec was malformed.
   #[cfg(feature = "transform")]
   InvalidLineRange,
-  /// T003 — `ComponentPreview`: `registry_index` JSON file failed to
-  /// read.
+  /// T003 - `ComponentPreview`: `registry_index` JSON file failed to read.
   #[cfg(feature = "transform")]
   RegistryIndexUnreadable,
-  /// T004 — `ComponentPreview`: `registry_index` content was not valid
-  /// JSON.
+  /// T004 - `ComponentPreview`: `registry_index` content was not valid JSON.
   #[cfg(feature = "transform")]
   RegistryIndexMalformed,
-  /// T005 — `ComponentPreview`: requested `name` not found in the
-  /// registry index.
+  /// T005 - `ComponentPreview`: requested `name` not found in the registry index.
   #[cfg(feature = "transform")]
   RegistryEntryNotFound,
-  /// T006 — `ComponentPreview`: registry entry's first file path could
-  /// not be read.
+  /// T006 - `ComponentPreview`: registry entry's first file path could not be read.
   #[cfg(feature = "transform")]
   RegistrySourceUnreadable,
-  /// T007 — `ComponentSource`: `path=` attribute pointed to a file that
-  /// could not be read.
+  /// T007 - `ComponentSource`: `path=` attribute pointed to an unreadable file.
   #[cfg(feature = "transform")]
   ComponentSourceUnreadable,
-  /// T008 — `CopyLinkedFiles`: write to `assets_dir` failed mid-publish.
+  /// T008 - `CopyLinkedFiles`: write to `assets_dir` failed mid-publish.
   #[cfg(feature = "transform")]
   AssetCopyFailed,
-  /// T009 — `Mermaid`: `mmdc` exited non-zero or produced no SVG.
+  /// T009 - `Mermaid`: `mmdc` exited non-zero or produced no SVG.
   #[cfg(feature = "transform")]
   MermaidRenderFailed,
 
-  /// TW001 — `Mermaid`: `mmdc` CLI is not on PATH; the transformer
-  /// becomes a no-op.
+  /// TW001 - `Mermaid`: `mmdc` CLI is not on PATH; the transformer becomes a no-op.
   #[cfg(feature = "transform")]
   MmdcUnavailable,
-  /// TW002 — `ComponentPreview` / `ComponentSource`: required `name` /
-  /// `path` attribute is missing on the JSX node.
+  /// TW002 - `ComponentPreview` / `ComponentSource`: required `name` / `path` attribute is missing.
   #[cfg(feature = "transform")]
   MissingComponentAttr,
-  /// TW003 — `CopyLinkedFiles`: a referenced asset path did not exist;
-  /// the original `src` / `href` is preserved.
+  /// TW003 - `CopyLinkedFiles`: a referenced asset path did not exist; original `src` / `href` preserved.
   #[cfg(feature = "transform")]
   AssetSourceMissing,
-  /// TW004 — `CodeImport` / `ComponentSource`: source was not on disk
-  /// (`Origin::Stdin` / `Inline` / `Memory`) and no explicit `base_dir`
-  /// was set, so relative `file=` / `path=` paths can't be resolved.
+  /// TW004 - `CodeImport` / `ComponentSource`: non-disk source (`Origin::Stdin` /
+  /// `Inline` / `Memory`) without an explicit `base_dir`, so relative `file=` /
+  /// `path=` paths can't be resolved.
   #[cfg(feature = "transform")]
   BaseDirNotFound,
 
   // ===================================================================
-  // Codegen — feature = "codegen"
+  // Codegen - feature = "codegen"
   // ===================================================================
-  /// G001 — Codegen encountered a JSX tag with an empty / invalid name.
+  /// G001 - Codegen encountered a JSX tag with an empty / invalid name.
   #[cfg(feature = "codegen")]
   MalformedJsxTagName,
 
-  /// GW001 — `MdxBodyEmitter`: GFM `Table` node dropped (MDX body emitter
-  /// has no inline table renderer yet). Run `disable-gfm` first to convert
-  /// tables to plain text.
+  /// GW001 - `MdxBodyEmitter`: GFM `Table` node dropped (no inline table renderer
+  /// yet). Run `disable-gfm` first to convert tables to plain text.
   #[cfg(feature = "codegen")]
   MdxTableUnsupported,
-  /// GW002 — `HtmlEmitter`: raw `JsxExpression` discarded (HTML output
-  /// can't run JS); use the MDX body emitter for full JSX support.
+  /// GW002 - `HtmlEmitter`: raw `JsxExpression` discarded (HTML output can't run JS);
+  /// use the MDX body emitter for full JSX support.
   #[cfg(feature = "codegen")]
   HtmlExpressionDropped,
 
   // ===================================================================
-  // User-defined escape hatch — always available
+  // User-defined escape hatch - always available
   // ===================================================================
   /// Carry an arbitrary code string + explicit severity through the same
-  /// engine. Used by third-party transformer authors who don't want to
-  /// fork this enum. Prefer adding a typed variant when contributing
-  /// upstream.
+  /// engine. For third-party transformer authors who don't want to fork this
+  /// enum. Prefer adding a typed variant when contributing upstream.
   Custom { code: String, severity: Severity },
 }
 

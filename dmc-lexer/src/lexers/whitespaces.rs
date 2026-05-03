@@ -7,8 +7,8 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
     self.emit(TokenKind::Whitespace)
   }
 
-  /// Account for the just-consumed newline plus any consecutive newlines.
-  /// Emits `HardBreak` for blank-line separators (>=2 newlines), else `SoftBreak`.
+  /// Account for the just-consumed `\n` plus any consecutive newlines. Emits
+  /// `HardBreak` for blank-line separators (>=2 newlines), else `SoftBreak`.
   pub(crate) fn lex_newline(&mut self) {
     // The original `\n` that triggered this call is already consumed by the caller.
     self.line += 1;
