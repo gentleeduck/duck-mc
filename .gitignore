@@ -7,4 +7,5 @@ node_modules
 **/.velite
 **/dist
 **/*.node
-**/temp
+**/tmp
+**/docs
