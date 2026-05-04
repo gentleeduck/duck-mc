@@ -49,10 +49,10 @@ module.exports = { doc, post };
 import type docConfig from "<config_path>";
 
 export type DocCollection = (typeof docConfig)["collections"]["docs"]["schema"];
-export const doc: import("@duck/md").TypeOf<DocCollection>[];
+export const doc: import("@gentleduck/md").TypeOf<DocCollection>[];
 
 export type PostCollection = (typeof docConfig)["collections"]["posts"]["schema"];
-export const post: import("@duck/md").TypeOf<PostCollection>[];
+export const post: import("@gentleduck/md").TypeOf<PostCollection>[];
 ```
 
 When `config_path` is `None`, types fall back to `unknown[]`.

@@ -6,7 +6,7 @@ documented in `dmc-docs/dmc-schema/descriptors.md`.
 ## Import
 
 ```ts
-import { s } from "@duck/md";
+import { s } from "@gentleduck/md";
 ```
 
 ## Primitives
@@ -140,7 +140,7 @@ type Post = s.infer<typeof Post>;
 ```
 
 `s.infer<T>` walks the schema and extracts the TS type.
-`@duck/md`'s `index.d.ts` uses this so the generated record types
+`@gentleduck/md`'s `index.d.ts` uses this so the generated record types
 flow through to consumer code.
 
 ## Error format

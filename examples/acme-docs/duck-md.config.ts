@@ -1,4 +1,4 @@
-import { defineConfig, definePlugin, s } from "@duck/md";
+import { defineConfig, definePlugin, s } from "@gentleduck/md";
 import remarkGfm from "remark-gfm";
 import rehypeSlug from "rehype-slug";
 import rehypeAutolinkHeadings from "rehype-autolink-headings";

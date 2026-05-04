@@ -196,7 +196,7 @@ the gate strips every plugin.
 ## Custom file type via loader
 
 ```ts
-import { defineLoader } from "@duck/md";
+import { defineLoader } from "@gentleduck/md";
 import yaml from "js-yaml";
 
 const yamlLoader = defineLoader({
@@ -256,7 +256,7 @@ fn drops_javascript_images() {
 ## Programmatic compile (one-shot)
 
 ```ts
-import { compile } from "@duck/md";
+import { compile } from "@gentleduck/md";
 
 const out = compile(`---
 title: hi

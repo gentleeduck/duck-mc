@@ -14,7 +14,7 @@ What dmc runs on, what versions of related ecosystems it speaks.
 | Windows x64 | `dmc.win32-x64-msvc.node` | planned |
 
 The napi-rs build script targets each in `napi.triples`; CI publishes
-prebuilt binaries to npm. From source: `pnpm --filter @duck/md run
+prebuilt binaries to npm. From source: `pnpm --filter @gentleduck/md run
 build` produces a binary for the host platform.
 
 ## Node

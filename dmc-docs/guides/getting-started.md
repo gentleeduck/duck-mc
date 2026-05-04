@@ -3,7 +3,7 @@
 ## Install
 
 ```bash
-pnpm add @duck/md
+pnpm add @gentleduck/md
 ```
 
 Pulls the prebuilt `*.node` binary for your platform.
@@ -25,7 +25,7 @@ Skip if you already have a config.
 
 ```ts
 // duck-md.config.ts
-import { defineConfig, s } from "@duck/md";
+import { defineConfig, s } from "@gentleduck/md";
 
 export default defineConfig({
   root: "content",

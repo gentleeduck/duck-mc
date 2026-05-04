@@ -55,7 +55,7 @@ napi binary.
 ## Programmatic compile (JS)
 
 ```ts
-import { compile } from "@duck/md";
+import { compile } from "@gentleduck/md";
 
 const out = compile(`---
 title: Hi

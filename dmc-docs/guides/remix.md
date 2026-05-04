@@ -7,7 +7,7 @@ modules from your routes.
 ## Install
 
 ```bash
-pnpm add -D @duck/md
+pnpm add -D @gentleduck/md
 ```
 
 ## Vite plugin
@@ -17,7 +17,7 @@ pnpm add -D @duck/md
 ```ts
 import { vitePlugin as remix } from "@remix-run/dev";
 import { defineConfig } from "vite";
-import { dmc } from "@duck/md/vite";
+import { dmc } from "@gentleduck/md/vite";
 
 export default defineConfig({
   plugins: [
@@ -38,7 +38,7 @@ export default defineConfig({
 `dmc.config.ts`:
 
 ```ts
-import { defineConfig } from "@duck/md";
+import { defineConfig } from "@gentleduck/md";
 
 export default defineConfig({
   output: { data: ".dmc", clean: true },

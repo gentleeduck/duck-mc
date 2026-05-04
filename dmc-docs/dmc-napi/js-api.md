@@ -22,7 +22,7 @@ defineConfig({
 ## Collection callbacks
 
 ```ts
-import { defineCollection } from "@duck/md";
+import { defineCollection } from "@gentleduck/md";
 
 const posts = defineCollection({
   name: "post",
@@ -41,7 +41,7 @@ replaces the record.
 ## Custom loaders
 
 ```ts
-import { defineLoader } from "@duck/md";
+import { defineLoader } from "@gentleduck/md";
 
 const yaml = defineLoader({
   test: /\.ya?ml$/,

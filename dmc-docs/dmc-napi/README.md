@@ -1,12 +1,12 @@
 # dmc-napi
 
-JS bindings for the dmc engine. Published as `@duck/md` on npm.
+JS bindings for the dmc engine. Published as `@gentleduck/md` on npm.
 
 ## Architecture
 
 ```mermaid
 flowchart LR
-    User[TS/JS app] --> Pkg[@duck/md mod.ts]
+    User[TS/JS app] --> Pkg[@gentleduck/md mod.ts]
     Pkg --> Native[dmc.linux-x64-gnu.node<br/>napi-rs cdylib]
     Native --> Core[dmc-core Engine]
     Core --> Cargo[dmc-parser / dmc-transform / dmc-codegen]

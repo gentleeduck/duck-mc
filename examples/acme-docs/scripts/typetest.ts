@@ -1,4 +1,4 @@
-import { definePlugin } from "@duck/md";
+import { definePlugin } from "@gentleduck/md";
 import rehypePrettyCode from "rehype-pretty-code";
 import rehypeAutolinkHeadings from "rehype-autolink-headings";
 

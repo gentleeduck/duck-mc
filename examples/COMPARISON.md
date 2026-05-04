@@ -22,7 +22,7 @@ From the repo root:
 
 ```bash
 # build the napi binary once (rust -> .node)
-pnpm --filter @duck/md run build
+pnpm --filter @gentleduck/md run build
 
 # dmc app on http://localhost:3000
 pnpm --filter dmc-nextjs dev
@@ -69,7 +69,7 @@ Reload, view source, diff the served HTML.
 ## Files of interest
 
 - `examples/nextjs/duck-md.config.ts` - dmc config; note `output.html: true`
-- `examples/nextjs/scripts/build-content.ts` - calls `build()` from `@duck/md`
+- `examples/nextjs/scripts/build-content.ts` - calls `build()` from `@gentleduck/md`
 - `examples/nextjs-velite/velite.config.ts` - velite config; the JS plugin chain
 - `examples/nextjs/app/docs/[slug]/page.tsx` and the velite mirror -
   identical shape, different dataset imports.

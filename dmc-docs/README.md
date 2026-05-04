@@ -1,6 +1,10 @@
+<p align="center">
+  <img src="../public/logo-dark.svg" alt="dmc" width="96"/>
+</p>
+
 # dmc Documentation
 
-Per-crate reference + architecture + user guides for `@duck/md`.
+Per-crate reference + architecture + user guides for `@gentleduck/md`.
 
 ## Layout
 
@@ -36,7 +40,7 @@ dmc-docs/
 |- dmc-diagnostic/          shared diagnostic codes + spans
 |- dmc-schema/              frontmatter validation
 |- dmc-core/                engine (compile + cache + sidecar)
-|- dmc-napi/                JS bindings (@duck/md npm package)
+|- dmc-napi/                JS bindings (@gentleduck/md npm package)
 `- dmc-sidecar/             Node helper for foreign remark/rehype plugins
 ```
 

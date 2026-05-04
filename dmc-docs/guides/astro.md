@@ -6,14 +6,14 @@ shape Astro's content collections expect.
 ## Install
 
 ```bash
-pnpm add @duck/md
+pnpm add @gentleduck/md
 ```
 
 ## Config
 
 ```ts
 // duck-md.config.ts
-import { defineConfig, s } from "@duck/md";
+import { defineConfig, s } from "@gentleduck/md";
 
 export default defineConfig({
   root: "src/content",
@@ -36,7 +36,7 @@ export default defineConfig({
 
 ```ts
 // scripts/build-content.ts
-import { build } from "@duck/md";
+import { build } from "@gentleduck/md";
 import config from "../duck-md.config";
 await build(config);
 ```

@@ -30,7 +30,7 @@ cargo test  --workspace
 cargo build --release -p dmc-core --features pretty-code
 
 # napi binary (refresh after Rust changes)
-pnpm --filter @duck/md run build
+pnpm --filter @gentleduck/md run build
 
 # example apps
 pnpm --filter dmc-nextjs dev

@@ -3,7 +3,7 @@
 ## Minimal config
 
 ```ts
-import { defineConfig, s } from "@duck/md";
+import { defineConfig, s } from "@gentleduck/md";
 
 export default defineConfig({
   root: "content",
@@ -24,7 +24,7 @@ export default defineConfig({
 ## Multi-collection with hooks
 
 ```ts
-import { defineConfig, s } from "@duck/md";
+import { defineConfig, s } from "@gentleduck/md";
 
 export default defineConfig({
   root: "content",
@@ -61,7 +61,7 @@ export default defineConfig({
 ## Programmatic build (Node)
 
 ```ts
-import { build } from "@duck/md";
+import { build } from "@gentleduck/md";
 import config from "./duck-md.config";
 
 const report = await build(config);
@@ -76,7 +76,7 @@ if (report.errors.length) {
 ## One-shot compile
 
 ```ts
-import { compile } from "@duck/md";
+import { compile } from "@gentleduck/md";
 
 const out = compile(`---
 title: Hello
@@ -98,7 +98,7 @@ or programmatic doc inspection.
 ## Direct LaTeX render
 
 ```ts
-import { latexToHtml } from "@duck/md";
+import { latexToHtml } from "@gentleduck/md";
 
 const inline = latexToHtml("E = mc^2", false);
 const block  = latexToHtml("\\int_0^1 x^2 \\, dx", true);

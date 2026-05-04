@@ -6,14 +6,14 @@ same way: build content to JSON before vite starts, import the JSON.
 ## Install
 
 ```bash
-pnpm add @duck/md
+pnpm add @gentleduck/md
 ```
 
 ## Config
 
 ```ts
 // duck-md.config.ts
-import { defineConfig, s } from "@duck/md";
+import { defineConfig, s } from "@gentleduck/md";
 
 export default defineConfig({
   root: "src/content",

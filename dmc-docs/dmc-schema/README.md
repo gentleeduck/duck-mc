@@ -5,7 +5,7 @@ Frontmatter validation. Takes a `serde_json::Value` (parsed YAML/TOML/JSON front
 Two ways to build a schema:
 
 1. Rust-side, via the `s::*` builder (`s::object`, `s::string().min(2)`, ...). Used by tests and any pure-Rust caller.
-2. JS-side, via the `@duck/md` `s.object(...)` builder. The JS builder serialises every node to a JSON descriptor (`{kind: "string", min: 2, ...}`). The Rust adapter calls `compile_descriptor(&value)` to materialise a `Box<dyn Schema>`. This is the path taken when the engine runs from Node.
+2. JS-side, via the `@gentleduck/md` `s.object(...)` builder. The JS builder serialises every node to a JSON descriptor (`{kind: "string", min: 2, ...}`). The Rust adapter calls `compile_descriptor(&value)` to materialise a `Box<dyn Schema>`. This is the path taken when the engine runs from Node.
 
 `transform` and `refine` predicates are JS closures and cannot cross FFI; the Rust compiler skips them and validates the inner schema only. Hooks re-run on the JS side after Rust validation.
 

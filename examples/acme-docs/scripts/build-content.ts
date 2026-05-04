@@ -1,4 +1,4 @@
-import { build } from "@duck/md";
+import { build } from "@gentleduck/md";
 import config from "../dmc.config.js";
 
 async function main() {

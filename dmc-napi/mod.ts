@@ -43,7 +43,7 @@ export function definePlugin<P extends Plugin>(
 const require = createRequire(import.meta.url);
 const native = require("./index.js");
 
-// Resolve sidecar entry relative to @duck/md package + propagate via env
+// Resolve sidecar entry relative to @gentleduck/md package + propagate via env
 function resolveSidecar(): string | null {
 	const here = dirname(fileURLToPath(import.meta.url));
 	const candidates = [

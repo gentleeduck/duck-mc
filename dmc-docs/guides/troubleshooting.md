@@ -1,6 +1,6 @@
 # Troubleshooting
 
-## Build fails with "Cannot find module '@duck/md-linux-x64-gnu'"
+## Build fails with "Cannot find module '@gentleduck/md-linux-x64-gnu'"
 
 The platform-specific binary did not get installed. Causes:
 
@@ -133,7 +133,7 @@ transformer for visibility.
 ## Reach for the lower layers
 
 ```ts
-import { compile } from "@duck/md";
+import { compile } from "@gentleduck/md";
 
 const out = compile(`# hi\n\n*world*`);
 console.dir(out, { depth: null });

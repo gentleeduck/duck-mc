@@ -92,4 +92,4 @@ export { doc, post };
 ```
 
 Plus `index.d.ts` typed via `typeof import(config)["collections"]` so
-`@duck/md`'s `defineConfig` types flow through.
+`@gentleduck/md`'s `defineConfig` types flow through.

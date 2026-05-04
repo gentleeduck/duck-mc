@@ -1,6 +1,6 @@
 # dmc-napi internals
 
-Bridge between the JS world (`@duck/md` npm package) and Rust
+Bridge between the JS world (`@gentleduck/md` npm package) and Rust
 (`dmc-core` engine). Built with napi-rs.
 
 ## Layout
@@ -11,7 +11,7 @@ dmc-napi/
 |- mod.ts                  TypeScript wrapper; schema builder + helpers
 |- index.js                napi-rs generated loader (binary lookup)
 |- index.d.ts              napi-rs generated TS declarations
-|- package.json            npm metadata (name = @duck/md)
+|- package.json            npm metadata (name = @gentleduck/md)
 |- *.node                  prebuilt platform binary
 |- build.rs                napi-rs build helper
 |- Cargo.toml              cdylib crate
@@ -46,7 +46,7 @@ exception.
 ## Build pipeline
 
 ```bash
-pnpm --filter @duck/md run build
+pnpm --filter @gentleduck/md run build
 # runs:
 napi build --platform --release
 ```
@@ -61,7 +61,7 @@ napi build:
 
 `index.js` (generated) tries each known platform triple in order;
 the first that exists loads. Falls back to npm scoped packages
-(`@duck/md-linux-x64-gnu`, etc) when the binary is in a separate
+(`@gentleduck/md-linux-x64-gnu`, etc) when the binary is in a separate
 package (npm-distribution path).
 
 ## TypeScript wrapper
@@ -188,15 +188,15 @@ not edit by hand; regenerate after changing Rust signatures.
 
 CI matrix builds the binary on every supported platform; npm
 package ships the prebuilt `*.node` files via optional
-platform-specific subpackages (`@duck/md-linux-x64-gnu`, etc) so
+platform-specific subpackages (`@gentleduck/md-linux-x64-gnu`, etc) so
 consumers download only their platform.
 
 ## Local dev
 
 ```bash
-pnpm --filter @duck/md run build    # rebuild after Rust edits
+pnpm --filter @gentleduck/md run build    # rebuild after Rust edits
 pnpm --filter dmc-nextjs dev         # demo app picks up new binary
 ```
 
-The example apps depend on `@duck/md: workspace:*`, so a fresh build
+The example apps depend on `@gentleduck/md: workspace:*`, so a fresh build
 flows through immediately.

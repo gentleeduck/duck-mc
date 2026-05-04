@@ -1,5 +1,5 @@
 {
-	"name": "@duck/md",
+	"name": "@gentleduck/md",
 	"version": "0.1.0",
 	"type": "module",
 	"main": "mod.ts",
@@ -14,7 +14,9 @@
 		"mod.ts",
 		"index.js",
 		"index.d.ts",
-		"*.node"
+		"*.node",
+		"README.md",
+		"logo-dark.svg"
 	],
 	"napi": {
 		"name": "dmc",

@@ -1,4 +1,4 @@
-import { defineConfig } from "@duck/md";
+import { defineConfig } from "@gentleduck/md";
 
 export default defineConfig({
   outputDir: ".gentleduck",

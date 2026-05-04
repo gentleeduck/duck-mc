@@ -7,7 +7,7 @@ validation.
 ## API
 
 ```ts
-import { defineLoader } from "@duck/md";
+import { defineLoader } from "@gentleduck/md";
 
 export type Loader = {
   test: RegExp | string;
@@ -28,7 +28,7 @@ Path: `dmc_napi::Loader`. Configured via `UserConfig.loaders`.
 
 ```ts
 import yaml from "js-yaml";
-import { defineConfig, defineLoader, s } from "@duck/md";
+import { defineConfig, defineLoader, s } from "@gentleduck/md";
 
 const yamlLoader = defineLoader({
   test: /\.ya?ml$/,

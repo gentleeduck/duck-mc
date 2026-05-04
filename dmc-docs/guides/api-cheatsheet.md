@@ -6,7 +6,7 @@ docs for details.
 ## TypeScript / npm
 
 ```ts
-import { defineConfig, defineCollection, defineLoader, s, build, compile, latexToHtml } from "@duck/md";
+import { defineConfig, defineCollection, defineLoader, s, build, compile, latexToHtml } from "@gentleduck/md";
 
 defineConfig({
   root: "content",

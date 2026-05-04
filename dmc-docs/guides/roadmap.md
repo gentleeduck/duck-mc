@@ -19,7 +19,7 @@ What is shipping next, what is parked, what is out of scope.
 - [x] TS / JS / MJS config support via bun + tsx fallback
 - [x] Schema validation via Zod-style descriptors
 - [x] CLI (`dmc build`, `dmc dev`, `dmc init`)
-- [x] napi binary (`@duck/md` on npm)
+- [x] napi binary (`@gentleduck/md` on npm)
 - [x] Side-by-side example apps (Next.js dmc + Next.js velite)
 
 ## Up next (0.2.x)

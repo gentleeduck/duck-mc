@@ -90,7 +90,7 @@ single = false
 ## TS config
 
 ```ts
-import { defineConfig, s } from "@duck/md";
+import { defineConfig, s } from "@gentleduck/md";
 
 export default defineConfig({
   root: "content",

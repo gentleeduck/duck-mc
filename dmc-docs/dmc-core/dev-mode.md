@@ -11,7 +11,7 @@ dmc dev
 Or via napi:
 
 ```ts
-import { build } from "@duck/md";
+import { build } from "@gentleduck/md";
 import config from "./duck-md.config";
 
 await build(config);   // initial pass

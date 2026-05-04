@@ -7,7 +7,7 @@ minimal edits.
 
 ```diff
 - import { defineConfig, s } from "velite";
-+ import { defineConfig, s } from "@duck/md";
++ import { defineConfig, s } from "@gentleduck/md";
 ```
 
 ## Output dir
@@ -78,7 +78,7 @@ all collections written).
 
 ```ts
 // scripts/build-content.ts
-import { build } from "@duck/md";
+import { build } from "@gentleduck/md";
 import config from "../duck-md.config";
 
 await build(config);
@@ -124,12 +124,12 @@ faster** with cache warm vs velite cold.
 
 ```diff
 - "velite": "^0.3"
-+ "@duck/md": "^0.1"
++ "@gentleduck/md": "^0.1"
 ```
 
 ```bash
 rm -rf .velite/
-pnpm add @duck/md
+pnpm add @gentleduck/md
 pnpm dmc build
 ```
 

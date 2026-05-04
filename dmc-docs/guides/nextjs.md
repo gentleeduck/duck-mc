@@ -6,14 +6,14 @@ End-to-end recipe. See `examples/nextjs/` for a working app.
 
 ```bash
 cd my-next-app
-pnpm add @duck/md
+pnpm add @gentleduck/md
 ```
 
 ## Config
 
 ```ts
 // duck-md.config.ts
-import { defineConfig, s } from "@duck/md";
+import { defineConfig, s } from "@gentleduck/md";
 
 export default defineConfig({
   root: "content",
@@ -36,7 +36,7 @@ export default defineConfig({
 
 ```ts
 // scripts/build-content.ts
-import { build } from "@duck/md";
+import { build } from "@gentleduck/md";
 import config from "../duck-md.config";
 
 const report = await build(config);
@@ -136,7 +136,7 @@ editing, run `pnpm dmc dev` in a second terminal so the
 
 ## Type flow
 
-`@duck/md` writes `.gentleduck/index.d.ts` that re-exports each
+`@gentleduck/md` writes `.gentleduck/index.d.ts` that re-exports each
 collection's record type via `typeof import(config)`. So:
 
 ```ts

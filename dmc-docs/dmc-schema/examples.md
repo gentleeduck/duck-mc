@@ -58,7 +58,7 @@ diagnostic.
 ## In a velite-style config
 
 ```ts
-import { defineConfig, s } from "@duck/md";
+import { defineConfig, s } from "@gentleduck/md";
 
 export default defineConfig({
   collections: {
