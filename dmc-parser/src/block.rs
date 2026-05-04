@@ -326,12 +326,31 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       }
 
       self.consume_blockquote_markers(line_markers);
+      let top = children.len() - 1;
+
+      // List marker after the blockquote prefix: parse a list as a
+      // child of the current blockquote level. Flush any pending
+      // paragraph first so the list lands as a sibling of it.
+      let after_marker_kind = match self.peek_kind() {
+        Some(k) => k.clone(),
+        None => break,
+      };
+      if matches!(after_marker_kind, TokenKind::UnorderedListItem | TokenKind::OrderedListItem) {
+        if !paragraphs[top].is_empty() {
+          let para = std::mem::take(&mut paragraphs[top]);
+          children[top].push(Node::Paragraph(Paragraph { children: para, span: para_span.clone() }));
+        }
+        let ordered = matches!(after_marker_kind, TokenKind::OrderedListItem);
+        let list = self.parse_list_in_blockquote(ordered, line_markers);
+        children[top].push(list);
+        continue;
+      }
+
       let inline = self.collect_inline_until_break();
       let break_kind = self.peek_kind().cloned();
       if matches!(break_kind, Some(TokenKind::SoftBreak) | Some(TokenKind::HardBreak)) {
         self.advance();
       }
-      let top = children.len() - 1;
       if inline.is_empty() {
         if !paragraphs[top].is_empty() {
           let para = std::mem::take(&mut paragraphs[top]);
@@ -360,6 +379,70 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       root.push(Node::Paragraph(Paragraph { children: last_para, span: para_span }));
     }
     Node::Blockquote(Blockquote { children: root, span })
+  }
+
+  /// Parse a list nested inside a blockquote at the given depth. Each
+  /// item line is preceded by `depth` `>` markers (already consumed for
+  /// the first item by the caller). For subsequent items we skip the
+  /// `>` markers ourselves before reading the next list marker.
+  fn parse_list_in_blockquote(&mut self, ordered: bool, bq_depth: usize) -> Node {
+    let span = self.current_span();
+    let start: Option<u32> =
+      if ordered { self.peek().and_then(|t| t.raw.trim_end_matches('.').parse::<u32>().ok()) } else { None };
+    let mut items: Vec<Node> = Vec::new();
+    let mut first = true;
+
+    loop {
+      if !first {
+        // Already advanced past softbreak from previous iter; skip
+        // the next line's `>` markers, then check for another marker.
+        let saved = self.pos;
+        let next_count = self.count_line_blockquote_markers();
+        if next_count < bq_depth {
+          self.pos = saved;
+          break;
+        }
+        self.consume_blockquote_markers(bq_depth);
+      }
+      first = false;
+
+      let kind = match self.peek_kind() {
+        Some(k) => k,
+        None => break,
+      };
+      let want_marker = if ordered {
+        matches!(kind, TokenKind::OrderedListItem)
+      } else {
+        matches!(kind, TokenKind::UnorderedListItem)
+      };
+      if !want_marker {
+        break;
+      }
+      self.advance();
+
+      if ordered {
+        let is_text = matches!(self.peek_kind(), Some(TokenKind::Text));
+        let raw_opt: Option<&'tokens str> = if is_text { self.peek_raw() } else { None };
+        if let Some(raw) = raw_opt {
+          let trimmed = raw.strip_prefix('.').unwrap_or(raw).trim_start_matches([' ', '\t']);
+          if trimmed.is_empty() {
+            self.advance();
+          } else if trimmed.len() != raw.len() {
+            let pos = self.pos;
+            self.tokens[pos].raw = trimmed;
+          }
+        }
+      }
+
+      let item = self.parse_one_list_item(ordered);
+      items.push(item);
+
+      if matches!(self.peek_kind(), Some(TokenKind::SoftBreak) | Some(TokenKind::HardBreak)) {
+        self.advance();
+      }
+    }
+
+    Node::List(List { ordered, start, children: items, span })
   }
 
   /// Pop the deepest blockquote level: flush any pending paragraph,
