@@ -18,7 +18,7 @@ fn first_jsx(d: &Document) -> &JsxElement {
 
 /// Find the `<pre>` child of the figure wrapper. Skips the optional
 /// `<figcaption>` if a title was set.
-fn inner_pre<'a>(figure: &'a JsxElement) -> &'a JsxElement {
+fn inner_pre(figure: &JsxElement) -> &JsxElement {
   figure
     .children
     .iter()
@@ -29,7 +29,7 @@ fn inner_pre<'a>(figure: &'a JsxElement) -> &'a JsxElement {
     .expect("figure should contain a <pre>")
 }
 
-fn attr<'a>(el: &'a JsxElement, name: &str) -> Option<&'a JsxAttrValue> {
+fn attr(el: &JsxElement, name: &str) -> Option<&JsxAttrValue> {
   el.attrs.iter().find(|a| a.name == name).map(|a| &a.value)
 }
 
