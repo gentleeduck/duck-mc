@@ -15,10 +15,7 @@ fn h1_with_id() {
     span: dmc_parser::ast::default_span(),
     children: vec![Node::Heading(Heading {
       level: 1,
-      children: vec![Node::Text(Text {
-        value: "Hello".into(),
-        span: dmc_parser::ast::default_span(),
-      })],
+      children: vec![Node::Text(Text { value: "Hello".into(), span: dmc_parser::ast::default_span() })],
       span: dmc_parser::ast::default_span(),
     })],
   };

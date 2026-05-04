@@ -32,8 +32,7 @@ fn mdx_module_format_is_valid_esm_shape() {
   };
   let _ = run(&cfg).unwrap();
   let json: serde_json::Value =
-    serde_json::from_str(&std::fs::read_to_string(dir.path().join(".out/doc.json")).unwrap())
-      .unwrap();
+    serde_json::from_str(&std::fs::read_to_string(dir.path().join(".out/doc.json")).unwrap()).unwrap();
   let body = json[0]["body"].as_str().unwrap();
   assert!(body.contains("import { Fragment as _Fragment"));
   assert!(body.contains("export default function MDXContent"));
@@ -50,11 +49,8 @@ fn record_count_accurate_for_mdx_w_literal_field_name() {
   let dir = tempfile::tempdir().unwrap();
   let docs = dir.path().join("docs");
   std::fs::create_dir_all(&docs).unwrap();
-  std::fs::write(
-    docs.join("a.mdx"),
-    "---\ntitle: A\n---\nThe field is `sourceFilePath` and `sourceFilePath` again.\n",
-  )
-  .unwrap();
+  std::fs::write(docs.join("a.mdx"), "---\ntitle: A\n---\nThe field is `sourceFilePath` and `sourceFilePath` again.\n")
+    .unwrap();
 
   let cfg = EngineConfig {
     output_dir: dir.path().join(".out"),

@@ -234,15 +234,7 @@ struct Stats {
 impl Stats {
   fn from_samples(mut samples: Vec<f64>) -> Self {
     if samples.is_empty() {
-      return Self {
-        samples,
-        min: 0.0,
-        median: 0.0,
-        p95: 0.0,
-        max: 0.0,
-        mean: 0.0,
-        stddev: 0.0,
-      };
+      return Self { samples, min: 0.0, median: 0.0, p95: 0.0, max: 0.0, mean: 0.0, stddev: 0.0 };
     }
     samples.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
     let n = samples.len();
@@ -319,10 +311,7 @@ fn sidecar_path() -> PathBuf {
 }
 
 fn check_node() -> Result<(), String> {
-  Command::new("node")
-    .arg("--version")
-    .output()
-    .map_err(|e| format!("node not on PATH: {e}"))?;
+  Command::new("node").arg("--version").output().map_err(|e| format!("node not on PATH: {e}"))?;
   Ok(())
 }
 
@@ -544,19 +533,13 @@ fn measure_sidecar_scale(
 /// Run velite against the same fixtures. Sets up a tempdir with a
 /// velite.config.ts, symlinks node_modules from bench-deps, then times
 /// `node node_modules/velite/dist/cli.js build` per scale point.
-fn measure_velite_scale(
-  n: usize,
-  fixture: &str,
-  deps: &Path,
-  velite_config: &str,
-) -> Result<Stats, String> {
+fn measure_velite_scale(n: usize, fixture: &str, deps: &Path, velite_config: &str) -> Result<Stats, String> {
   let tmp = TempDir::new().map_err(|e| e.to_string())?;
   write_fixtures_with(tmp.path(), n, fixture);
 
   // Symlink node_modules so velite finds its own internals.
   #[cfg(unix)]
-  std::os::unix::fs::symlink(deps.join("node_modules"), tmp.path().join("node_modules"))
-    .map_err(|e| e.to_string())?;
+  std::os::unix::fs::symlink(deps.join("node_modules"), tmp.path().join("node_modules")).map_err(|e| e.to_string())?;
   #[cfg(not(unix))]
   return Err("velite bench currently unix-only (symlink)".into());
 
@@ -611,10 +594,10 @@ fn fmt_stats_ms(s: &Stats, n: usize) -> String {
 
 fn variant_color(idx: usize) -> RGBColor {
   match idx % 4 {
-    0 => RGBColor(30, 110, 200),  // blue   - native
-    1 => RGBColor(220, 80, 60),   // red    - sidecar light
-    2 => RGBColor(200, 140, 40),  // orange - sidecar heavy
-    _ => RGBColor(80, 160, 80),   // green  - velite
+    0 => RGBColor(30, 110, 200), // blue   - native
+    1 => RGBColor(220, 80, 60),  // red    - sidecar light
+    2 => RGBColor(200, 140, 40), // orange - sidecar heavy
+    _ => RGBColor(80, 160, 80),  // green  - velite
   }
 }
 
@@ -624,11 +607,7 @@ fn plot_scale(out: &Path, variants: &[Variant]) -> Result<(), Box<dyn std::error
   root.fill(&WHITE)?;
 
   let max_x = SCALES.last().copied().unwrap_or(1) as f64;
-  let max_y = variants
-    .iter()
-    .flat_map(|v| v.points.iter().map(|p| p.stats.median))
-    .fold(0.0_f64, f64::max)
-    * 1.15;
+  let max_y = variants.iter().flat_map(|v| v.points.iter().map(|p| p.stats.median)).fold(0.0_f64, f64::max) * 1.15;
 
   let mut chart = ChartBuilder::on(&root)
     .margin(20)
@@ -649,20 +628,11 @@ fn plot_scale(out: &Path, variants: &[Variant]) -> Result<(), Box<dyn std::error
     let color = variant_color(i);
     let label = v.label.clone();
     chart
-      .draw_series(LineSeries::new(
-        v.points.iter().map(|p| (p.files as f64, p.stats.median)),
-        color.stroke_width(3),
-      ))?
+      .draw_series(LineSeries::new(v.points.iter().map(|p| (p.files as f64, p.stats.median)), color.stroke_width(3)))?
       .label(label)
-      .legend(move |(x, y)| {
-        PathElement::new(vec![(x, y), (x + 20, y)], color.stroke_width(3))
-      });
+      .legend(move |(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], color.stroke_width(3)));
     for p in &v.points {
-      chart.draw_series(std::iter::once(Circle::new(
-        (p.files as f64, p.stats.median),
-        4,
-        color.filled(),
-      )))?;
+      chart.draw_series(std::iter::once(Circle::new((p.files as f64, p.stats.median), 4, color.filled())))?;
     }
   }
 
@@ -705,10 +675,7 @@ fn plot_throughput(out: &Path, variants: &[Variant], target_n: usize) -> Result<
     .draw()?;
 
   for (i, (_, fps, color)) in bars.iter().enumerate() {
-    chart.draw_series(std::iter::once(Rectangle::new(
-      [(i, 0.0), (i + 1, *fps)],
-      color.filled(),
-    )))?;
+    chart.draw_series(std::iter::once(Rectangle::new([(i, 0.0), (i + 1, *fps)], color.filled())))?;
   }
 
   root.present()?;
@@ -834,10 +801,7 @@ fn run_per_file_sweep() -> Vec<PerFileEntry> {
   out
 }
 
-fn run_scale_variants(
-  variants: &mut Vec<Variant>,
-  skipped: &mut Vec<SkipNote>,
-) {
+fn run_scale_variants(variants: &mut Vec<Variant>, skipped: &mut Vec<SkipNote>) {
   // 1. Native ---------------------------------------------------------------
   println!("\n[native, no plugins]  {} iters after {} warmup, cold rebuild", SCALE_ITERS, SCALE_WARMUP);
   let mut native_points = Vec::new();
@@ -922,13 +886,7 @@ fn run_scale_variants(
   for &n in SCALES {
     print!("      N={n:>5} ... ");
     std::io::stdout().flush().ok();
-    let stats = measure_sidecar_scale(
-      n,
-      HEAVY_FIXTURE,
-      &kitchen_remark(),
-      &kitchen_rehype(),
-      Some(&deps),
-    );
+    let stats = measure_sidecar_scale(n, HEAVY_FIXTURE, &kitchen_remark(), &kitchen_rehype(), Some(&deps));
     println!("{}", fmt_stats_ms(&stats, n));
     points.push(ScalePoint { files: n, stats });
   }
@@ -1070,11 +1028,7 @@ fn plot_table(out: &Path, report: &Report) -> Result<(), Box<dyn std::error::Err
     (20, 14),
   )?;
   let subtitle = ("sans-serif", 13, &RGBColor(110, 110, 110)).into_text_style(&root);
-  root.draw_text(
-    "median wall time at each scale; lower is better",
-    &subtitle,
-    (20, 36),
-  )?;
+  root.draw_text("median wall time at each scale; lower is better", &subtitle, (20, 36))?;
 
   // Header bg.
   let mut x = 20i32;
@@ -1129,7 +1083,10 @@ fn main() {
   let out = out_dir();
   println!("output: {}", out.display());
 
-  println!("\n[per-file native compile, fixture-size sweep]  {} iters after {} warmup", PER_FILE_ITERS, PER_FILE_WARMUP);
+  println!(
+    "\n[per-file native compile, fixture-size sweep]  {} iters after {} warmup",
+    PER_FILE_ITERS, PER_FILE_WARMUP
+  );
   let per_file = run_per_file_sweep();
 
   let mut variants: Vec<Variant> = Vec::new();

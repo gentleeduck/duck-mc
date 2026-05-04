@@ -8,4 +8,3 @@ edition = "2024"
 
 # Keep things on one line as much as possible
 use_small_heuristics = "Max"
-fn_single_line = true

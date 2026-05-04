@@ -82,18 +82,14 @@ fn resolve_asset(ctx: &Ctx, raw: &str, allow_abs: bool) -> Result<PathBuf, Valid
 }
 
 fn publish_asset(ctx: &Ctx, path: &PathBuf) -> Result<String, ValidationError> {
-  let cfg = ctx
-    .assets
-    .as_ref()
-    .ok_or_else(|| ValidationError::root("asset pipeline not configured (engine bug?)"))?;
-  let bytes = std::fs::read(path)
-    .map_err(|e| ValidationError::root(format!("cannot read asset {}: {e}", path.display())))?;
+  let cfg = ctx.assets.as_ref().ok_or_else(|| ValidationError::root("asset pipeline not configured (engine bug?)"))?;
+  let bytes =
+    std::fs::read(path).map_err(|e| ValidationError::root(format!("cannot read asset {}: {e}", path.display())))?;
   let hash = blake3::hash(&bytes);
   let hash8 = &hash.to_hex().to_string()[..8];
   let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("asset");
   let ext = path.extension().and_then(|s| s.to_str()).unwrap_or("bin");
-  let filename =
-    cfg.name_template.replace("[name]", stem).replace("[hash:8]", hash8).replace("[ext]", ext);
+  let filename = cfg.name_template.replace("[name]", stem).replace("[hash:8]", hash8).replace("[ext]", ext);
   let dest = cfg.assets_dir.join(&filename);
   std::fs::create_dir_all(&cfg.assets_dir)
     .map_err(|e| ValidationError::root(format!("cannot create assets dir: {e}")))?;

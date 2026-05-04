@@ -30,27 +30,27 @@ impl StringSchema {
 
 impl Schema for StringSchema {
   fn parse(&self, value: &Value, _ctx: &Ctx) -> Result<Value, ValidationError> {
-    let s = value.as_str().ok_or_else(|| {
-      ValidationError::root(format!("expected string, got {}", json_kind(value),))
-    })?;
+    let s =
+      value.as_str().ok_or_else(|| ValidationError::root(format!("expected string, got {}", json_kind(value),)))?;
     let len = s.chars().count();
     if let Some(m) = self.min
-      && len < m {
-        return Err(ValidationError::root(format!("too short (min {m}, got {len})")));
-      }
+      && len < m
+    {
+      return Err(ValidationError::root(format!("too short (min {m}, got {len})")));
+    }
     if let Some(m) = self.max
-      && len > m {
-        return Err(ValidationError::root(format!("too long (max {m}, got {len})")));
-      }
+      && len > m
+    {
+      return Err(ValidationError::root(format!("too long (max {m}, got {len})")));
+    }
     if let Some(l) = self.length
-      && len != l {
-        return Err(ValidationError::root(format!("length {l} required (got {len})")));
-      }
+      && len != l
+    {
+      return Err(ValidationError::root(format!("length {l} required (got {len})")));
+    }
     if let Some(pat) = &self.regex {
-      let re = fancy_regex::Regex::new(pat)
-        .map_err(|e| ValidationError::root(format!("invalid regex {pat}: {e}")))?;
-      let matched =
-        re.is_match(s).map_err(|e| ValidationError::root(format!("regex match error: {e}")))?;
+      let re = fancy_regex::Regex::new(pat).map_err(|e| ValidationError::root(format!("invalid regex {pat}: {e}")))?;
+      let matched = re.is_match(s).map_err(|e| ValidationError::root(format!("regex match error: {e}")))?;
       if !matched {
         return Err(ValidationError::root(format!("does not match /{pat}/")));
       }
@@ -65,9 +65,8 @@ pub struct RecordSchema {
 
 impl Schema for RecordSchema {
   fn parse(&self, value: &Value, ctx: &Ctx) -> Result<Value, ValidationError> {
-    let obj = value.as_object().ok_or_else(|| {
-      ValidationError::root(format!("expected object, got {}", json_kind(value),))
-    })?;
+    let obj =
+      value.as_object().ok_or_else(|| ValidationError::root(format!("expected object, got {}", json_kind(value),)))?;
     let mut out = serde_json::Map::new();
     for (k, v) in obj {
       let parsed = self.value.parse(v, ctx).map_err(|e| e.at(k))?;
@@ -83,9 +82,8 @@ pub struct TupleSchema {
 
 impl Schema for TupleSchema {
   fn parse(&self, value: &Value, ctx: &Ctx) -> Result<Value, ValidationError> {
-    let arr = value
-      .as_array()
-      .ok_or_else(|| ValidationError::root(format!("expected tuple, got {}", json_kind(value),)))?;
+    let arr =
+      value.as_array().ok_or_else(|| ValidationError::root(format!("expected tuple, got {}", json_kind(value),)))?;
     if arr.len() != self.items.len() {
       return Err(ValidationError::root(format!(
         "tuple length mismatch: expected {}, got {}",
@@ -129,21 +127,16 @@ pub struct DiscriminatedUnionSchema {
 
 impl Schema for DiscriminatedUnionSchema {
   fn parse(&self, value: &Value, ctx: &Ctx) -> Result<Value, ValidationError> {
-    let obj = value
-      .as_object()
-      .ok_or_else(|| ValidationError::root("discriminatedUnion expects object"))?;
-    let tag = obj.get(&self.discriminator).ok_or_else(|| {
-      ValidationError::root(format!("missing discriminator field '{}'", self.discriminator,))
-    })?;
+    let obj = value.as_object().ok_or_else(|| ValidationError::root("discriminatedUnion expects object"))?;
+    let tag = obj
+      .get(&self.discriminator)
+      .ok_or_else(|| ValidationError::root(format!("missing discriminator field '{}'", self.discriminator,)))?;
     for v in &self.variants {
       if let Ok(parsed) = v.parse(value, ctx) {
         return Ok(parsed);
       }
     }
-    Err(ValidationError::root(format!(
-      "no discriminatedUnion variant matched for {}={}",
-      self.discriminator, tag,
-    )))
+    Err(ValidationError::root(format!("no discriminatedUnion variant matched for {}={}", self.discriminator, tag,)))
   }
 }
 
@@ -217,20 +210,21 @@ impl NumberSchema {
 
 impl Schema for NumberSchema {
   fn parse(&self, value: &Value, _ctx: &Ctx) -> Result<Value, ValidationError> {
-    let n = value.as_f64().ok_or_else(|| {
-      ValidationError::root(format!("expected number, got {}", json_kind(value),))
-    })?;
+    let n =
+      value.as_f64().ok_or_else(|| ValidationError::root(format!("expected number, got {}", json_kind(value),)))?;
     if self.int && n.fract() != 0.0 {
       return Err(ValidationError::root(format!("expected integer, got {n}")));
     }
     if let Some(m) = self.min
-      && n < m {
-        return Err(ValidationError::root(format!("below min {m} (got {n})")));
-      }
+      && n < m
+    {
+      return Err(ValidationError::root(format!("below min {m} (got {n})")));
+    }
     if let Some(m) = self.max
-      && n > m {
-        return Err(ValidationError::root(format!("above max {m} (got {n})")));
-      }
+      && n > m
+    {
+      return Err(ValidationError::root(format!("above max {m} (got {n})")));
+    }
     Ok(value.clone())
   }
 }
@@ -267,17 +261,18 @@ impl ArraySchema {
 
 impl Schema for ArraySchema {
   fn parse(&self, value: &Value, ctx: &Ctx) -> Result<Value, ValidationError> {
-    let arr = value
-      .as_array()
-      .ok_or_else(|| ValidationError::root(format!("expected array, got {}", json_kind(value),)))?;
+    let arr =
+      value.as_array().ok_or_else(|| ValidationError::root(format!("expected array, got {}", json_kind(value),)))?;
     if let Some(m) = self.min
-      && arr.len() < m {
-        return Err(ValidationError::root(format!("too few items (min {m}, got {})", arr.len())));
-      }
+      && arr.len() < m
+    {
+      return Err(ValidationError::root(format!("too few items (min {m}, got {})", arr.len())));
+    }
     if let Some(m) = self.max
-      && arr.len() > m {
-        return Err(ValidationError::root(format!("too many items (max {m}, got {})", arr.len())));
-      }
+      && arr.len() > m
+    {
+      return Err(ValidationError::root(format!("too many items (max {m}, got {})", arr.len())));
+    }
     let mut out = Vec::with_capacity(arr.len());
     for (idx, item) in arr.iter().enumerate() {
       out.push(self.item.parse(item, ctx).map_err(|e| e.at_index(idx))?);
@@ -300,9 +295,8 @@ impl ObjectSchema {
 
 impl Schema for ObjectSchema {
   fn parse(&self, value: &Value, ctx: &Ctx) -> Result<Value, ValidationError> {
-    let obj = value.as_object().ok_or_else(|| {
-      ValidationError::root(format!("expected object, got {}", json_kind(value),))
-    })?;
+    let obj =
+      value.as_object().ok_or_else(|| ValidationError::root(format!("expected object, got {}", json_kind(value),)))?;
     let mut out = serde_json::Map::new();
     for (key, schema) in &self.fields {
       let v = obj.get(key).cloned().unwrap_or(Value::Null);

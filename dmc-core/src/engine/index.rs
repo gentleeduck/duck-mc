@@ -24,12 +24,8 @@ pub fn write_index(
   let names: Vec<&str> = collections.iter().map(|c| c.name.as_str()).collect();
   write_index_js(out_dir, &names, format)?;
 
-  let ts_cfg = config_path.filter(|p| {
-    matches!(
-      p.extension().and_then(|s| s.to_str()),
-      Some("ts") | Some("js") | Some("mjs"),
-    )
-  });
+  let ts_cfg =
+    config_path.filter(|p| matches!(p.extension().and_then(|s| s.to_str()), Some("ts") | Some("js") | Some("mjs"),));
 
   match ts_cfg {
     Some(p) => {
@@ -49,9 +45,7 @@ fn write_index_js(out_dir: &Path, names: &[&str], format: &str) -> std::io::Resu
     }
   } else {
     for name in names {
-      js.push_str(&format!(
-        "export {{ default as {name} }} from './{name}.json' with {{ type: 'json' }}\n",
-      ));
+      js.push_str(&format!("export {{ default as {name} }} from './{name}.json' with {{ type: 'json' }}\n",));
     }
   }
   std::fs::write(out_dir.join("index.js"), js)

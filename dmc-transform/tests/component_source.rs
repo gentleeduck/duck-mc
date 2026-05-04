@@ -34,7 +34,6 @@ fn component_source_no_op_for_missing_file() {
   let p = Pipeline::new().add(ComponentSource::with_base_dir(dir.path()));
   p.run_silent(&mut doc);
   // original JSX node preserved when file not found
-  let still_jsx =
-    doc.children.iter().any(|n| matches!(n, Node::JsxSelfClosing(_) | Node::JsxElement(_)));
+  let still_jsx = doc.children.iter().any(|n| matches!(n, Node::JsxSelfClosing(_) | Node::JsxElement(_)));
   assert!(still_jsx, "missing file should preserve JSX node");
 }

@@ -51,8 +51,7 @@ fn frontmatter_then_import_then_heading() {
     })
     .collect();
   // expect at least fm, imp, h in that order (paragraphs allowed in between is fine)
-  let positions: Vec<_> =
-    ["fm", "imp", "h"].iter().map(|w| kinds.iter().position(|k| k == w)).collect();
+  let positions: Vec<_> = ["fm", "imp", "h"].iter().map(|w| kinds.iter().position(|k| k == w)).collect();
   assert!(positions.iter().all(|p| p.is_some()), "got {:?}", kinds);
   assert!(positions[0] < positions[1]);
   assert!(positions[1] < positions[2]);

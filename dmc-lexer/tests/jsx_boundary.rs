@@ -6,11 +6,7 @@ use pretty_assertions::assert_eq;
 #[test]
 fn lt_then_digit_is_text() {
   let kinds = lex_kinds("5 < 10\n");
-  assert!(
-    !kinds.iter().any(|k| matches!(k, TokenKind::JsxOpenTagStart)),
-    "should not start JSX, got {:?}",
-    kinds
-  );
+  assert!(!kinds.iter().any(|k| matches!(k, TokenKind::JsxOpenTagStart)), "should not start JSX, got {:?}", kinds);
 }
 
 #[test]
@@ -36,11 +32,7 @@ fn lt_then_gt_fragment_dispatches_to_jsx() {
   // currently lex_jsx_tag does not yet handle fragments — but the dispatcher
   // should at least route into it (L14 will finish frag support).
   let kinds = lex_kinds("<></>");
-  assert!(
-    kinds.first() == Some(&TokenKind::JsxOpenTagStart),
-    "expected JsxOpenTagStart, got {:?}",
-    kinds
-  );
+  assert!(kinds.first() == Some(&TokenKind::JsxOpenTagStart), "expected JsxOpenTagStart, got {:?}", kinds);
 }
 
 #[test]

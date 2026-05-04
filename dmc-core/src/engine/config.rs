@@ -31,8 +31,8 @@ impl EngineConfig {
       return Self::load_ts(config_path);
     }
     let raw = std::fs::read_to_string(config_path)?;
-    let cfg: EngineConfig = toml::from_str(&raw)
-      .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e.to_string()))?;
+    let cfg: EngineConfig =
+      toml::from_str(&raw).map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e.to_string()))?;
 
     Ok(cfg)
   }
@@ -59,26 +59,19 @@ impl EngineConfig {
           let json = String::from_utf8(out.stdout)
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e.to_string()))?;
           let cfg: EngineConfig = serde_json::from_str(&json).map_err(|e| {
-            std::io::Error::new(
-              std::io::ErrorKind::InvalidData,
-              format!("ts config: {e}\n--- output ---\n{json}"),
-            )
+            std::io::Error::new(std::io::ErrorKind::InvalidData, format!("ts config: {e}\n--- output ---\n{json}"))
           })?;
           return Ok(cfg);
         },
         Ok(out) => {
-          last_err =
-            Some(format!("{cmd} exit {}: {}", out.status, String::from_utf8_lossy(&out.stderr)));
+          last_err = Some(format!("{cmd} exit {}: {}", out.status, String::from_utf8_lossy(&out.stderr)));
         },
         Err(e) => last_err = Some(format!("{cmd}: {e}")),
       }
     }
     Err(std::io::Error::new(
       std::io::ErrorKind::NotFound,
-      format!(
-        "ts config requires `bun` or `node` w/ tsx on PATH ({})",
-        last_err.unwrap_or_default(),
-      ),
+      format!("ts config requires `bun` or `node` w/ tsx on PATH ({})", last_err.unwrap_or_default(),),
     ))
   }
 }

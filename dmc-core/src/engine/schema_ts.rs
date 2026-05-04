@@ -17,8 +17,9 @@ pub fn schema_to_ts(v: &Value, indent: usize) -> String {
   };
 
   match kind {
-    "string" | "isodate" | "path" | "slug" | "unique" | "file" | "image" | "raw" | "markdown"
-    | "mdx" | "excerpt" => "string".into(),
+    "string" | "isodate" | "path" | "slug" | "unique" | "file" | "image" | "raw" | "markdown" | "mdx" | "excerpt" => {
+      "string".into()
+    },
     "number" => "number".into(),
     "boolean" => "boolean".into(),
     "metadata" => "{ readingTime: number; wordCount: number }".into(),
@@ -29,8 +30,7 @@ pub fn schema_to_ts(v: &Value, indent: usize) -> String {
     },
     "object" => render_object(v, indent),
     "record" => {
-      let val =
-        v.get("value").map(|i| schema_to_ts(i, indent)).unwrap_or_else(|| "unknown".into());
+      let val = v.get("value").map(|i| schema_to_ts(i, indent)).unwrap_or_else(|| "unknown".into());
       format!("{{ [k: string]: {val} }}")
     },
     "tuple" => {
@@ -72,13 +72,11 @@ pub fn schema_to_ts(v: &Value, indent: usize) -> String {
       format!("{l} & {r}")
     },
     // Unwrap-and-forward kinds.
-    "optional" | "default" | "transform" | "refine" | "superRefine" | "super_refine" => v
-      .get("inner")
-      .map(|i| schema_to_ts(i, indent))
-      .unwrap_or_else(|| "unknown".into()),
+    "optional" | "default" | "transform" | "refine" | "superRefine" | "super_refine" => {
+      v.get("inner").map(|i| schema_to_ts(i, indent)).unwrap_or_else(|| "unknown".into())
+    },
     "nullable" => {
-      let inner =
-        v.get("inner").map(|i| schema_to_ts(i, indent)).unwrap_or_else(|| "unknown".into());
+      let inner = v.get("inner").map(|i| schema_to_ts(i, indent)).unwrap_or_else(|| "unknown".into());
       format!("{inner} | null")
     },
     "coerce.string" => "string".into(),
@@ -105,17 +103,10 @@ fn render_object(v: &Value, indent: usize) -> String {
 
   let mut out = String::from("{\n");
   for (key, sub) in fields {
-    let optional = matches!(
-      sub.get("kind").and_then(|k| k.as_str()),
-      Some("optional") | Some("default"),
-    );
+    let optional = matches!(sub.get("kind").and_then(|k| k.as_str()), Some("optional") | Some("default"),);
     let opt = if optional { "?" } else { "" };
     let ty = schema_to_ts(sub, indent + 1);
-    let safe_key = if is_js_ident(key) {
-      key.clone()
-    } else {
-      format!("'{}'", key.replace('\'', "\\'"))
-    };
+    let safe_key = if is_js_ident(key) { key.clone() } else { format!("'{}'", key.replace('\'', "\\'")) };
     out.push_str(&format!("{pad_inner}{safe_key}{opt}: {ty}\n"));
   }
   let passthrough = v.get("passthrough").and_then(|b| b.as_bool()).unwrap_or(false);

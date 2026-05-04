@@ -73,18 +73,12 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
   fn parse_list(&mut self, ordered: bool) -> Node {
     let span = self.current_span();
     let mut items: Vec<Node> = Vec::new();
-    let start: Option<u32> = if ordered {
-      self.peek().and_then(|t| t.raw.trim_end_matches('.').parse::<u32>().ok())
-    } else {
-      None
-    };
+    let start: Option<u32> =
+      if ordered { self.peek().and_then(|t| t.raw.trim_end_matches('.').parse::<u32>().ok()) } else { None };
 
     while let Some(kind) = self.peek_kind() {
-      let want_marker = if ordered {
-        matches!(kind, TokenKind::OrderedListItem)
-      } else {
-        matches!(kind, TokenKind::UnorderedListItem)
-      };
+      let want_marker =
+        if ordered { matches!(kind, TokenKind::OrderedListItem) } else { matches!(kind, TokenKind::UnorderedListItem) };
       if !want_marker {
         break;
       }
@@ -132,9 +126,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         self.advance();
         let text_raw = self.peek().map(|t| t.raw.to_string()).unwrap_or_default();
         let kind = self.peek_kind().cloned();
-        if matches!(kind, Some(TokenKind::Text))
-          && (text_raw == " " || text_raw.eq_ignore_ascii_case("x"))
-        {
+        if matches!(kind, Some(TokenKind::Text)) && (text_raw == " " || text_raw.eq_ignore_ascii_case("x")) {
           self.advance();
           if matches!(self.peek_kind(), Some(TokenKind::Bracket)) {
             self.advance();
@@ -284,10 +276,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
           }
         }
         let next = self.tokens.get(i).map(|t| &t.kind);
-        if matches!(
-          next,
-          Some(TokenKind::SoftBreak) | Some(TokenKind::HardBreak) | Some(TokenKind::Eof) | None
-        ) {
+        if matches!(next, Some(TokenKind::SoftBreak) | Some(TokenKind::HardBreak) | Some(TokenKind::Eof) | None) {
           Some(1)
         } else {
           None

@@ -24,8 +24,7 @@ use dmc_lexer::Lexer;
 use dmc_parser::Parser;
 use dmc_parser::ast::*;
 use dmc_transform::{
-  AutolinkHeadings, BareUrlAutolink, CodeImport, ComponentPreview, ComponentSource, DisableGfm,
-  Pipeline,
+  AutolinkHeadings, BareUrlAutolink, CodeImport, ComponentPreview, ComponentSource, DisableGfm, Pipeline,
 };
 use duck_diagnostic::DiagnosticEngine;
 use serde_json::{Value, json};
@@ -57,18 +56,13 @@ fn main() -> io::Result<()> {
       let src = std::fs::read_to_string(&path)?;
       let dir = path.parent().map(|p| p.to_path_buf());
       let label = path.file_name().unwrap().to_string_lossy().into_owned();
-      let meta = Arc::new(SourceMeta {
-        path: Arc::from(label.clone()),
-        version: 0,
-        origin: Origin::File(path),
-      });
+      let meta = Arc::new(SourceMeta { path: Arc::from(label.clone()), version: 0, origin: Origin::File(path) });
       (label, src, dir, meta)
     },
     Some("-") => {
       let mut buf = String::new();
       io::stdin().read_to_string(&mut buf)?;
-      let meta =
-        Arc::new(SourceMeta { path: Arc::from("<stdin>"), version: 0, origin: Origin::Stdin });
+      let meta = Arc::new(SourceMeta { path: Arc::from("<stdin>"), version: 0, origin: Origin::Stdin });
       ("<stdin>".to_string(), buf, None, meta)
     },
     Some(p) => {
@@ -76,11 +70,7 @@ fn main() -> io::Result<()> {
       let src = std::fs::read_to_string(&path)?;
       let dir = path.parent().map(|p| p.to_path_buf());
       let label = path.file_name().unwrap().to_string_lossy().into_owned();
-      let meta = Arc::new(SourceMeta {
-        path: Arc::from(label.clone()),
-        version: 0,
-        origin: Origin::File(path),
-      });
+      let meta = Arc::new(SourceMeta { path: Arc::from(label.clone()), version: 0, origin: Origin::File(path) });
       (label, src, dir, meta)
     },
   };
@@ -104,9 +94,7 @@ fn main() -> io::Result<()> {
   // Build pipeline. `code-import` resolves `file=` paths relative to the
   // input mdx's parent dir so samples co-located with their snippets work.
   let applied: Vec<String> = match passes {
-    Some(ref names) => {
-      names.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect()
-    },
+    Some(ref names) => names.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect(),
     None => vec!["bare-url".into(), "autolink-headings".into()],
   };
   let pipeline = match passes {
@@ -171,10 +159,7 @@ fn main() -> io::Result<()> {
     println!("\n-- tokens ({}) --", tokens.len());
     for (i, t) in tokens.iter().enumerate() {
       let raw = t.raw.replace('\n', "\\n").replace('\t', "\\t");
-      println!(
-        "  [{:>4}] {:?} @ {}:{} len={}  {:?}",
-        i, t.kind, t.span.line, t.span.column, t.span.length, raw
-      );
+      println!("  [{:>4}] {:?} @ {}:{} len={}  {:?}", i, t.kind, t.span.line, t.span.column, t.span.length, raw);
     }
   }
 
@@ -219,10 +204,7 @@ fn print_pass_list() {
     ("bare-url", "Convert bare http(s) URLs in paragraphs into Link nodes."),
     ("code-import", "Replace `file=\"...\"` code-block meta with file contents."),
     ("component-source", "Replace `<ComponentSource path=\"...\" />` with a code block."),
-    (
-      "component-preview",
-      "Replace `<ComponentPreview name=\"...\" />` with first file's contents.",
-    ),
+    ("component-preview", "Replace `<ComponentPreview name=\"...\" />` with first file's contents."),
     ("disable-gfm", "Strip GFM-only constructs (tables, strikethrough, task lists)."),
   ];
   println!("available transformers:");
@@ -334,59 +316,35 @@ fn describe(node: &Node) -> (String, Vec<&Node>) {
     Node::Frontmatter(f) => (format!("Frontmatter  raw={:?}", trunc(&f.raw, 80)), vec![]),
     Node::Import(i) => (format!("Import       raw={:?}", trunc(&i.raw, 80)), vec![]),
     Node::Export(e) => (format!("Export       raw={:?}", trunc(&e.raw, 80)), vec![]),
-    Node::Heading(h) => {
-      (format!("Heading      level={} slug=\"{}\"", h.level, h.slug()), h.children.iter().collect())
-    },
+    Node::Heading(h) => (format!("Heading      level={} slug=\"{}\"", h.level, h.slug()), h.children.iter().collect()),
     Node::Paragraph(p) => ("Paragraph".to_string(), p.children.iter().collect()),
     Node::Text(t) => (format!("Text         {:?}", trunc(&t.value, 80)), vec![]),
     Node::Bold(i) => ("Bold".to_string(), i.children.iter().collect()),
     Node::Italic(i) => ("Italic".to_string(), i.children.iter().collect()),
     Node::Strikethrough(i) => ("Strikethrough".to_string(), i.children.iter().collect()),
     Node::InlineCode(c) => (format!("InlineCode   {:?}", trunc(&c.value, 80)), vec![]),
-    Node::CodeBlock(b) => {
-      (format!("CodeBlock    lang={:?} meta={:?} bytes={}", b.lang, b.meta, b.value.len()), vec![])
-    },
-    Node::Link(l) => {
-      (format!("Link         href=\"{}\" title={:?}", l.href, l.title), l.children.iter().collect())
-    },
-    Node::Image(i) => {
-      (format!("Image        src=\"{}\" alt={:?} title={:?}", i.src, i.alt, i.title), vec![])
-    },
+    Node::CodeBlock(b) => (format!("CodeBlock    lang={:?} meta={:?} bytes={}", b.lang, b.meta, b.value.len()), vec![]),
+    Node::Link(l) => (format!("Link         href=\"{}\" title={:?}", l.href, l.title), l.children.iter().collect()),
+    Node::Image(i) => (format!("Image        src=\"{}\" alt={:?} title={:?}", i.src, i.alt, i.title), vec![]),
     Node::HorizontalRule(_) => ("HorizontalRule".to_string(), vec![]),
     Node::Blockquote(b) => ("Blockquote".to_string(), b.children.iter().collect()),
-    Node::List(l) => (
-      format!("List         ordered={} start={:?}", l.ordered, l.start),
-      l.children.iter().collect(),
-    ),
+    Node::List(l) => (format!("List         ordered={} start={:?}", l.ordered, l.start), l.children.iter().collect()),
     Node::ListItem(i) => ("ListItem".to_string(), i.children.iter().collect()),
-    Node::TaskListItem(i) => {
-      (format!("TaskListItem checked={}", i.checked), i.children.iter().collect())
-    },
+    Node::TaskListItem(i) => (format!("TaskListItem checked={}", i.checked), i.children.iter().collect()),
     Node::Table(_) => unreachable!("Table is rendered inline by print_node"),
     Node::TableRow(_) | Node::TableCell(_) => ("(table piece)".to_string(), vec![]),
     Node::JsxElement(e) => {
-      let attrs = e
-        .attrs
-        .iter()
-        .map(|a| format!("{}={}", a.name, fmt_attr_value(&a.value)))
-        .collect::<Vec<_>>()
-        .join(" ");
+      let attrs =
+        e.attrs.iter().map(|a| format!("{}={}", a.name, fmt_attr_value(&a.value))).collect::<Vec<_>>().join(" ");
       (
         format!("JsxElement   <{}{}{}>", e.name, if attrs.is_empty() { "" } else { " " }, attrs),
         e.children.iter().collect(),
       )
     },
     Node::JsxSelfClosing(e) => {
-      let attrs = e
-        .attrs
-        .iter()
-        .map(|a| format!("{}={}", a.name, fmt_attr_value(&a.value)))
-        .collect::<Vec<_>>()
-        .join(" ");
-      (
-        format!("JsxSelfClose <{}{}{} />", e.name, if attrs.is_empty() { "" } else { " " }, attrs),
-        vec![],
-      )
+      let attrs =
+        e.attrs.iter().map(|a| format!("{}={}", a.name, fmt_attr_value(&a.value))).collect::<Vec<_>>().join(" ");
+      (format!("JsxSelfClose <{}{}{} />", e.name, if attrs.is_empty() { "" } else { " " }, attrs), vec![])
     },
     Node::JsxFragment(f) => ("JsxFragment  <>".to_string(), f.children.iter().collect()),
     Node::JsxExpression(x) => (format!("JsxExpr      {:?}", trunc(&x.value, 80)), vec![]),

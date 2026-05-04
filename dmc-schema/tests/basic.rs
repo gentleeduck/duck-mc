@@ -58,10 +58,7 @@ fn object_with_optional_and_default() {
 
 #[test]
 fn nested_object_path_in_error() {
-  let schema = s::object(vec![(
-    "author".into(),
-    s::object(vec![("name".into(), s::string().min(1).boxed())]).boxed(),
-  )]);
+  let schema = s::object(vec![("author".into(), s::object(vec![("name".into(), s::string().min(1).boxed())]).boxed())]);
   let err = schema.parse(&json!({"author": {"name": ""}}), &ctx()).unwrap_err();
   assert_eq!(err.path, "author.name");
 }
@@ -102,10 +99,7 @@ fn string_regex_with_lookbehind() {
 fn isodate_validates() {
   let schema = s::isodate();
   assert_eq!(schema.parse(&json!("2024-01-01"), &ctx()).unwrap(), json!("2024-01-01"),);
-  assert_eq!(
-    schema.parse(&json!("2024-01-01T12:34:56Z"), &ctx()).unwrap(),
-    json!("2024-01-01T12:34:56Z"),
-  );
+  assert_eq!(schema.parse(&json!("2024-01-01T12:34:56Z"), &ctx()).unwrap(), json!("2024-01-01T12:34:56Z"),);
   assert!(schema.parse(&json!("not-a-date"), &ctx()).is_err());
 }
 

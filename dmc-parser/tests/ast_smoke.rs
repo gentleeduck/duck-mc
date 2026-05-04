@@ -19,10 +19,7 @@ fn build_a_simple_document() {
         span: sp(),
         children: vec![
           Node::Text(Text { value: "world ".into(), span: sp() }),
-          Node::Bold(Inline {
-            span: sp(),
-            children: vec![Node::Text(Text { value: "yo".into(), span: sp() })],
-          }),
+          Node::Bold(Inline { span: sp(), children: vec![Node::Text(Text { value: "yo".into(), span: sp() })] }),
         ],
       }),
     ],
@@ -37,11 +34,7 @@ fn build_a_simple_document() {
 
 #[test]
 fn jsx_attr_round_trip() {
-  let a = JsxAttr {
-    name: "color".into(),
-    value: JsxAttrValue::String("red".into()),
-    span: default_span(),
-  };
+  let a = JsxAttr { name: "color".into(), value: JsxAttrValue::String("red".into()), span: default_span() };
   let s = serde_json::to_string(&a).unwrap();
   let b: JsxAttr = serde_json::from_str(&s).unwrap();
   assert_eq!(a, b);

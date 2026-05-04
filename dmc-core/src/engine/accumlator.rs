@@ -83,13 +83,7 @@ impl Accumulator {
   /// Consume self + the other sinks' rendered outputs; assemble the
   /// final `CompileOutput`. `cfg` is reserved for future excerpt-length /
   /// reading-rate tuning; currently unused.
-  pub fn into_compile_output(
-    self,
-    source: &str,
-    html: String,
-    body: String,
-    _cfg: &CompileConfig,
-  ) -> CompileOutput {
+  pub fn into_compile_output(self, source: &str, html: String, body: String, _cfg: &CompileConfig) -> CompileOutput {
     let content = Self::frontmatter(source).to_string();
     let excerpt = Self::excerpt(&self.plain, 260);
     let metadata = Self::metadata(&self.plain);

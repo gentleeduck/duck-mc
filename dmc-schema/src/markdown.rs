@@ -13,10 +13,7 @@ pub struct MarkdownSchema;
 
 impl Schema for MarkdownSchema {
   fn parse(&self, _value: &Value, ctx: &Ctx) -> Result<Value, ValidationError> {
-    let html = ctx
-      .html
-      .clone()
-      .ok_or_else(|| ValidationError::root("markdown body not yet rendered (engine bug?)"))?;
+    let html = ctx.html.clone().ok_or_else(|| ValidationError::root("markdown body not yet rendered (engine bug?)"))?;
     Ok(Value::String(html))
   }
 }
@@ -25,10 +22,7 @@ pub struct MdxSchema;
 
 impl Schema for MdxSchema {
   fn parse(&self, _value: &Value, ctx: &Ctx) -> Result<Value, ValidationError> {
-    let body = ctx
-      .mdx_body
-      .clone()
-      .ok_or_else(|| ValidationError::root("mdx body not yet rendered (engine bug?)"))?;
+    let body = ctx.mdx_body.clone().ok_or_else(|| ValidationError::root("mdx body not yet rendered (engine bug?)"))?;
     Ok(Value::String(body))
   }
 }
@@ -144,9 +138,7 @@ impl Schema for SlugSchema {
       && !s.contains("--")
       && s.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-');
     if !valid {
-      return Err(ValidationError::root(
-        "slug must be kebab-case (lowercase letters, digits, single dashes)",
-      ));
+      return Err(ValidationError::root("slug must be kebab-case (lowercase letters, digits, single dashes)"));
     }
     if self.reserved.iter().any(|r| r == s) {
       return Err(ValidationError::root(format!("slug '{s}' is reserved")));
@@ -154,10 +146,7 @@ impl Schema for SlugSchema {
     let key = format!("{}::{s}", self.bucket);
     let mut cache = ctx.unique_cache.lock().unwrap();
     if cache.contains(&key) {
-      return Err(ValidationError::root(format!(
-        "slug '{s}' already used in bucket '{}'",
-        self.bucket
-      )));
+      return Err(ValidationError::root(format!("slug '{s}' already used in bucket '{}'", self.bucket)));
     }
     cache.insert(key);
     Ok(Value::String(s.to_string()))
@@ -187,10 +176,7 @@ impl Schema for UniqueSchema {
     let key = format!("{}::{s}", self.bucket);
     let mut cache = ctx.unique_cache.lock().unwrap();
     if cache.contains(&key) {
-      return Err(ValidationError::root(format!(
-        "'{s}' already used in unique bucket '{}'",
-        self.bucket
-      )));
+      return Err(ValidationError::root(format!("'{s}' already used in unique bucket '{}'", self.bucket)));
     }
     cache.insert(key);
     Ok(Value::String(s.to_string()))

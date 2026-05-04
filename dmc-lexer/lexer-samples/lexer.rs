@@ -43,12 +43,7 @@ fn main() -> io::Result<()> {
       totals.1 += warns;
     }
     if !mode.show_json {
-      println!(
-        "summary: {} sample(s), {} total error(s), {} total warning(s)",
-        entries.len(),
-        totals.0,
-        totals.1
-      );
+      println!("summary: {} sample(s), {} total error(s), {} total warning(s)", entries.len(), totals.0, totals.1);
     }
     return Ok(());
   }
@@ -60,8 +55,7 @@ fn main() -> io::Result<()> {
     io::stdin().read_to_string(&mut buf)?;
     buf
   };
-  let stdin_meta =
-    Arc::new(SourceMeta { path: Arc::from("<stdin>"), version: 0, origin: Origin::Stdin });
+  let stdin_meta = Arc::new(SourceMeta { path: Arc::from("<stdin>"), version: 0, origin: Origin::Stdin });
   lex_and_print("<stdin>", &source, &mode, stdin_meta);
   Ok(())
 }
@@ -75,11 +69,7 @@ struct Mode {
 fn run_one(path: &PathBuf, mode: &Mode) -> io::Result<(usize, usize)> {
   let source = std::fs::read_to_string(path)?;
   let label = path.file_name().unwrap().to_string_lossy().into_owned();
-  let meta = Arc::new(SourceMeta {
-    path: Arc::from(label.clone()),
-    version: 0,
-    origin: Origin::File(path.clone()),
-  });
+  let meta = Arc::new(SourceMeta { path: Arc::from(label.clone()), version: 0, origin: Origin::File(path.clone()) });
   Ok(lex_and_print(&label, &source, mode, meta))
 }
 
@@ -144,8 +134,7 @@ fn print_token_table(tokens: &[Token]) {
     return;
   }
   let kinds: Vec<String> = tokens.iter().map(|t| format!("{:?}", t.kind)).collect();
-  let positions: Vec<String> =
-    tokens.iter().map(|t| format!("{}:{}", t.span.line, t.span.column)).collect();
+  let positions: Vec<String> = tokens.iter().map(|t| format!("{}:{}", t.span.line, t.span.column)).collect();
   let lens: Vec<String> = tokens.iter().map(|t| t.span.length.to_string()).collect();
   let raws: Vec<String> = tokens.iter().map(|t| format!("{:?}", t.raw)).collect();
 
@@ -155,9 +144,7 @@ fn print_token_table(tokens: &[Token]) {
 
   println!("  {:<kw$}  {:>pw$}  {:>lw$}  RAW", "KIND", "POS", "LEN", kw = kw, pw = pw, lw = lw);
   println!("  {:-<kw$}  {:->pw$}  {:->lw$}  {:-<8}", "", "", "", "", kw = kw, pw = pw, lw = lw);
-  for ((kind, pos), (len, raw)) in
-    kinds.iter().zip(positions.iter()).zip(lens.iter().zip(raws.iter()))
-  {
+  for ((kind, pos), (len, raw)) in kinds.iter().zip(positions.iter()).zip(lens.iter().zip(raws.iter())) {
     println!("  {:<kw$}  {:>pw$}  {:>lw$}  {}", kind, pos, len, raw, kw = kw, pw = pw, lw = lw);
   }
   println!("  {} tokens", tokens.len());
@@ -172,9 +159,7 @@ fn take_flag(args: &mut Vec<String>, name: &str) -> bool {
 fn atty_stdin() -> bool {
   // Best-effort: if stdin is a terminal, treat as "no piped input".
   // We use the cheap libc-free check via /proc.
-  std::fs::metadata("/proc/self/fd/0")
-    .map(|m| !m.file_type().is_fifo() && !m.file_type().is_socket())
-    .unwrap_or(true)
+  std::fs::metadata("/proc/self/fd/0").map(|m| !m.file_type().is_fifo() && !m.file_type().is_socket()).unwrap_or(true)
 }
 
 #[cfg(target_family = "unix")]

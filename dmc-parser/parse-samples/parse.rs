@@ -35,29 +35,20 @@ fn main() -> io::Result<()> {
       let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../samples/index.mdx");
       let src = std::fs::read_to_string(&path)?;
       let label = path.file_name().unwrap().to_string_lossy().into_owned();
-      let meta = Arc::new(SourceMeta {
-        path: Arc::from(label.clone()),
-        version: 0,
-        origin: Origin::File(path),
-      });
+      let meta = Arc::new(SourceMeta { path: Arc::from(label.clone()), version: 0, origin: Origin::File(path) });
       (label, src, meta)
     },
     Some("-") => {
       let mut buf = String::new();
       io::stdin().read_to_string(&mut buf)?;
-      let meta =
-        Arc::new(SourceMeta { path: Arc::from("<stdin>"), version: 0, origin: Origin::Stdin });
+      let meta = Arc::new(SourceMeta { path: Arc::from("<stdin>"), version: 0, origin: Origin::Stdin });
       ("<stdin>".to_string(), buf, meta)
     },
     Some(p) => {
       let path = PathBuf::from(p);
       let src = std::fs::read_to_string(&path)?;
       let label = path.file_name().unwrap().to_string_lossy().into_owned();
-      let meta = Arc::new(SourceMeta {
-        path: Arc::from(label.clone()),
-        version: 0,
-        origin: Origin::File(path),
-      });
+      let meta = Arc::new(SourceMeta { path: Arc::from(label.clone()), version: 0, origin: Origin::File(path) });
       (label, src, meta)
     },
   };
@@ -125,10 +116,7 @@ fn main() -> io::Result<()> {
     println!("\n-- tokens ({}) --", tokens.len());
     for (i, t) in tokens.iter().enumerate() {
       let raw = t.raw.replace('\n', "\\n").replace('\t', "\\t");
-      println!(
-        "  [{:>4}] {:?} @ {}:{} len={}  {:?}",
-        i, t.kind, t.span.line, t.span.column, t.span.length, raw
-      );
+      println!("  [{:>4}] {:?} @ {}:{} len={}  {:?}", i, t.kind, t.span.line, t.span.column, t.span.length, raw);
     }
   }
 
@@ -218,59 +206,35 @@ fn describe(node: &Node) -> (String, Vec<&Node>) {
     Node::Frontmatter(f) => (format!("Frontmatter  raw={:?}", trunc(&f.raw, 80)), vec![]),
     Node::Import(i) => (format!("Import       raw={:?}", trunc(&i.raw, 80)), vec![]),
     Node::Export(e) => (format!("Export       raw={:?}", trunc(&e.raw, 80)), vec![]),
-    Node::Heading(h) => {
-      (format!("Heading      level={} slug=\"{}\"", h.level, h.slug()), h.children.iter().collect())
-    },
+    Node::Heading(h) => (format!("Heading      level={} slug=\"{}\"", h.level, h.slug()), h.children.iter().collect()),
     Node::Paragraph(p) => ("Paragraph".to_string(), p.children.iter().collect()),
     Node::Text(t) => (format!("Text         {:?}", trunc(&t.value, 80)), vec![]),
     Node::Bold(i) => ("Bold".to_string(), i.children.iter().collect()),
     Node::Italic(i) => ("Italic".to_string(), i.children.iter().collect()),
     Node::Strikethrough(i) => ("Strikethrough".to_string(), i.children.iter().collect()),
     Node::InlineCode(c) => (format!("InlineCode   {:?}", trunc(&c.value, 80)), vec![]),
-    Node::CodeBlock(b) => {
-      (format!("CodeBlock    lang={:?} meta={:?} bytes={}", b.lang, b.meta, b.value.len()), vec![])
-    },
-    Node::Link(l) => {
-      (format!("Link         href=\"{}\" title={:?}", l.href, l.title), l.children.iter().collect())
-    },
-    Node::Image(i) => {
-      (format!("Image        src=\"{}\" alt={:?} title={:?}", i.src, i.alt, i.title), vec![])
-    },
+    Node::CodeBlock(b) => (format!("CodeBlock    lang={:?} meta={:?} bytes={}", b.lang, b.meta, b.value.len()), vec![]),
+    Node::Link(l) => (format!("Link         href=\"{}\" title={:?}", l.href, l.title), l.children.iter().collect()),
+    Node::Image(i) => (format!("Image        src=\"{}\" alt={:?} title={:?}", i.src, i.alt, i.title), vec![]),
     Node::HorizontalRule(_) => ("HorizontalRule".to_string(), vec![]),
     Node::Blockquote(b) => ("Blockquote".to_string(), b.children.iter().collect()),
-    Node::List(l) => (
-      format!("List         ordered={} start={:?}", l.ordered, l.start),
-      l.children.iter().collect(),
-    ),
+    Node::List(l) => (format!("List         ordered={} start={:?}", l.ordered, l.start), l.children.iter().collect()),
     Node::ListItem(i) => ("ListItem".to_string(), i.children.iter().collect()),
-    Node::TaskListItem(i) => {
-      (format!("TaskListItem checked={}", i.checked), i.children.iter().collect())
-    },
+    Node::TaskListItem(i) => (format!("TaskListItem checked={}", i.checked), i.children.iter().collect()),
     Node::Table(_) => unreachable!("Table is rendered inline by print_node"),
     Node::TableRow(_) | Node::TableCell(_) => ("(table piece)".to_string(), vec![]),
     Node::JsxElement(e) => {
-      let attrs = e
-        .attrs
-        .iter()
-        .map(|a| format!("{}={}", a.name, fmt_attr_value(&a.value)))
-        .collect::<Vec<_>>()
-        .join(" ");
+      let attrs =
+        e.attrs.iter().map(|a| format!("{}={}", a.name, fmt_attr_value(&a.value))).collect::<Vec<_>>().join(" ");
       (
         format!("JsxElement   <{}{}{}>", e.name, if attrs.is_empty() { "" } else { " " }, attrs),
         e.children.iter().collect(),
       )
     },
     Node::JsxSelfClosing(e) => {
-      let attrs = e
-        .attrs
-        .iter()
-        .map(|a| format!("{}={}", a.name, fmt_attr_value(&a.value)))
-        .collect::<Vec<_>>()
-        .join(" ");
-      (
-        format!("JsxSelfClose <{}{}{} />", e.name, if attrs.is_empty() { "" } else { " " }, attrs),
-        vec![],
-      )
+      let attrs =
+        e.attrs.iter().map(|a| format!("{}={}", a.name, fmt_attr_value(&a.value))).collect::<Vec<_>>().join(" ");
+      (format!("JsxSelfClose <{}{}{} />", e.name, if attrs.is_empty() { "" } else { " " }, attrs), vec![])
     },
     Node::JsxFragment(f) => ("JsxFragment  <>".to_string(), f.children.iter().collect()),
     Node::JsxExpression(x) => (format!("JsxExpr      {:?}", trunc(&x.value, 80)), vec![]),

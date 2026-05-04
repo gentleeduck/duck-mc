@@ -28,11 +28,7 @@ pub struct DefaultSchema {
 
 impl Schema for DefaultSchema {
   fn parse(&self, value: &Value, ctx: &Ctx) -> Result<Value, ValidationError> {
-    if value.is_null() {
-      self.inner.parse(&self.fallback, ctx)
-    } else {
-      self.inner.parse(value, ctx)
-    }
+    if value.is_null() { self.inner.parse(&self.fallback, ctx) } else { self.inner.parse(value, ctx) }
   }
 }
 

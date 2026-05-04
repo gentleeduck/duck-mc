@@ -32,24 +32,7 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
       if c == '\\' {
         // look at the next char; if escapable, swallow both and continue
         if let Some(nx) = self.peek_next()
-          && matches!(
-            nx,
-            '\\'
-              | '*'
-              | '_'
-              | '`'
-              | '<'
-              | '>'
-              | '{'
-              | '}'
-              | '['
-              | ']'
-              | '('
-              | ')'
-              | '!'
-              | '#'
-              | '-'
-          )
+          && matches!(nx, '\\' | '*' | '_' | '`' | '<' | '>' | '{' | '}' | '[' | ']' | '(' | ')' | '!' | '#' | '-')
         {
           self.advance(); // backslash
           self.advance(); // escaped char

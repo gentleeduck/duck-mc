@@ -5,16 +5,8 @@ fn tmp_workspace() -> tempfile::TempDir {
   let dir = tempfile::tempdir().expect("tempdir");
   let docs = dir.path().join("docs");
   std::fs::create_dir_all(&docs).unwrap();
-  std::fs::write(
-    docs.join("a.mdx"),
-    "---\ntitle: A\ndescription: Alpha doc\n---\n# Alpha\n\nbody one\n",
-  )
-  .unwrap();
-  std::fs::write(
-    docs.join("b.mdx"),
-    "---\ntitle: B\ndescription: Beta doc\n---\n# Beta\n\nbody two\n",
-  )
-  .unwrap();
+  std::fs::write(docs.join("a.mdx"), "---\ntitle: A\ndescription: Alpha doc\n---\n# Alpha\n\nbody one\n").unwrap();
+  std::fs::write(docs.join("b.mdx"), "---\ntitle: B\ndescription: Beta doc\n---\n# Beta\n\nbody two\n").unwrap();
   dir
 }
 

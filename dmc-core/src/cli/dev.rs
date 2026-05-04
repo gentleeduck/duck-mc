@@ -36,17 +36,14 @@ impl DevCmd {
     rebuild(&cfg, &self.config, "initial");
 
     let (tx, rx) = channel();
-    let mut deb = new_debouncer(Duration::from_millis(self.debounce), tx)
-      .map_err(|e| std::io::Error::other(e.to_string()))?;
+    let mut deb =
+      new_debouncer(Duration::from_millis(self.debounce), tx).map_err(|e| std::io::Error::other(e.to_string()))?;
 
     let mut roots: Vec<PathBuf> = cfg.collections.iter().map(|c| c.base_dir.clone()).collect();
     roots.push(self.config.clone());
     for r in &roots {
       if r.exists() {
-        deb
-          .watcher()
-          .watch(r, RecursiveMode::Recursive)
-          .map_err(|e| std::io::Error::other(e.to_string()))?;
+        deb.watcher().watch(r, RecursiveMode::Recursive).map_err(|e| std::io::Error::other(e.to_string()))?;
       }
     }
 

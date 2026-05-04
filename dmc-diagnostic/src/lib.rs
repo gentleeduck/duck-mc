@@ -357,10 +357,9 @@ impl DiagnosticCode for Code {
       | Self::AssetCopyFailed
       | Self::MermaidRenderFailed => Severity::Error,
       #[cfg(feature = "transform")]
-      Self::MmdcUnavailable
-      | Self::MissingComponentAttr
-      | Self::AssetSourceMissing
-      | Self::BaseDirNotFound => Severity::Warning,
+      Self::MmdcUnavailable | Self::MissingComponentAttr | Self::AssetSourceMissing | Self::BaseDirNotFound => {
+        Severity::Warning
+      },
 
       #[cfg(feature = "codegen")]
       Self::MalformedJsxTagName => Severity::Error,

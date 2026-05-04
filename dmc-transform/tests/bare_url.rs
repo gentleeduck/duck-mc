@@ -13,8 +13,7 @@ fn rewrites_bare_url_in_paragraph() {
       _ => None,
     })
     .expect("paragraph");
-  let has_link =
-    p.children.iter().any(|n| matches!(n, Node::Link(l) if l.href == "https://example.com"));
+  let has_link = p.children.iter().any(|n| matches!(n, Node::Link(l) if l.href == "https://example.com"));
   assert!(has_link, "got {:?}", p.children);
 }
 

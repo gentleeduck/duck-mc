@@ -5,10 +5,10 @@ use napi_derive::napi;
 use serde_json::Value;
 use std::path::PathBuf;
 
+use dmc::Engine;
 use dmc::engine::collection::Collection as CollectionDef;
 use dmc::engine::compile::{CompileConfig, Compiler};
 use dmc::engine::config::EngineConfig;
-use dmc::Engine;
 use dmc_diagnostic::Code;
 use duck_diagnostic::DiagnosticEngine;
 
@@ -116,7 +116,5 @@ pub fn build(input: BuildInput) -> Result<BuildReport> {
   let mut diag = DiagnosticEngine::<Code>::new();
   Engine::run(&cfg, None, &mut diag).map_err(|e| Error::from_reason(e.to_string()))?;
 
-  Ok(BuildReport {
-    diagnostics: diag.iter().map(|d| format!("{:?}", d)).collect(),
-  })
+  Ok(BuildReport { diagnostics: diag.iter().map(|d| format!("{:?}", d)).collect() })
 }

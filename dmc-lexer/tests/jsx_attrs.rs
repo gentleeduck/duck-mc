@@ -55,11 +55,7 @@ fn aria_attr_with_dash() {
 #[test]
 fn self_closing_after_attrs_emits_self_closing_end() {
   let kinds = lex_kinds("<Btn color=\"red\" />");
-  assert!(
-    kinds.contains(&TokenKind::JsxSelfClosingEnd),
-    "expected JsxSelfClosingEnd; got {:?}",
-    kinds
-  );
+  assert!(kinds.contains(&TokenKind::JsxSelfClosingEnd), "expected JsxSelfClosingEnd; got {:?}", kinds);
   assert!(
     !kinds.iter().any(|k| matches!(k, TokenKind::BlockQuote)),
     "stray BlockQuote means / > were tokenized separately; got {:?}",

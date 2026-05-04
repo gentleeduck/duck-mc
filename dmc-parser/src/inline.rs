@@ -68,9 +68,8 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         TokenKind::Bold(n) => {
           let open_n = *n;
           self.advance();
-          let inner = self.collect_inline(&|k| {
-            Self::is_top_level_break(k) || matches!(k, TokenKind::Bold(m) if *m == open_n)
-          });
+          let inner =
+            self.collect_inline(&|k| Self::is_top_level_break(k) || matches!(k, TokenKind::Bold(m) if *m == open_n));
           if matches!(self.peek_kind(), Some(TokenKind::Bold(m)) if *m == open_n) {
             self.advance();
           }
@@ -79,9 +78,8 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         TokenKind::Italic(n) => {
           let open_n = *n;
           self.advance();
-          let inner = self.collect_inline(&|k| {
-            Self::is_top_level_break(k) || matches!(k, TokenKind::Italic(m) if *m == open_n)
-          });
+          let inner =
+            self.collect_inline(&|k| Self::is_top_level_break(k) || matches!(k, TokenKind::Italic(m) if *m == open_n));
           if matches!(self.peek_kind(), Some(TokenKind::Italic(m)) if *m == open_n) {
             self.advance();
           }
@@ -90,9 +88,8 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         TokenKind::Strike(n) => {
           let open_n = *n;
           self.advance();
-          let inner = self.collect_inline(&|k| {
-            Self::is_top_level_break(k) || matches!(k, TokenKind::Strike(m) if *m == open_n)
-          });
+          let inner =
+            self.collect_inline(&|k| Self::is_top_level_break(k) || matches!(k, TokenKind::Strike(m) if *m == open_n));
           if matches!(self.peek_kind(), Some(TokenKind::Strike(m)) if *m == open_n) {
             self.advance();
           }
@@ -121,10 +118,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
           let start = self.pos;
           self.advance();
           let inner = self.collect_inline(&|k| {
-            matches!(
-              k,
-              TokenKind::Bracket | TokenKind::HardBreak | TokenKind::SoftBreak | TokenKind::Eof
-            )
+            matches!(k, TokenKind::Bracket | TokenKind::HardBreak | TokenKind::SoftBreak | TokenKind::Eof)
           });
           if !matches!(self.peek_kind(), Some(TokenKind::Bracket)) {
             self.pos = start;

@@ -8,9 +8,7 @@ fn self_closing() {
   let d = parse_doc("<Btn color=\"red\" />");
   let any = d.children.iter().any(|n| match n {
     Node::JsxSelfClosing(j) => j.name == "Btn",
-    Node::Paragraph(p) => {
-      p.children.iter().any(|c| matches!(c, Node::JsxSelfClosing(j) if j.name == "Btn"))
-    },
+    Node::Paragraph(p) => p.children.iter().any(|c| matches!(c, Node::JsxSelfClosing(j) if j.name == "Btn")),
     _ => false,
   });
   assert!(any, "got {:?}", d.children);
@@ -21,9 +19,7 @@ fn element_with_text_children() {
   let d = parse_doc("<Card>hi</Card>");
   let found = d.children.iter().any(|n| match n {
     Node::JsxElement(e) => e.name == "Card",
-    Node::Paragraph(p) => {
-      p.children.iter().any(|c| matches!(c, Node::JsxElement(e) if e.name == "Card"))
-    },
+    Node::Paragraph(p) => p.children.iter().any(|c| matches!(c, Node::JsxElement(e) if e.name == "Card")),
     _ => false,
   });
   assert!(found, "got {:?}", d.children);

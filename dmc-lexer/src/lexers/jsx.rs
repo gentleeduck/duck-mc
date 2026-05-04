@@ -108,19 +108,16 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
             },
             '\n' => {
               self.diag(
-                Diagnostic::new(
-                  Code::UnterminatedExpression,
-                  "unterminated jsx attribute expression",
-                )
-                .with_label(Label::primary(
-                  Span::from_zero_based("", start_line, start_col, 1),
-                  Some("expression starts here".to_string()),
-                ))
-                .with_label(Label::secondary(
-                  Span::from_zero_based("", self.line, self.column, 1),
-                  Some("expected `}` before end of line".to_string()),
-                ))
-                .with_help("close the expression with `}`"),
+                Diagnostic::new(Code::UnterminatedExpression, "unterminated jsx attribute expression")
+                  .with_label(Label::primary(
+                    Span::from_zero_based("", start_line, start_col, 1),
+                    Some("expression starts here".to_string()),
+                  ))
+                  .with_label(Label::secondary(
+                    Span::from_zero_based("", self.line, self.column, 1),
+                    Some("expected `}` before end of line".to_string()),
+                  ))
+                  .with_help("close the expression with `}`"),
               );
               break;
             },

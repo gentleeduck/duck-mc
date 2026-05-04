@@ -85,9 +85,7 @@ fn code_import_reads_file() {
   std::fs::write(&snippet, "export const x = 1\n").unwrap();
   let src = "```ts file=\"snippet.ts\"\nplaceholder\n```\n".to_string();
   let mut d = dmc_parser::parse(&src);
-  dmc_transform::Pipeline::new()
-    .add(CodeImport::with_base_dir(dir.path().to_path_buf()))
-    .run_silent(&mut d);
+  dmc_transform::Pipeline::new().add(CodeImport::with_base_dir(dir.path().to_path_buf())).run_silent(&mut d);
   let cb = d
     .children
     .iter()

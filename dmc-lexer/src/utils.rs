@@ -21,9 +21,7 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
       '~' if self.peek() == Some('~') => self.lex_strike(),
       '<' if self.peek() == Some('!') => self.lex_comment(),
       '<' if self.is_angle_autolink() => self.lex_angle_autolink(),
-      '<' if matches!(self.peek(), Some(c) if c.is_ascii_alphabetic() || c == '/' || c == '>') => {
-        self.lex_jsx_tag()
-      },
+      '<' if matches!(self.peek(), Some(c) if c.is_ascii_alphabetic() || c == '/' || c == '>') => self.lex_jsx_tag(),
       '<' => self.lex_text(),
       '>' => self.emit(TokenKind::BlockQuote),
       '=' => self.emit(TokenKind::Eq),

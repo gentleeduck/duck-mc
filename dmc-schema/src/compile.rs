@@ -2,10 +2,7 @@ use crate::{BoxSchema, Schema, asset::*, markdown::*, modifiers::*, primitives::
 use serde_json::Value;
 
 pub fn compile_descriptor(d: &Value) -> Result<Box<dyn Schema>, String> {
-  let kind = d
-    .get("kind")
-    .and_then(Value::as_str)
-    .ok_or_else(|| "schema descriptor missing 'kind'".to_string())?;
+  let kind = d.get("kind").and_then(Value::as_str).ok_or_else(|| "schema descriptor missing 'kind'".to_string())?;
   let get_n = |k: &str| d.get(k).and_then(Value::as_u64).map(|n| n as usize);
   let get_f = |k: &str| d.get(k).and_then(Value::as_f64);
   let get_s = |k: &str| d.get(k).and_then(Value::as_str).map(String::from);
@@ -55,8 +52,7 @@ pub fn compile_descriptor(d: &Value) -> Result<Box<dyn Schema>, String> {
       a.boxed()
     },
     "object" => {
-      let fields_obj =
-        d.get("fields").and_then(Value::as_object).ok_or("object missing 'fields'".to_string())?;
+      let fields_obj = d.get("fields").and_then(Value::as_object).ok_or("object missing 'fields'".to_string())?;
       let mut fields: Vec<(String, Box<dyn Schema>)> = Vec::new();
       for (k, v) in fields_obj {
         fields.push((k.clone(), compile_descriptor(v)?));
@@ -76,21 +72,16 @@ pub fn compile_descriptor(d: &Value) -> Result<Box<dyn Schema>, String> {
       LiteralSchema { expected }.boxed()
     },
     "union" => {
-      let variants = d
-        .get("variants")
-        .and_then(Value::as_array)
-        .ok_or("union missing 'variants'".to_string())?;
+      let variants = d.get("variants").and_then(Value::as_array).ok_or("union missing 'variants'".to_string())?;
       let inner: Result<Vec<_>, _> = variants.iter().map(compile_descriptor).collect();
       UnionSchema { variants: inner? }.boxed()
     },
     "optional" => {
-      let inner =
-        compile_descriptor(d.get("inner").ok_or("optional missing 'inner'".to_string())?)?;
+      let inner = compile_descriptor(d.get("inner").ok_or("optional missing 'inner'".to_string())?)?;
       OptionalSchema { inner }.boxed()
     },
     "nullable" => {
-      let inner =
-        compile_descriptor(d.get("inner").ok_or("nullable missing 'inner'".to_string())?)?;
+      let inner = compile_descriptor(d.get("inner").ok_or("nullable missing 'inner'".to_string())?)?;
       NullableSchema { inner }.boxed()
     },
     "default" => {
@@ -158,25 +149,19 @@ pub fn compile_descriptor(d: &Value) -> Result<Box<dyn Schema>, String> {
       RecordSchema { value: v }.boxed()
     },
     "tuple" => {
-      let items =
-        d.get("items").and_then(Value::as_array).ok_or("tuple missing 'items'".to_string())?;
+      let items = d.get("items").and_then(Value::as_array).ok_or("tuple missing 'items'".to_string())?;
       let inner: Result<Vec<_>, _> = items.iter().map(compile_descriptor).collect();
       TupleSchema { items: inner? }.boxed()
     },
     "intersection" => {
-      let left =
-        compile_descriptor(d.get("left").ok_or("intersection missing 'left'".to_string())?)?;
-      let right =
-        compile_descriptor(d.get("right").ok_or("intersection missing 'right'".to_string())?)?;
+      let left = compile_descriptor(d.get("left").ok_or("intersection missing 'left'".to_string())?)?;
+      let right = compile_descriptor(d.get("right").ok_or("intersection missing 'right'".to_string())?)?;
       IntersectionSchema { left, right }.boxed()
     },
     "discriminatedUnion" => {
-      let disc =
-        get_s("discriminator").ok_or("discriminatedUnion missing 'discriminator'".to_string())?;
-      let variants = d
-        .get("variants")
-        .and_then(Value::as_array)
-        .ok_or("discriminatedUnion missing 'variants'".to_string())?;
+      let disc = get_s("discriminator").ok_or("discriminatedUnion missing 'discriminator'".to_string())?;
+      let variants =
+        d.get("variants").and_then(Value::as_array).ok_or("discriminatedUnion missing 'variants'".to_string())?;
       let inner: Result<Vec<_>, _> = variants.iter().map(compile_descriptor).collect();
       DiscriminatedUnionSchema { discriminator: disc, variants: inner? }.boxed()
     },
