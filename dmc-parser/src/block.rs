@@ -410,11 +410,8 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         Some(k) => k,
         None => break,
       };
-      let want_marker = if ordered {
-        matches!(kind, TokenKind::OrderedListItem)
-      } else {
-        matches!(kind, TokenKind::UnorderedListItem)
-      };
+      let want_marker =
+        if ordered { matches!(kind, TokenKind::OrderedListItem) } else { matches!(kind, TokenKind::UnorderedListItem) };
       if !want_marker {
         break;
       }
