@@ -6,7 +6,7 @@ use crate::engine::{collection::Collection, compile::CompileConfig};
 /// Top-level engine config. Drives `Engine::run`: collections, output
 /// location, schema strictness, JS plugin hooks (remark/rehype via the
 /// Node sidecar), and feature flags such as GFM toggling.
-#[derive(Deserialize, Serialize, Default, Clone)]
+#[derive(Deserialize, Serialize, Clone)]
 #[serde(default)]
 pub struct EngineConfig {
   pub root: PathBuf,
@@ -17,9 +17,30 @@ pub struct EngineConfig {
   pub strict: bool,
   pub collections: Vec<Collection>,
   pub include_html: bool,
+  /// Persist per-file compile output to `<output_dir>/.cache/dmc/`. On
+  /// the next build, files whose source bytes + config are unchanged
+  /// skip lex/parse/transform/codegen + sidecar entirely.
+  pub cache_enabled: bool,
 
   #[serde(flatten)]
   pub compile: CompileConfig,
+}
+
+impl Default for EngineConfig {
+  fn default() -> Self {
+    Self {
+      root: PathBuf::new(),
+      output_dir: PathBuf::new(),
+      output_name: None,
+      output_format: None,
+      clean: false,
+      strict: false,
+      collections: Vec::new(),
+      include_html: false,
+      cache_enabled: true,
+      compile: CompileConfig::default(),
+    }
+  }
 }
 
 impl EngineConfig {

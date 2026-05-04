@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::engine::{
+  cache::{FileCache, fingerprint},
   compile::Compiler,
   config::EngineConfig,
   sidecar::run_sidecar,
@@ -48,6 +49,12 @@ impl Collection {
         .ok()
     });
 
+    // Persistent per-file cache. Each record is keyed by
+    // (dmc_version, source_bytes, path, full-cfg-fingerprint) so any
+    // change to source or relevant config invalidates the entry.
+    let cache = if cfg.cache_enabled { FileCache::open(cfg.output_dir.join(".cache").join("dmc")) } else { None };
+    let cfg_fp = fingerprint(&(&cfg.compile, &cfg.include_html, &self.name, &self.schema, &cfg.output_format));
+
     let outcomes: Vec<(Option<Value>, DiagnosticEngine<Code>)> = paths
       .par_iter()
       .map(|path| {
@@ -60,6 +67,16 @@ impl Collection {
             return (None, local_diag_engine);
           },
         };
+
+        // Cache lookup: skip lex/parse/transform/codegen + sidecar when
+        // (source + cfg) is unchanged. Hits the disk and returns the
+        // already-rendered Value directly.
+        let cache_key = cache.as_ref().map(|_| FileCache::key(source.as_bytes(), path, &cfg_fp));
+        if let (Some(c), Some(k)) = (cache.as_ref(), cache_key.as_ref())
+          && let Some(hit) = c.get(k)
+        {
+          return (Some(hit), local_diag_engine);
+        }
 
         let local_compiler_cfg = cfg.compile.for_render();
         let use_sidecar = cfg.compile.has_js_plugins();
@@ -96,6 +113,10 @@ impl Collection {
         let include_html = cfg.include_html || use_sidecar;
         let rec = build_velite_record(compiled, validated_frontmatter, path, &self.base_dir, &self.name, include_html);
 
+        // Persist into the on-disk cache so next build sees a hit.
+        if let (Some(c), Some(k)) = (cache.as_ref(), cache_key.as_ref()) {
+          c.put(k, &rec);
+        }
         (Some(rec), local_diag_engine)
       })
       .collect();

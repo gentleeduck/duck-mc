@@ -4,11 +4,22 @@ use dmc_diagnostic::Code;
 use dmc_lexer::token::TokenKind;
 
 impl<'eng, 'tokens> Parser<'eng, 'tokens> {
+  /// Skip the inter-token whitespace the lexer now keeps for inline
+  /// spacing. JSX tag-internal whitespace is structural noise; the parser
+  /// drops it so attribute / closing-tag tokens line up the way they did
+  /// before whitespace tokens were preserved.
+  fn skip_jsx_ws(&mut self) {
+    while matches!(self.peek_kind(), Some(TokenKind::Whitespace)) {
+      self.advance();
+    }
+  }
+
   /// Cursor at `JsxOpenTagStart`. Consumes through the matching close (or
   /// self-close) and returns a `JsxElement`, `JsxSelfClosing`, or `JsxFragment`.
   pub(crate) fn parse_jsx(&mut self) -> Node {
     let span = self.current_span();
     self.advance();
+    self.skip_jsx_ws();
     let name = if let Some(t) = self.peek() {
       if matches!(t.kind, TokenKind::JsxTagName) {
         let n = t.raw.to_string();
@@ -20,9 +31,11 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     } else {
       String::new()
     };
+    self.skip_jsx_ws();
 
     let attrs = self.parse_jsx_attrs();
 
+    self.skip_jsx_ws();
     match self.peek_kind() {
       Some(TokenKind::JsxSelfClosingEnd) => {
         self.advance();
@@ -45,9 +58,11 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       match self.peek_kind() {
         Some(TokenKind::JsxCloseTagStart) => {
           self.advance();
+          self.skip_jsx_ws();
           if matches!(self.peek_kind(), Some(TokenKind::JsxTagName)) {
             self.advance();
           }
+          self.skip_jsx_ws();
           if matches!(self.peek_kind(), Some(TokenKind::JsxCloseTagEnd)) {
             self.advance();
           }
@@ -75,14 +90,18 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
 
   /// Consume `name`, `name="str"`, `name={expr}` attributes. Bare names map
   /// to `JsxAttrValue::Boolean`. Stops at the first non-attribute token.
+  /// Skips inter-attribute whitespace.
   fn parse_jsx_attrs(&mut self) -> Vec<JsxAttr> {
     let mut out = Vec::new();
+    self.skip_jsx_ws();
     while let Some(TokenKind::JsxAttributeName) = self.peek_kind() {
       let span = self.current_span();
       let name = self.peek().unwrap().raw.to_string();
       self.advance();
+      self.skip_jsx_ws();
       let value = if matches!(self.peek_kind(), Some(TokenKind::Eq)) {
         self.advance();
+        self.skip_jsx_ws();
         match self.peek_kind() {
           Some(TokenKind::String) => {
             let s = self.peek().unwrap().raw.to_string();
@@ -112,6 +131,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         JsxAttrValue::Boolean
       };
       out.push(JsxAttr { name, value, span });
+      self.skip_jsx_ws();
     }
     out
   }

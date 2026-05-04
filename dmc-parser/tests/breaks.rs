@@ -43,6 +43,8 @@ fn blockquote_single_line() {
 
 #[test]
 fn blockquote_multi_line_collapses() {
+  // CommonMark: consecutive `>` lines join into one paragraph with a
+  // space between. Both lines must end up in the same paragraph.
   let d = parse_doc("> one\n> two\n");
   let bq = d
     .children
@@ -52,5 +54,19 @@ fn blockquote_multi_line_collapses() {
       _ => None,
     })
     .expect("bq");
-  assert!(bq.children.len() >= 2, "got {} paragraphs", bq.children.len());
+  assert_eq!(bq.children.len(), 1, "expected 1 paragraph, got {}", bq.children.len());
+  let para = match &bq.children[0] {
+    Node::Paragraph(p) => p,
+    _ => panic!("expected paragraph"),
+  };
+  let flat: String = para
+    .children
+    .iter()
+    .filter_map(|n| match n {
+      Node::Text(t) => Some(t.value.as_str()),
+      _ => None,
+    })
+    .collect();
+  assert!(flat.contains("one"));
+  assert!(flat.contains("two"));
 }

@@ -139,6 +139,10 @@ export interface OutputOptions {
 	name?: string;
 	clean?: boolean;
 	format?: "esm" | "cjs";
+	/** Emit a per-record `html` field rendered by the native pipeline (no
+	 * sidecar/JS plugins). Set to `false` (default) when you only want the
+	 * MDX body / JSX tree and will render via React. */
+	html?: boolean;
 }
 
 export interface MarkdownOptions {

@@ -5,10 +5,12 @@ edition.workspace = true
 rust-version.workspace = true
 
 [features]
-default = ["cli", "watch", "pretty-code"]
+default = ["cli", "watch", "pretty-code", "math", "emoji"]
 cli = ["dep:clap", "dep:toml"]
 watch = ["dep:notify", "dep:notify-debouncer-mini"]
-pretty-code = []
+pretty-code = ["dmc-transform/pretty-code"]
+math = ["dmc-transform/math"]
+emoji = ["dmc-transform/emoji"]
 
 [lib]
 name = "dmc"
@@ -24,6 +26,7 @@ name = "core"
 path = "core-samples/core.rs"
 
 [dependencies]
+blake3.workspace = true
 dmc-lexer.workspace = true
 dmc-diagnostic = { workspace = true, features = ["lexer", "parser", "transform", "codegen"] }
 duck-diagnostic.workspace = true

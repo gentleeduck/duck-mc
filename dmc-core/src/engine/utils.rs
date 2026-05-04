@@ -108,7 +108,7 @@ pub fn build_velite_record(
 /// Wrap the raw MDX body in an ES-module shell, hoisting frontmatter
 /// imports above the function. Consumers `import` the default export.
 pub fn wrap_mdx_module(body: &str, imports: &[String]) -> String {
-  // Strip user imports from the body — they re-emit at module scope.
+  // Strip user imports from the body - they re-emit at module scope.
   let mut stripped = body.to_string();
   for imp in imports {
     let trimmed = imp.trim_end_matches('\n');

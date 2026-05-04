@@ -110,3 +110,19 @@ pub fn parse(source: &str) -> Document {
   let mut p = Parser::new(tokens, meta, &mut parse_engine);
   p.parse()
 }
+
+/// Lex `s` and run the inline parser on it. Returns the inline `Node`
+/// list (Text, InlineCode, Bold, Italic, Strikethrough, Link, ...).
+/// Used by table cells, which receive raw cell strings rather than
+/// pre-tokenised inline content.
+pub fn parse_inline_str(s: &str) -> Vec<crate::ast::Node> {
+  let meta = Arc::from(SourceMeta { path: Arc::from("<inline>"), version: 0, origin: Origin::Inline("<inline>") });
+  let mut lex_engine = DiagnosticEngine::new();
+  let mut lexer = Lexer::new(s, meta.clone(), &mut lex_engine);
+  let _ = lexer.scan_tokens();
+  let tokens = std::mem::take(&mut lexer.tokens);
+  drop(lexer);
+  let mut parse_engine = DiagnosticEngine::new();
+  let mut p = Parser::new(tokens, meta, &mut parse_engine);
+  p.collect_inline_until_break()
+}

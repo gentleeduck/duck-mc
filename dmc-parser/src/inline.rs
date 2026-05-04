@@ -2,6 +2,20 @@ use crate::ast::*;
 use crate::parser::Parser;
 use dmc_lexer::token::TokenKind;
 
+fn utf8_char_len(b: u8) -> usize {
+  if b < 0x80 {
+    1
+  } else if b < 0xC0 {
+    1
+  } else if b < 0xE0 {
+    2
+  } else if b < 0xF0 {
+    3
+  } else {
+    4
+  }
+}
+
 impl<'eng, 'tokens> Parser<'eng, 'tokens> {
   /// Accumulate inline nodes until any top-level break token.
   pub(crate) fn collect_inline_until_break(&mut self) -> Vec<Node> {
@@ -20,8 +34,13 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     })
   }
 
-  /// Inline body of one list item. Same stop set as `collect_inline_until_break`.
+  /// Inline body of one list item. Same stop set as
+  /// `collect_inline_until_break`, but skips the single leading
+  /// `Whitespace` token that follows the marker (`- foo` vs `-foo`).
   pub(crate) fn collect_inline_for_list_item(&mut self) -> Vec<Node> {
+    if matches!(self.peek_kind(), Some(TokenKind::Whitespace)) {
+      self.advance();
+    }
     self.collect_inline_until_break()
   }
 
@@ -38,7 +57,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       let span = t.span.clone();
       match &kind {
         TokenKind::Text => {
-          let raw = t.raw.to_string();
+          let raw = Self::unescape_markdown(t.raw);
           self.advance();
           out.push(Node::Text(Text { value: raw, span }));
         },
@@ -73,7 +92,14 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
           if matches!(self.peek_kind(), Some(TokenKind::Bold(m)) if *m == open_n) {
             self.advance();
           }
-          out.push(Node::Bold(Inline { children: inner, span }));
+          // `***x***` (Bold(3)) means strong+em combined per CommonMark:
+          // wrap as <em><strong>x</strong></em>.
+          if open_n == 3 {
+            let strong = Node::Bold(Inline { children: inner, span: span.clone() });
+            out.push(Node::Italic(Inline { children: vec![strong], span }));
+          } else {
+            out.push(Node::Bold(Inline { children: inner, span }));
+          }
         },
         TokenKind::Italic(n) => {
           let open_n = *n;
@@ -127,7 +153,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
             continue;
           }
           self.advance();
-          let mut href = String::new();
+          let mut paren_body = String::new();
           if matches!(self.peek_kind(), Some(TokenKind::ParenOpen)) {
             self.advance();
             while let Some(tok) = self.peek() {
@@ -138,13 +164,14 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
                 },
                 TokenKind::Eof => break,
                 _ => {
-                  href.push_str(tok.raw);
+                  paren_body.push_str(tok.raw);
                   self.advance();
                 },
               }
             }
           }
-          out.push(Node::Link(Link { href, title: None, children: inner, span }));
+          let (href, title) = Self::split_destination_title(&paren_body);
+          out.push(Node::Link(Link { href, title, children: inner, span }));
         },
         TokenKind::Bang => {
           let start = self.pos;
@@ -170,7 +197,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
               },
             }
           }
-          let mut src = String::new();
+          let mut paren_body = String::new();
           if matches!(self.peek_kind(), Some(TokenKind::ParenOpen)) {
             self.advance();
             while let Some(tok) = self.peek() {
@@ -181,13 +208,14 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
                 },
                 TokenKind::Eof => break,
                 _ => {
-                  src.push_str(tok.raw);
+                  paren_body.push_str(tok.raw);
                   self.advance();
                 },
               }
             }
           }
-          out.push(Node::Image(Image { src, alt, title: None, span }));
+          let (src, title) = Self::split_destination_title(&paren_body);
+          out.push(Node::Image(Image { src, alt, title, span }));
         },
         TokenKind::JsxOpenTagStart => {
           out.push(self.parse_jsx());
@@ -220,6 +248,101 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
           }
         },
       }
+    }
+    out
+  }
+
+  /// Split the body of a `(...)` link/image destination into
+  /// `(href, title)`. CommonMark allows an optional trailing
+  /// `"title"` / `'title'` / `(title)` separated from the destination
+  /// by whitespace. Unterminated/missing title returns `(body, None)`.
+  fn split_destination_title(body: &str) -> (String, Option<String>) {
+    let trimmed = body.trim();
+    if trimmed.is_empty() {
+      return (String::new(), None);
+    }
+    // Walk back from the end looking for a balanced quoted title.
+    let bytes = trimmed.as_bytes();
+    let last = bytes[bytes.len() - 1];
+    let close = match last {
+      b'"' => Some(b'"'),
+      b'\'' => Some(b'\''),
+      b')' => Some(b'('),
+      _ => None,
+    };
+    let Some(open) = close else {
+      return (trimmed.to_string(), None);
+    };
+    // Find the matching opener, ensuring a whitespace separator before it.
+    let mut i = bytes.len() - 1;
+    let mut depth = 1;
+    while i > 0 {
+      i -= 1;
+      let b = bytes[i];
+      if b == last && b != open {
+        depth += 1;
+      }
+      if b == open {
+        depth -= 1;
+        if depth == 0 {
+          break;
+        }
+      }
+    }
+    if depth != 0 {
+      return (trimmed.to_string(), None);
+    }
+    // Need at least one whitespace between dest and the opener.
+    if i == 0 || !bytes[i - 1].is_ascii_whitespace() {
+      return (trimmed.to_string(), None);
+    }
+    let dest = trimmed[..i].trim_end().to_string();
+    let title = trimmed[i + 1..bytes.len() - 1].to_string();
+    (dest, Some(title))
+  }
+
+  /// Strip `\X` -> `X` for the standard CommonMark escapable set so
+  /// authors can write `\*literal\*` without the asterisks turning into
+  /// emphasis. The lexer keeps the backslash in `Text` raw to preserve
+  /// source spans; this collapses it for the rendered text.
+  fn unescape_markdown(s: &str) -> String {
+    if !s.contains('\\') {
+      return s.to_string();
+    }
+    let mut out = String::with_capacity(s.len());
+    let bytes = s.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() {
+      if bytes[i] == b'\\' && i + 1 < bytes.len() {
+        let nx = bytes[i + 1];
+        if matches!(
+          nx,
+          b'\\'
+            | b'*'
+            | b'_'
+            | b'`'
+            | b'<'
+            | b'>'
+            | b'{'
+            | b'}'
+            | b'['
+            | b']'
+            | b'('
+            | b')'
+            | b'!'
+            | b'#'
+            | b'-'
+            | b'$'
+            | b'~'
+        ) {
+          out.push(nx as char);
+          i += 2;
+          continue;
+        }
+      }
+      let ch_len = utf8_char_len(bytes[i]);
+      out.push_str(&s[i..i + ch_len]);
+      i += ch_len;
     }
     out
   }

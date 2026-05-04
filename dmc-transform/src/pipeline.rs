@@ -1,3 +1,4 @@
+use crate::config::PipelineConfig;
 use dmc_diagnostic::{Code, metadata::SourceMeta};
 use dmc_parser::ast::Document;
 use duck_diagnostic::DiagnosticEngine;
@@ -33,14 +34,24 @@ impl Pipeline {
     self
   }
 
-  /// Default pipeline: code-import, bare-URL autolinking, heading anchors,
-  /// plus `npm-command` and `mermaid` when their features are enabled.
+  /// Default pipeline. Equivalent to `with_defaults_for(&PipelineConfig::default())`.
   pub fn with_defaults() -> Self {
+    Self::with_defaults_for(&PipelineConfig::default())
+  }
+
+  /// Build the default pipeline tuned by `cfg`. Single uniform place where
+  /// every config-dependent and feature-gated transformer is wired up:
+  /// callers don't sprinkle `cfg!(feature = ...)` of their own.
+  pub fn with_defaults_for(cfg: &PipelineConfig) -> Self {
     #[allow(unused_mut)]
     let mut p =
       Self::new().add(crate::CodeImport::new()).add(crate::BareUrlAutolink).add(crate::AutolinkHeadings::new());
 
-    #[cfg(feature = "npm_command")]
+    if cfg.markdown_gfm == Some(false) {
+      p = p.add(crate::DisableGfm);
+    }
+
+    #[cfg(feature = "npm-command")]
     {
       p = p.add(crate::NpmCommand);
     }
@@ -49,6 +60,32 @@ impl Pipeline {
     {
       p = p.add(crate::Mermaid::default());
     }
+
+    #[cfg(feature = "emoji")]
+    {
+      p = p.add(crate::Emoji);
+    }
+
+    #[cfg(feature = "math")]
+    {
+      if let Some(engine) = cfg.math_engine {
+        crate::Math::set_engine(engine);
+      }
+      p = p.add(crate::Math);
+    }
+
+    #[cfg(feature = "pretty-code")]
+    {
+      let pc = cfg.pretty_code.as_ref().map(crate::PrettyCode::from_options).unwrap_or_default();
+      p = p.add(pc);
+    }
+
+    #[cfg(feature = "assets")]
+    if let Some(opts) = &cfg.copy_linked_files {
+      p =
+        p.add(crate::CopyLinkedFiles::new(opts.source_dir.clone(), opts.assets_dir.clone(), opts.public_base.clone()));
+    }
+
     p
   }
 

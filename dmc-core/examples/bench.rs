@@ -458,6 +458,7 @@ fn make_cfg(
       single: false,
     }],
     include_html: false,
+    cache_enabled: false,
     compile,
   }
 }

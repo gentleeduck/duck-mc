@@ -19,6 +19,19 @@ pub fn compile(source: String) -> Result<Value> {
   serde_json::to_value(&out).map_err(|e| Error::from_reason(e.to_string()))
 }
 
+/// Render a LaTeX fragment to KaTeX HTML via the embedded KaTeX engine.
+/// Output matches the JS chain `rehype-katex` byte-for-byte. Pair with
+/// the standard `katex.min.css` for glyph rendering.
+#[napi]
+pub fn latex_to_html(latex: String, display: bool) -> Result<String> {
+  let opts = katex::Opts::builder()
+    .display_mode(display)
+    .output_type(katex::OutputType::Html)
+    .build()
+    .map_err(|e| Error::from_reason(e.to_string()))?;
+  katex::render_with_opts(&latex, &opts).map_err(|e| Error::from_reason(e.to_string()))
+}
+
 #[napi]
 pub fn compile_many(sources: Vec<String>) -> Result<Vec<Value>> {
   let mut diag = DiagnosticEngine::<Code>::new();
@@ -60,6 +73,7 @@ pub struct BuildInput {
   pub mdx_minify: Option<bool>,
   pub markdown_gfm: Option<bool>,
   pub include_html: Option<bool>,
+  pub cache_enabled: Option<bool>,
 }
 
 #[napi(object)]
@@ -89,6 +103,8 @@ pub fn build(input: BuildInput) -> Result<BuildReport> {
     copy_linked_files: input.copy_linked_files.unwrap_or(false),
     output_assets: input.output_assets,
     output_base: input.output_base,
+    pretty_code: None,
+    math_engine: None,
   };
 
   let cfg = EngineConfig {
@@ -99,6 +115,7 @@ pub fn build(input: BuildInput) -> Result<BuildReport> {
     output_name: input.output_name,
     output_format: input.output_format,
     include_html: input.include_html.unwrap_or(false),
+    cache_enabled: input.cache_enabled.unwrap_or(true),
     collections: input
       .collections
       .into_iter()

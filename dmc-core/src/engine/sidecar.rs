@@ -78,11 +78,15 @@ pub fn run_sidecar(markdown: &str, cfg: &EngineConfig) -> Option<String> {
 
   let id = REQ_ID.fetch_add(1, Ordering::Relaxed);
   let merge = |a: &Vec<Value>, b: &Vec<Value>| -> Value { Value::Array(a.iter().chain(b.iter()).cloned().collect()) };
+  let remark_md = cfg.compile.effective_markdown_remark_plugins();
+  let remark_mdx = cfg.compile.effective_mdx_remark_plugins();
+  let rehype_md = cfg.compile.effective_markdown_rehype_plugins();
+  let rehype_mdx = cfg.compile.effective_mdx_rehype_plugins();
   let req = json!({
     "id": id,
     "markdown": markdown,
-    "remarkPlugins": merge(&cfg.compile.markdown_remark_plugins, &cfg.compile.mdx_remark_plugins),
-    "rehypePlugins": merge(&cfg.compile.markdown_rehype_plugins, &cfg.compile.mdx_rehype_plugins),
+    "remarkPlugins": merge(&remark_md, &remark_mdx),
+    "rehypePlugins": merge(&rehype_md, &rehype_mdx),
   });
 
   writeln!(child.stdin, "{}", req).ok()?;

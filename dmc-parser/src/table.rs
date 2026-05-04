@@ -125,16 +125,25 @@ fn split_cells(s: &str) -> Vec<String> {
   inner.split('|').map(|c| c.to_string()).collect()
 }
 
-/// Build one `TableRow` from raw cell strings. Cell content lands as a single
-/// `Text` child (inline parsing inside cells is a TODO). All cells share the
-/// row's span until per-cell ranges are tracked.
+/// Build one `TableRow` from raw cell strings. Each cell string is
+/// re-lexed and inline-parsed, so backticks, bold, italic, links, and
+/// other inline markdown render the same as in paragraphs.
 fn make_row(cells: &[String], span: &duck_diagnostic::Span) -> TableRow {
   TableRow {
     cells: cells
       .iter()
-      .map(|c| TableCell {
-        children: vec![Node::Text(Text { value: c.trim().to_string(), span: span.clone() })],
-        span: span.clone(),
+      .map(|c| {
+        let trimmed = c.trim();
+        let children = if trimmed.is_empty() {
+          Vec::new()
+        } else {
+          let mut nodes = crate::parser::parse_inline_str(trimmed);
+          if nodes.is_empty() {
+            nodes.push(Node::Text(Text { value: trimmed.to_string(), span: span.clone() }));
+          }
+          nodes
+        };
+        TableCell { children, span: span.clone() }
       })
       .collect(),
     span: span.clone(),

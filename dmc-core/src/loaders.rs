@@ -57,7 +57,7 @@ impl Loader for YamlLoader {
 
   fn load(&self, _path: &Path, source: &str, _diag_engine: &mut DiagnosticEngine<Code>) -> Result<Loaded, String> {
     let v: serde_yaml::Value = serde_yaml::from_str(source).map_err(|e| format!("yaml parse: {e}"))?;
-    let json = serde_json::to_value(v).map_err(|e| format!("yaml→json: {e}"))?;
+    let json = serde_json::to_value(v).map_err(|e| format!("yaml->json: {e}"))?;
     Ok(Loaded { data: json, content: source.to_string() })
   }
 }

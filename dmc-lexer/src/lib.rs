@@ -60,19 +60,15 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
     self.diag_engine.emit(diagnostic);
   }
 
-  /// Emit a token spanning `[self.start, self.current)`. Skips trivia unless
-  /// it's a line-leading run of >=4 spaces (indented code-block marker).
+  /// Emit a token spanning `[self.start, self.current)`. Inline whitespace
+  /// is kept as `Whitespace` tokens so the inline parser can preserve
+  /// spacing around block tokens (e.g. between `]( )` and the next text).
+  /// `Newline` and `Quote` trivia are still dropped.
   fn emit(&mut self, kind: TokenKind) {
     let length = self.current - self.start;
-    if kind.is_trivia() {
-      let line_leading = matches!(kind, TokenKind::Whitespace)
-        && self.column == length
-        && length >= 4
-        && self.current_lexeme().chars().all(|c| c == ' ');
-      if !line_leading {
-        self.start = self.current;
-        return;
-      }
+    if kind.is_trivia() && !matches!(kind, TokenKind::Whitespace) {
+      self.start = self.current;
+      return;
     }
 
     let span = Span::from_zero_based(self.meta.path.clone(), self.line, self.column, length);

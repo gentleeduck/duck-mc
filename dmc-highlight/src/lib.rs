@@ -39,8 +39,8 @@ impl SyntaxBundle {
         .into_builder();
       builder.add_plain_text_syntax();
       let syntaxes = builder.build();
-      let themes = ThemeSet::load_from_folder(concat!(env!("CARGO_MANIFEST_DIR"), "/assets/themes-bat"))
-        .expect("load themes-bat");
+      let themes =
+        ThemeSet::load_from_folder(concat!(env!("CARGO_MANIFEST_DIR"), "/assets/themes-bat")).expect("load themes-bat");
       SyntaxBundle { syntaxes, themes }
     })
   }
@@ -49,7 +49,8 @@ impl SyntaxBundle {
   /// `Vec<(Style, &str)>` per source line. Falls back to plain-text
   /// grammar when `lang` is unknown.
   pub fn highlight<'a>(&'a self, code: &'a str, lang: Grammar, theme: Theme) -> Vec<Vec<(Style, &'a str)>> {
-    let syntax = self.syntaxes.find_syntax_by_token(lang.name()).unwrap_or_else(|| self.syntaxes.find_syntax_plain_text());
+    let syntax =
+      self.syntaxes.find_syntax_by_token(lang.name()).unwrap_or_else(|| self.syntaxes.find_syntax_plain_text());
     let theme = self.themes.themes.get(theme.name()).expect("theme present in bundle");
     let mut h = HighlightLines::new(syntax, theme);
     LinesWithEndings::from(code).map(|line| h.highlight_line(line, &self.syntaxes).unwrap_or_default()).collect()
@@ -107,7 +108,11 @@ pub struct MultiToken<'a> {
 }
 
 fn styles_match(a: &[Style], b: &[Style]) -> bool {
-  a.len() == b.len() && a.iter().zip(b.iter()).all(|(x, y)| x.foreground == y.foreground && x.background == y.background && x.font_style == y.font_style)
+  a.len() == b.len()
+    && a
+      .iter()
+      .zip(b.iter())
+      .all(|(x, y)| x.foreground == y.foreground && x.background == y.background && x.font_style == y.font_style)
 }
 
 /// Concatenate two source slices when they're adjacent in the original
@@ -160,9 +165,8 @@ pub fn highlight_code_multi<'a>(code: &'a str, lang: Option<&str>, theme_names: 
     // walks identical scope-change positions.
     let mut per_theme: Vec<Vec<(Style, &str)>> = Vec::with_capacity(theme_names.len());
     for (i, st) in highlight_states.iter_mut().enumerate() {
-      let toks: Vec<(Style, &str)> = RangedHighlightIterator::new(st, &ops, line, &highlighters[i])
-        .map(|(style, text, _)| (style, text))
-        .collect();
+      let toks: Vec<(Style, &str)> =
+        RangedHighlightIterator::new(st, &ops, line, &highlighters[i]).map(|(style, text, _)| (style, text)).collect();
       per_theme.push(toks);
     }
 

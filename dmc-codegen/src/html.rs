@@ -122,10 +122,7 @@ impl HtmlEmitter {
       Node::ListItem(_) => self.out.push_str("<li>"),
       Node::TaskListItem(t) => {
         let checked = if t.checked { " checked" } else { "" };
-        self.out.push_str(&format!(
-          "<li class=\"task-list-item\"><input type=\"checkbox\" disabled{} />",
-          checked
-        ));
+        self.out.push_str(&format!("<li class=\"task-list-item\"><input type=\"checkbox\" disabled{} />", checked));
       },
       Node::Link(l) => {
         self.out.push_str(&format!("<a href=\"{}\"", escape_attr(&l.href)));
