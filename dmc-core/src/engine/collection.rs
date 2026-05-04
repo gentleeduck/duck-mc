@@ -83,9 +83,7 @@ impl Collection {
 
         let mut compiled = Compiler::compile_with_pipeline(&source, path, &local_compiler_cfg, &mut local_diag_engine);
 
-        if use_sidecar
-          && let Some(html) = run_sidecar(&compiled.content, cfg)
-        {
+        if use_sidecar && let Some(html) = run_sidecar(&compiled.content, cfg) {
           compiled.html = html;
         }
 
