@@ -11,7 +11,7 @@
 <p align="center">
   <a href="./LICENSE">MIT</a> -
   <a href="./dmc-docs">Docs</a> -
-  <a href="./docs/benchmarks.md">Benchmarks</a> -
+  <a href="./duck-benchmarks">Benchmarks</a> -
   <a href="./docs/migrating-from-velite.md">Migrating from velite</a>
 </p>
 
