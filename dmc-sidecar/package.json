@@ -1,6 +1,25 @@
 {
 	"name": "@gentleduck/md-sidecar",
 	"version": "0.1.0",
+	"description": "Optional Node helper for foreign remark/rehype plugins, paired with @gentleduck/md",
+	"license": "MIT",
+	"author": "gentleduck",
+	"homepage": "https://github.com/gentleeduck/duck-mc#readme",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/gentleeduck/duck-mc.git",
+		"directory": "dmc-sidecar"
+	},
+	"bugs": {
+		"url": "https://github.com/gentleeduck/duck-mc/issues"
+	},
+	"keywords": [
+		"mdx",
+		"markdown",
+		"remark",
+		"rehype",
+		"sidecar"
+	],
 	"private": true,
 	"type": "module",
 	"bin": {

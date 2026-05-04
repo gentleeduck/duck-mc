@@ -2,6 +2,14 @@
 name = "dmc-highlight"
 version.workspace = true
 edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+keywords.workspace = true
+categories.workspace = true
+description = "Bundled syntect grammars and themes for dmc syntax highlighting"
 build = "build.rs"
 
 [dependencies]

@@ -17,6 +17,14 @@ exclude = ["fuzz"]
 version = "0.1.0"
 edition = "2024"
 rust-version = "1.85"
+license = "MIT"
+authors = ["gentleduck"]
+repository = "https://github.com/gentleeduck/duck-mc"
+homepage = "https://github.com/gentleeduck/duck-mc"
+documentation = "https://github.com/gentleeduck/duck-mc/tree/master/dmc-docs"
+readme = "README.md"
+keywords = ["mdx", "markdown", "compiler", "velite", "dmc"]
+categories = ["compilers", "parser-implementations", "text-processing"]
 
 [workspace.dependencies]
 # Shared across crates

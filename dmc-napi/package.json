@@ -1,6 +1,29 @@
 {
 	"name": "@gentleduck/md",
 	"version": "0.1.0",
+	"description": "Native Rust MDX compiler with a velite-shaped TypeScript API",
+	"license": "MIT",
+	"author": "gentleduck",
+	"homepage": "https://github.com/gentleeduck/duck-mc#readme",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/gentleeduck/duck-mc.git",
+		"directory": "dmc-napi"
+	},
+	"bugs": {
+		"url": "https://github.com/gentleeduck/duck-mc/issues"
+	},
+	"keywords": [
+		"mdx",
+		"markdown",
+		"compiler",
+		"velite",
+		"rust",
+		"napi",
+		"shiki",
+		"syntect",
+		"katex"
+	],
 	"type": "module",
 	"main": "mod.ts",
 	"types": "mod.ts",

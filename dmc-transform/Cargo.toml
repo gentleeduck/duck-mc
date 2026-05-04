@@ -2,6 +2,14 @@
 name = "dmc-transform"
 version.workspace = true
 edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+keywords.workspace = true
+categories.workspace = true
+description = "Transform pipeline and built-in transformers for the dmc compiler"
 
 [features]
 default = ["mermaid", "assets", "npm-command", "math", "emoji"]

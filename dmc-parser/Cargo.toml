@@ -2,6 +2,14 @@
 name = "dmc-parser"
 version.workspace = true
 edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+keywords.workspace = true
+categories.workspace = true
+description = "Typed AST parser for the dmc MDX compiler"
 
 [dependencies]
 dmc-lexer.workspace = true

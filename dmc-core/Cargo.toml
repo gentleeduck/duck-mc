@@ -3,6 +3,14 @@ name = "dmc-core"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+keywords.workspace = true
+categories.workspace = true
+description = "Engine, CLI, watch mode, and collection builds for the dmc MDX compiler"
 
 [features]
 default = ["cli", "watch", "pretty-code", "math", "emoji"]

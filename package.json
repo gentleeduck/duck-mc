@@ -1,7 +1,26 @@
 {
-  "name": "dmc",
-  "version": "0.0.0",
+  "name": "duck-mc",
+  "version": "0.1.0",
   "private": true,
+  "description": "Native Rust MDX compiler with a velite-shaped TypeScript API",
+  "license": "MIT",
+  "author": "gentleduck",
+  "homepage": "https://github.com/gentleeduck/duck-mc",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gentleeduck/duck-mc.git"
+  },
+  "bugs": {
+    "url": "https://github.com/gentleeduck/duck-mc/issues"
+  },
+  "keywords": [
+    "mdx",
+    "markdown",
+    "compiler",
+    "velite",
+    "rust",
+    "napi"
+  ],
   "scripts": {
     "prepare": "husky",
     "fix": "cargo fmt --all",

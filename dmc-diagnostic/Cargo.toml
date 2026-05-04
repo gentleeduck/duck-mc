@@ -2,6 +2,14 @@
 name = "dmc-diagnostic"
 version.workspace = true
 edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+keywords.workspace = true
+categories.workspace = true
+description = "Shared diagnostic codes and source metadata for the dmc MDX compiler"
 
 # Unified diagnostic codes for the dmc pipeline. Variants are gated by
 # per-layer features so each crate only pulls in the codes it actually emits.
