@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+  <dict>
+    <key>fileTypes</key>
+    <array/>
+    <key>injectTo</key>
+    <array>
+      <string>source.vue</string>
+      <string>text.html.markdown</string>
+      <string>text.html.derivative</string>
+      <string>text.pug</string>
+    </array>
+    <key>injectionSelector</key>
+    <string>L:meta.tag -meta.attribute -meta.ng-binding -entity.name.tag.pug -attribute_value -source.tsx -source.js.jsx, L:meta.element -meta.attribute</string>
+    <key>name</key>
+    <string>vue-directives</string>
+    <key>patterns</key>
+    <array>
+      <dict>
+        <key>include</key>
+        <string>text.html.vue#vue-directives</string>
+      </dict>
+    </array>
+    <key>scopeName</key>
+    <string>vue.directives</string>
+  </dict>
+</plist>

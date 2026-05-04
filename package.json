@@ -1,5 +1,8 @@
 {
 	"name": "dmc",
 	"version": "0.0.0",
-	"private": true
+	"private": true,
+	"dependencies": {
+		"plist": "^5.0.0"
+	}
 }

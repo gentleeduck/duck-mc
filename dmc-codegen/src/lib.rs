@@ -7,6 +7,7 @@
 //! Both implement [`NodeSink`]. A single [`Walker`] does one pre-order
 //! DFS, fanning each node to every active sink — no N tree traversals.
 mod escape;
+pub mod highlight;
 pub mod html;
 pub mod mdx;
 use dmc_parser::ast::{Document, Node};
