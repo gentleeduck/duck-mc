@@ -28,7 +28,7 @@
     "unified": "^11"
   },
   "devDependencies": {
-    "@types/node": "^22",
+    "@types/node": "^25",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "tsx": "^4",
