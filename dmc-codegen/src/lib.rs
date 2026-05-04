@@ -5,9 +5,8 @@
 //! - [`MdxBodyEmitter`] - JS body for MDX runtime React rendering.
 //!
 //! Both implement [`NodeSink`]. A single [`Walker`] does one pre-order
-//! DFS, fanning each node to every active sink — no N tree traversals.
+//! DFS, fanning each node to every active sink - no N tree traversals.
 mod escape;
-pub mod highlight;
 pub mod html;
 pub mod mdx;
 use dmc_parser::ast::{Document, Node};
@@ -68,7 +67,7 @@ impl<'a> Walker<'a> {
       sink.enter(node, ctx);
     }
     match node {
-      // Table rows/cells aren't `Node`s — handled inline.
+      // Table rows/cells aren't `Node`s - handled inline.
       Node::Table(t) => {
         for row in &t.children {
           for cell in &row.cells {

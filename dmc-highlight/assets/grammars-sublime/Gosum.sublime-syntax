@@ -1,0 +1,58 @@
+%YAML 1.2
+---
+# http://www.sublimetext.com/docs/3/syntax.html
+
+# https://github.com/golang/go/tree/master/src/cmd/go/internal/modfetch
+
+file_extensions: [go.sum]
+scope: source.gosum
+
+variables:
+  ident: (?:[^\s/()]|/(?!/))+
+  semver: v\d+\.\d+\.\d+
+  version_checksum: '[^\s/]+'
+  checksum: '\S+'
+  algorithm: \w+
+
+contexts:
+  # The form of each line in go.sum is three fields:
+  #
+  #     <module> <version>[/go.mod] <hash>
+  #
+  # Each known module version results in two lines in the go.sum file.
+  # The first line gives the hash of the module version's file tree.
+  # The second line appends "/go.mod" to the version and gives the hash
+  # of only the module version's (possibly synthesized) go.mod file.
+  #
+  # The hash begins with an algorithm prefix of the form "h<N>:".
+  main:
+    - include: module-match
+
+  eol-pop:
+    - match: $
+      pop: true
+
+  module-match:
+    - match: \S+
+      scope: variable.gosum
+      set: version-match
+
+  version-match:
+    - include: eol-pop
+    - match: ({{semver}})(?:([+-])({{version_checksum}}))?(?:(/)({{ident}}))?
+      captures:
+        1: string.version.gosum
+        2: punctuation.separator.gosum
+        3: string.checksum.gosum
+        4: punctuation.separator.gosum
+        5: variable.gosum
+    - match: (?=\S)
+      set: checksum-match
+
+  checksum-match:
+    - include: eol-pop
+    - match: ({{algorithm}})(:)({{checksum}})
+      captures:
+        1: entity.name.label.gosum
+        2: punctuation.separator.gosum
+        3: constant.language.gosum

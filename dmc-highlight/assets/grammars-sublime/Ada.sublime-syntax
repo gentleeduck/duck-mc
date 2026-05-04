@@ -1,0 +1,80 @@
+%YAML 1.2
+---
+# http://www.sublimetext.com/docs/3/syntax.html
+name: Ada
+comment: 'Ada Language sublime-syntax for use with bat.'
+file_extensions:
+  - adb
+  - ads
+  - gpr
+scope: source.ada
+contexts:
+  main:
+    - include: comments
+    - include: strings
+    - include: labels
+    - match: \b(?i:(function|procedure))\b\s+(\w+(\.\w+)?|"(?:\+|-|=|\*|/)")
+      scope: meta.function.ada
+      captures:
+        1: keyword.other.ada
+        2: entity.name.function.ada
+    - match: \b(?i:(package)(?:\b\s+(body))?)\b\s+(\w+(\.\w+)*|"(?:\+|-|=|\*|/)")
+      scope: meta.function.ada
+      captures:
+        1: keyword.other.ada
+        2: keyword.other.ada
+        3: entity.name.package.ada
+    - match: \b((?i:(end))\s*(\s+(?i:if|loop|record|case|select)\s*)(\w+)?);
+      scope: meta.function.ada
+      captures:
+        1: keyword.other.ada
+        4: entity.other.attribute-name
+    - match: \b(?i:(end))\b\s+(\w+(\.\w+)*|"(\+|-|=|\*|/)")\s?;
+      scope: meta.function.ada
+      captures:
+        1: keyword.other.ada
+        2: entity.name.function.ada
+    - match: '(^|[\r\n])((?i:((limited[ \t]+)?(private[ \t]+)?with))[ \t]+(\w+(\.\w+)*);[ \t]*)+'
+      scope: meta.function.ada
+      captures:
+        3: keyword.control.import.ada
+        6: entity.name.package.ada
+    - match: (^|[\r\n])(type|subtype)[ \t]+(\w+)
+      scope: meta.type.ada
+      captures:
+        2: keyword.other.ada
+        3: entity.name.type.ada
+    - match: \b(?i:(begin|end|package))\b
+      scope: keyword.control.ada
+    - match: \b(?i:(\=>|abort|abs|abstract|accept|access|aliased|all|and|array|at|body|case|constant|declare|delay|delta|digits|do|else|elsif|entry|exception|exit|for|function|generic|goto|if|in|interface|is|limited|loop|mod|new|not|null|of|or|others|out|overriding|pragma|private|procedure|protected|raise|range|record|rem|renames|requeue|return|reverse|select|separate|some|subtype|synchronized|tagged|task|terminate|then|type|until|use|when|while|with|xor))\b
+      scope: keyword.other.ada
+    - match: '\b(?i:([0-9](_?[0-9])*((#[0-9a-f](_?[0-9a-f])*#((e(\+|-)?[0-9](_?[0-9])*\b)|\B))|((\.[0-9](_?[0-9])*)?(e(\+|-)?[0-9](_?[0-9])*)?\b))))'
+      scope: constant.numeric.ada
+  comments:
+    - match: (--).*$\n?
+      scope: comment.line.double-dash.ada
+      captures:
+        1: punctuation.definition.comment.ada
+  labels:
+    - match: "<<(.+)>>"
+      scope: keyword.operator.label.ada
+      captures:
+        1: entity.other.attribute-name
+    - match: '^\s*\b(\w+?)\s*:'
+      scope: keyword.operator.label.ada
+      captures:
+        1: entity.other.attribute-name
+  strings:
+    - match: "'.'"
+      scope: string.quoted.single.ada
+    - match: '"'
+      captures:
+        0: punctuation.definition.string.begin.ada
+      push:
+        - meta_scope: string.quoted.double.ada
+        - match: '"'
+          captures:
+            0: punctuation.definition.string.end.ada
+          pop: true
+        - match: \n
+          scope: invalid.illegal.lf-in-string.ada

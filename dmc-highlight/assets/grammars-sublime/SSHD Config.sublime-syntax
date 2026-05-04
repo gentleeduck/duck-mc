@@ -1,0 +1,214 @@
+%YAML 1.2
+---
+# https://www.sublimetext.com/docs/syntax.html
+# https://man7.org/linux/man-pages/man5/sshd_config.5.html
+# https://man.openbsd.org/sshd_config.5
+name: SSHD Config
+file_extensions:
+  - sshd_config
+scope: source.sshd_config
+variables:
+  all_options: |-
+    \b(?xi:
+      AcceptEnv|AddressFamily|
+      Allow(?:AgentForwarding|Groups|StreamLocalForwarding|TcpForwarding|Users)|
+      AuthenticationMethods|
+      Authorized(?:Keys|Principals)(?:Command|CommandUser|File)|
+      Banner|
+      CASignatureAlgorithms|ChallengeResponseAuthentication|ChrootDirectory|
+      Ciphers|ClientAliveCountMax|ClientAliveInterval|Compression|
+      DenyGroups|DenyUsers|DisableForwarding|
+      ExposeAuthInfo|
+      FingerprintHash|ForceCommand|
+      GatewayPorts|GSSAPIAuthentication|GSSAPICleanupCredentials|GSSAPIStrictAcceptorCheck|
+      Hostbased(?:AcceptedKeyTypes|Authentication|UsesNameFromPacketOnly)|
+      HostCertificate|HostKey|HostKeyAgent|HostKeyAlgorithms|
+      IgnoreRhosts|IgnoreUserKnownHosts|IPQoS|
+      KbdInteractiveAuthentication|
+      Kerberos(?:Authentication|GetAFSToken|OrLocalPasswd|TicketCleanup)|
+      KexAlgorithms|KeyRegenerationInterval|
+      ListenAddress|LoginGraceTime|LogLevel|
+      MACs|Match|MaxAuthTries|MaxSessions|MaxStartups|
+      PasswordAuthentication|
+      Permit(?:EmptyPasswords|Listen|Open|RootLogin|TTY|Tunnel|UserEnvironment|UserRC)|
+      PidFile|Port|PrintLastLog|PrintMotd|Protocol|PubkeyAcceptedKeyTypes|PubkeyAuthentication|
+      RekeyLimit|RevokedKeys|RDomain|RhostsRSAAuthentication|RSAAuthentication|
+      ServerKeyBits|SetEnv|ShowPatchLevel|StreamLocalBindMask|StreamLocalBindUnlink|
+      StrictModes|Subsystem|SyslogFacility|
+      TCPKeepAlive|
+      UseDNS|UseLogin|UsePAM|UsePrivilegeSeparation|
+      VersionAddendum|
+      X11DisplayOffset|X11Forwarding|X11UseLocalhost|XAuthLocation
+    )\b
+
+contexts:
+  main:
+    - include: comments
+    - include: match
+    - include: generic-option
+
+  options:
+    - include: comments
+    - include: forcecommand
+    - include: generic-option
+
+  tokens:
+    # https://man7.org/linux/man-pages/man5/sshd_config.5.html#TOKENS
+    # https://man.openbsd.org/ssh_config.5#TOKENS
+    - match: '%[%DFfhiKksTtUu]'
+      scope: constant.character.escape.sshd_config
+
+  pop-before-match-option:
+    - include: SSH Common.sublime-syntax#pop-before-nl
+    - match: (?=[ \t]*(?i:all|user|group|host|(?:local)?address|localport)\b)
+      pop: true
+
+  pop-before-next-match:
+    - match: (?=^[ \t]*(?i:match)\b)
+      pop: true
+
+  pop-nl-as-value:
+    - match: \n
+      scope: meta.mapping.value.ssh_config
+      pop: true
+
+ # Match
+  match:
+    - match: ^[ \t]*((?i:match))\b
+      captures:
+        1: meta.block.match.sshd_config keyword.control.conditional.sshd_config
+      set: match-conditions
+
+  match-conditions:
+    - meta_content_scope: meta.block.match.sshd_config meta.statement.conditional.sshd_config
+    - match: \n
+      set: match-body
+
+    - match: '!'
+      scope: keyword.operator.logical.sshd_config
+    - match: \b(?i:all)\b
+      scope: constant.language.boolean.sshd_config
+
+    - match: \b(?i:user|group|host)\b
+      scope: keyword.other.sshd_config
+      push:
+        - include: pop-before-match-option
+        - include: string-patterns
+
+    - match: \b(?i:(?:local)?address)\b
+      scope: keyword.other.sshd_config
+      push:
+        - match: '!'
+          scope: keyword.operator.logical.sshd_config
+        - match: ','
+          scope: punctuation.separator.sequence.sshd_config
+        - match: \*|\?
+          scope: keyword.operator.wildcard.sshd_config
+        - include: SSH Common.sublime-syntax#ip-addresses-with-cidr
+        - include: pop-before-match-option
+
+    - match: \b(?i:localport)\b
+      scope: keyword.other.sshd_config
+      push:
+        - match: \d+
+          scope: constant.numeric.integer.decimal.sshd_config
+        - include: pop-before-match-option
+
+  match-body:
+    - meta_scope: meta.block.match.sshd_config
+    - include: pop-before-next-match
+    - include: options
+
+  string-patterns:
+    # https://man7.org/linux/man-pages/man5/sshd_config.5.html#PATTERNS
+    # https://man.openbsd.org/ssh_config.5#PATTERNS
+    - match: '[^\s*?!,]+'
+      scope: string.unquoted.sshd_config
+    - match: '!'
+      scope: string.unquoted.sshd_config keyword.operator.logical.sshd_config
+    - match: ','
+      scope: string.unquoted.sshd_config punctuation.separator.sequence.sshd_config
+    - match: \*|\?
+      scope: string.unquoted.sshd_config keyword.operator.wildcard.sshd_config
+
+  forcecommand:
+    - match: ^\s*((?i:forcecommand))\b[ \t]*(=)?
+      captures:
+        1: meta.mapping.key.sshd_config keyword.other.sshd_config
+        2: keyword.operator.assignment.sshd_config
+      push:
+        - meta_content_scope: meta.mapping.value.sshd_config source.embedded.shell
+        - match: none
+          scope: constant.language.set.sshd_config
+          pop: true
+        - include: scope:source.shell
+        - include: pop-nl-as-value
+
+  generic-option:
+    - match: ^\s*([a-zA-Z1]+)\b[ \t]*(=)?
+      captures:
+        1: meta.mapping.key.sshd_config keyword.other.sshd_config
+        2: keyword.operator.assignment.sshd_config
+      push:
+        - meta_content_scope: meta.mapping.value.sshd_config
+        - include: tokens
+        - match: \"
+          scope: punctuation.definition.string.begin.sshd_config
+          push:
+            - meta_scope: string.quoted.double.sshd_config
+            - match: \"
+              scope: punctuation.definition.string.end.sshd_config
+              pop: true
+            - match: \n|$
+              scope: invalid.illegal.sshd_config
+              pop: true
+            - include: generic-option-value
+        - match: (?=\S)
+          push:
+            - meta_content_scope: string.unquoted.sshd_config
+            - include: SSH Common.sublime-syntax#pop-before-nl
+            - include: generic-option-value
+        - include: pop-nl-as-value
+
+  generic-option-value:
+    - match: \b(?i:yes|no)\b
+      scope: constant.language.boolean.sshd_config
+    - match: \b(?i:any|none)\b
+      scope: constant.language.set.sshd_config
+    - match: \b(?i:default)\b
+      scope: constant.language.default.sshd_config
+    - include: SSH Crypto.sublime-syntax#ssh-key-types
+    - include: SSH Crypto.sublime-syntax#ssh-ciphers
+    - include: SSH Crypto.sublime-syntax#ssh-kex-algorithms
+    - include: SSH Crypto.sublime-syntax#ssh-mac-algorithms
+    - include: SSH Common.sublime-syntax#ipv6-square-bracket
+    - include: SSH Common.sublime-syntax#ip-addresses-with-cidr
+    - include: SSH Common.sublime-syntax#time-values
+    - include: SSH Common.sublime-syntax#bytes-values
+    - include: tokens
+    - match: \*|\?
+      scope: keyword.operator.wildcard.sshd_config
+    - match: \b\d+(?=[\s,"])
+      scope: constant.numeric.sshd_config
+    - match: '!'
+      scope: keyword.operator.logical.sshd_config
+    - match: ','
+      scope: punctuation.separator.sequence.sshd_config
+
+  comments:
+    - match: ^\s*(#)
+      captures:
+        1: comment.line.number-sign.sshd_config punctuation.definition.comment.sshd_config
+      push:
+        - meta_content_scope: comment.line.number-sign.sshd_config
+        - include: SSH Common.sublime-syntax#pop-nl
+        - match: '{{all_options}}'
+          scope: meta.keyword.comment.sshd_config
+    - match: ^\s*(;)
+      captures:
+        1: comment.line.number-sign.sshd_config punctuation.definition.comment.sshd_config
+      push:
+        - meta_content_scope: comment.line.semi-colon.sshd_config
+        - include: SSH Common.sublime-syntax#pop-nl
+        - match: '{{all_options}}'
+          scope: meta.keyword.comment.sshd_config

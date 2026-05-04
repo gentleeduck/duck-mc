@@ -122,12 +122,15 @@ impl HtmlEmitter {
       Node::ListItem(_) => self.out.push_str("<li>"),
       Node::TaskListItem(t) => {
         let checked = if t.checked { " checked" } else { "" };
-        self.out.push_str(&format!("<li><input type=\"checkbox\" disabled{} />", checked));
+        self.out.push_str(&format!(
+          "<li class=\"task-list-item\"><input type=\"checkbox\" disabled{} />",
+          checked
+        ));
       },
       Node::Link(l) => {
         self.out.push_str(&format!("<a href=\"{}\"", escape_attr(&l.href)));
         if let Some(title) = &l.title {
-          self.out.push_str(&format!(" aria-label=\"{}\"", escape_attr(title)));
+          self.out.push_str(&format!(" title=\"{}\"", escape_attr(title)));
         }
         self.out.push('>');
       },
@@ -204,6 +207,16 @@ impl HtmlEmitter {
           && let JsxAttrValue::String(svg) = &attr.value
         {
           self.out.push_str(svg);
+        }
+      },
+      "MathMl" => {
+        if let Some(attr) = s.attrs.iter().find(|a| a.name == "mathml")
+          && let JsxAttrValue::String(mathml) = &attr.value
+        {
+          // Reverse the JSX-attribute escape applied by Math::preprocess_source
+          // (`"` -> `&quot;`, `&` -> `&amp;`) before emitting raw HTML.
+          let unescaped = mathml.replace("&quot;", "\"").replace("&amp;", "&");
+          self.out.push_str(&unescaped);
         }
       },
       "PackageManagerTabs" => {
@@ -307,7 +320,7 @@ impl HtmlEmitter {
       Node::Link(l) => {
         self.out.push_str(&format!("<a href=\"{}\"", escape_attr(&l.href)));
         if let Some(title) = &l.title {
-          self.out.push_str(&format!(" aria-label=\"{}\"", escape_attr(title)));
+          self.out.push_str(&format!(" title=\"{}\"", escape_attr(title)));
         }
         self.out.push('>');
         for c in &l.children {

@@ -1,0 +1,8 @@
+[package]
+name = "dmc-highlight"
+version.workspace = true
+edition.workspace = true
+build = "build.rs"
+
+[dependencies]
+syntect.workspace = true

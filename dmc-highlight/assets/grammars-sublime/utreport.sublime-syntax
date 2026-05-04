@@ -1,0 +1,72 @@
+%YAML 1.2
+---
+# http://www.sublimetext.com/docs/3/syntax.html
+name: Unit Test Report
+file_extensions: []
+scope: source.utreport
+contexts:
+  main:
+    - match: '"(.*?)"'
+      scope: string.quoted
+    - match: "'(.*?)'"
+      scope: string.quoted
+    - match: '(^|\s+)(JCL|CAS|JES)..[0-9][0-9][0-9][0-9]I.*$'
+      scope: token.info-token
+    - match: '(^|\s+)(JCL|CAS|JES)..[0-9][0-9][0-9][0-9]W.*$'
+      scope: token.warn-token
+    - match: '(^|\s+)(JCL|CAS|JES)..[0-9][0-9][0-9][0-9]S.*$'
+      scope: token.debug-token emphasis
+    - match: '(^|\s+)(JCL|CAS|JES)..[0-9][0-9][0-9][0-9]E.*$'
+      scope: token.error-token
+    - match: \S+@\S+\.\S+
+      scope: markup.bold
+    - match: '\b([0|1]?[0-9]|2[0-3])\:[0-5][0-9](\:[0-5][0-9])?( ?(?i:(a|p)m?))?( ?[+-]?[0-9]*)(?=\s|$)'
+      scope: constant.numeric.date
+    - match: '([\:|/])\s+(?i:(failed))'
+      comment: "::.."
+      captures:
+        1: punctuation.accessor.cobol
+        2: token.error-token
+    - match: '([\:|/])\s+(?i:(errored|error))'
+      comment: "::.."
+      captures:
+        1: punctuation.accessor.cobol
+        2: invalid
+    - match: '([\:|/])\s+(?i:(passed|completed|information|info))'
+      comment: info
+      captures:
+        1: punctuation.accessor.cobol
+        2: token.info-token
+    - match: (\*\*\*\*.*)$
+      scope: comment.line
+    - match: (\*\-.*\-\*)
+      scope: comment.jsysmsg.line
+    - match: (\/\/\*.*)$
+      scope: comment.jcl.line
+    - match: (--->)
+      scope: invalid
+    - match: (?i:Micro Focus COBOL - mfurun Utility|Unit Testing Framework for.*)$
+      scope: entity.name.section.markdown heading.1.markdown markup.heading.markdown
+    - match: (?i:Runtime error)
+      push:
+        - meta_scope: source.utreport
+        - match: "(^ )(?=[a-zA-z0-9])"
+          pop: true
+        - match: .
+          scope: token.info-token
+    - match: (?i:Fixture filename|Test case|Test Run Summary)
+      scope: entity.name.section.markdown heading.2.markdown markup.heading.markdown
+    - match: "(^  J.*:|^  [a-zA-Z].*:$)"
+      scope: entity.name.section.markdown heading.3.markdown markup.heading.markdown
+    - match: '(\s+[0-9]+\s+)(//[A-Za-z0-9\$\#@\.]*)\s+([a-zA-Z0-9+\-]*)\s(.*)$'
+      captures:
+        1: constant.numeric
+        2: variable.other.jcl
+        3: keyword.control.jcl
+        4: meta.symbol.jcl
+    - match: '(?:^|\s+)([-+]*[0-9 ,\.]+)(?:$|\s+)'
+      scope: constant.numeric
+    - match: (?i:(^Micro Focus COBOL.*$|^Unit Testing Framework for.*$|^Test Run Summary$))
+      scope: emphasis
+    - match: "(?i:(MFUT[a-zA-Z0-9_-]*))"
+      scope: entity.name.function

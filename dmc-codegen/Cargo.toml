@@ -7,7 +7,6 @@ edition.workspace = true
 dmc-parser = { path = "../dmc-parser" }
 dmc-diagnostic = { workspace = true, features = ["codegen"] }
 duck-diagnostic.workspace = true
-syntect.workspace = true
 
 [dev-dependencies]
 pretty_assertions.workspace = true

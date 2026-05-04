@@ -1,0 +1,41 @@
+%YAML 1.2
+---
+name: HTML (EEx)
+file_extensions:
+  - html.eex
+  - html.leex
+scope: text.html.elixir
+
+contexts:
+  main:
+    - match: ''
+      push: 'Packages/HTML/HTML.sublime-syntax'
+      with_prototype:
+        - include: eex_tags
+
+  eex_tags:
+    - match: <%#
+      push:
+        - meta_scope: comment.eex.elixir
+        - match: '%>'
+          pop: true
+
+    - match: <%%
+      scope: keyword.other.eex.elixir punctuation.definition.string.begin.elixir
+      push:
+        - meta_content_scope: string.eex.elixir
+        - match: '%>'
+          scope: keyword.other.eex.elixir punctuation.definition.string.end.elixir
+          pop: true
+
+    - match: (?=<%)
+      push:
+        - clear_scopes: true
+        - match: '%>'
+          scope: text.html.elixir keyword.other.eex.elixir punctuation.section.embedded.end.elixir
+          pop: true
+        - match: <%[=/|]?
+          scope: text.html.elixir keyword.other.eex.elixir punctuation.section.embedded.begin.elixir
+          embed: scope:source.elixir
+          embed_scope: text.html.elixir source.elixir.embedded.html
+          escape: (?=%>)

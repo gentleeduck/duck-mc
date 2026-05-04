@@ -1,0 +1,15 @@
+%YAML 1.2
+---
+# http://www.sublimetext.com/docs/3/syntax.html
+name: HTML (Jinja2)
+file_extensions:
+  - htm.j2
+  - html.j2
+  - xhtml.j2
+  - xml.j2
+first_line_match: '^{% extends ["''][^"'']+["''] %}'
+scope: text.html.jinja2
+contexts:
+  main:
+    - include: scope:source.jinja2
+    - include: scope:text.html.basic

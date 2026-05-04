@@ -1,0 +1,272 @@
+%YAML 1.2
+---
+name: JQ
+file_extensions:
+  - jq
+scope: source.jq
+
+first_line_match: |-
+  (?xi:
+    ^ \#! .* \b(jq|gojq|jaq|yq|xq)\b  # shebang
+  )
+
+variables:
+  identifier_start: '[[:alpha:]_]'
+  identifier: '\b{{identifier_start}}[[:alnum:]_]*\b'
+
+contexts:
+  prototype:
+    - include: comments
+    - include: enter
+
+  ## Main context
+  main:
+    - include: definitions
+    - include: keywords
+    - include: literals
+    - include: strings
+
+  ## Blocks
+  enter:
+    - match: '\('
+      scope: punctuation.section.parens.begin.jq
+      push: in_para
+    - match: '\['
+      scope: punctuation.section.brackets.begin.jq
+      push: in_bracket
+    - match: '\{'
+      scope: punctuation.section.braces.begin.jq
+      push: in_brace
+
+  exit_para:
+    - match: '\)'
+      scope: punctuation.section.parens.end.jq
+      pop: true
+    - match: '(\}|\])'
+      captures:
+        1: invalid.illegal.end_block.jq
+      pop: true
+
+  exit_bracket:
+    - match: '\]'
+      scope: punctuation.section.brackets.end.jq
+      pop: true
+    - match: '(\}|\))'
+      captures:
+        1: invalid.illegal.end_block.jq
+      pop: true
+
+  exit_brace:
+    - match: '\}'
+      scope: punctuation.section.braces.end.jq
+      pop: true
+    - match: '(\)|\])'
+      captures:
+        1: invalid.illegal.end_block.jq
+      pop: true
+
+  in_para:
+    - meta_scope: meta.block.in_para.jq
+    - include: prototype
+    - include: exit_para
+    - include: literals
+    - include: keywords
+    - include: definitions
+
+  in_bracket:
+    - meta_scope: meta.block.in_bracket.jq
+    - include: prototype
+    - include: exit_bracket
+    - include: literals
+    - include: keywords
+
+  in_brace:
+    - meta_scope: meta.block.in_brace.jq
+    - include: prototype
+    - include: exit_brace
+    - match: '(?="{{identifier}}"\s*:)'
+      push: in_brace_quoted_identifier_mapping
+    - match: '({{identifier}})\s*(:)'
+      captures:
+        1: entity.name.other.key.jq
+        2: punctuation.separator.mapping.key-value.jq
+      push: in_brace_value
+    - include: strings
+    - match: ':'
+      scope: punctuation.separator.mapping.key-value.jq
+      push: in_brace_value
+    - match: '{{identifier}}'
+      scope: entity.name.other.key.jq
+
+  in_brace_quoted_identifier_mapping:
+    - include: prototype
+    - include: strings
+    - match: ':'
+      scope: punctuation.separator.mapping.key-value.jq
+      set: in_brace_value
+
+  in_brace_value:
+    - meta_content_scope: meta.block.in_brace.value.jq
+    - include: prototype
+    - include: literals
+    - include: keywords
+    - match: '(?=\})'
+      pop: true
+    - match: ','
+      scope: punctuation.separator.sequence.jq
+      pop: true
+
+  definitions:
+    - match: '(?=\bdef\b\s*{{identifier}})'
+      push: func_def
+
+    - match: '(?=\b(include|import)\b\s*\"[^\";]+\"\s*;)'
+      push: include_import
+
+  func_def:
+    - meta_content_scope: meta.function.jq
+    - match: \bdef\b
+      scope: keyword.other.function_def.jq
+    - match: '{{identifier}}'
+      scope: entity.name.function.jq
+    - match: '(?=[:[^\s\(]])'
+      pop: true
+    - match: '\(\s*'
+      scope: meta.function.parameters.begin.jq
+      set: func_def_args
+
+  func_def_args:
+    - meta_content_scope: meta.function.parameters.list.jq
+    - match: '\s*(\))\s*(:)'
+      captures:
+        1: meta.function.parameters.end.jq
+        2: punctuation.separator.function_def.jq
+      pop: true
+    - match: '\s*(;)\s*'
+      captures:
+        1: punctuation.separator.sequence.jq
+    - match: '\$?{{identifier}}'
+      scope: variable.parameter.jq
+    - match: '(\S)'
+      scope: invalid.illegal.jq
+      pop: true
+
+  include_import:
+    - meta_content_scope: meta.import.statement.jq
+    - include: strings
+    - match: \b(include|import)\b
+      scope: keyword.control.import.jq
+    - match: ';'
+      scope: punctuation.terminator.jq
+      pop: true
+
+  keywords:
+    # TODO better imports
+    - match: \bimport\b
+      scope: keyword.control.import.jq
+    - match: \@(text|json|html|urid?|tsv|csv|sh|base64d?)\b
+      scope: constant.language.format.jq
+    - match: \b(if|then|else|elif|end)\b
+      scope: keyword.control.conditional.jq
+    - match: \b(as)\b
+      scope: keyword.context.resource.jq
+      push: variable-definition
+    - match: \b(foreach|reduce|while|until)\b
+      scope: keyword.control.flow.jq
+    - include: operators
+    - match: '\b(IN|INDEX|JOIN|abs|acos|acosh|add|all|any|arrays|ascii_downcase|ascii_upcase|asin|asinh|atan|atan2|atanh|booleans|bsearch|builtins|capture|cbrt|ceil|combinations|contains|copysign|cos|cosh|debug|del|delpaths|drem|empty|endswith|env|erf|erfc|error|exp|exp10|exp2|explode|expm1|fabs|fdim|finites|first|flatten|floor|fma|fmax|fmin|fmod|format|frexp|from_entries|fromdate|fromdateiso8601|fromjson|fromstream|gamma|get_jq_origin|get_prog_origin|get_search_list|getpath|gmtime|group_by|gsub|halt|halt_error|has|have_decnum|have_literal_numbers|hypot|implode|in|index|indices|infinite|input|input_filename|input_line_number|inputs|inside|isempty|isfinite|isinfinite|isnan|isnormal|iterables|j0|j1|jn|join|keys|keys_unsorted|last|ldexp|length|lgamma|lgamma_r|limit|localtime|log|log10|log1p|log2|logb|ltrim|ltrimstr|map|map_values|match|max|max_by|min|min_by|mktime|modf|modulemeta|nan|nearbyint|nextafter|nexttoward|normals|not|now|nth|nulls|numbers|objects|path|paths|pick|pow|range|recurse|remainder|repeat|reverse|rindex|rint|round|rtrim|rtrimstr|scalars|scalb|scalbln|scan|select|setpath|significand|sin|sinh|skip|sort|sort_by|split|splits|sqrt|startswith|stderr|strflocaltime|strftime|strings|strptime|sub|tan|tanh|test|tgamma|to_entries|toboolean|todate|todateiso8601|tojson|tonumber|tostream|tostring|transpose|trim|trimstr|trunc|truncate_stream|type|unique|unique_by|until|utf8bytelength|values|walk|while|with_entries|y0|y1|yn)\b'
+      scope: support.function.builtin.jq
+    - match: '\b(leaf_paths|pow10|recurse_down|scalars_or_empty)\b'
+      scope: invalid.illegal.deprecated_builtin.jq
+    - match: (\$){{identifier}}
+      captures:
+        0: variable.other.readwrite.jq
+        1: punctuation.definition.variable.jq
+
+  operators:
+    - match: \b(and|or)\b
+      scope: keyword.operator.logical.jq
+    - match: \|
+      scope: keyword.operator.jq
+    - match: \.
+      scope: punctuation.accessor.dot.jq
+    - match: =(?!=)
+      scope: keyword.operator.assignment.jq
+    - match: '[><=]=?'
+      scope: keyword.operator.comparison.jq
+    - match: '[-+*/]'
+      scope: keyword.operator.arithmetic.jq
+    - match: ;
+      scope: punctuation.terminator.jq
+
+  literals:
+    - include: strings
+    - match: \bnull\b
+      scope: constant.language.null.jq
+    - match: \b(true|false)\b
+      scope: constant.language.boolean.jq
+    - match: '\b(([0-9]+\.?[0-9]*)|(\.[0-9]+))((e|E)(\+|-)?[0-9]+)?\b'
+      scope: meta.number.jq constant.numeric.jq
+
+  strings:
+    # Strings begin and end with quotes, and use backslashes as an escape
+    # character.
+    - match: '"'
+      scope: punctuation.definition.string.begin.jq
+      push: inside_string
+
+  inside_string:
+    - meta_include_prototype: false
+    - meta_scope: string.quoted.double.jq
+    - match: '\\\('
+      scope: constant.character.escape.begin_interp.jq
+      push: inside_interp
+    - match: '(\\)'
+      captures:
+        1: constant.character.escape.jq
+      push: string_escape_sequence
+    - match: '"'
+      scope: punctuation.definition.string.end.jq
+      pop: true
+
+  string_escape_sequence:
+    - meta_scope: meta.escape.sequence.jq
+    - match: "(.)"
+      captures:
+        1: constant.character.escape.escaped.jq
+      pop: true
+
+  inside_interp:
+    - meta_scope: source.interp.jq
+    - clear_scopes: true
+    - match: '\('
+      push: inside_interp_parens
+    - match: \)
+      scope: constant.character.escape.end_interp.jq
+      pop: true
+
+  inside_interp_parens:
+    - match: '\('
+      push: inside_interp_parens
+    - match: '\)'
+      pop: true
+
+  comments:
+    - match: '#'
+      scope: punctuation.definition.comment.jq
+      push: inside_line_comment
+
+  inside_line_comment:
+    - meta_scope: comment.line.jq
+    # Pop only if new line is not preceded by `\`
+    - match: '(?<!\\)\r?\n'
+      pop: true
+
+  variable-definition:
+    - match: (\$){{identifier}}
+      captures:
+        0: variable.other.constant.jq
+        1: punctuation.definition.variable.jq
+      pop: true
+    - match: (?=\S)
+      pop: true

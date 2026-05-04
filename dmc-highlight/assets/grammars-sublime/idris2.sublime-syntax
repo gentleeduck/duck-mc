@@ -1,0 +1,363 @@
+%YAML 1.2
+---
+# http://www.sublimetext.com/docs/syntax.html
+name: Idris
+file_extensions:
+  - idr
+scope: source.idris2
+variables:
+  upper_name: '(?:[\p{Lu}\p{Lt}][\p{L}_\p{Nd}'']*)'
+  lower_name: '(?:\p{Ll}[\p{L}_\p{Nd}'']*)'
+  basic_name: '(?:{{upper_name}}|{{lower_name}})'
+  namespace: '(?:(?:{{upper_name}}\.)*{{upper_name}})'
+  operator: '(?:[:!#\$%&*+./<=>?@\\\^|-~]+)'
+  prefix_name: '(?:{{basic_name}}|\({{operator}}\)|\(\.{{basic_name}}\))'
+
+  decs: '[0-9]+'
+  hexs: '[0-9a-fA-F]+'
+  octs: '[0-7]+'
+  bits: '[01]+'
+  dec_int: '(?:{{decs}}(?:_{{decs}})*)'
+  hex_int: '(?:{{hexs}}(?:_{{hexs}})*)'
+  oct_int: '(?:{{octs}}(?:_{{octs}})*)'
+  bit_int: '(?:{{bits}}(?:_{{bits}})*)'
+
+  escape_sym: '(?:NUL|SOH|STX|ETX|EOT|ENQ|ACK|BEL|BS|HT|LF|VT|FF|CR|SO|SI|DLE|DC1|DC2|DC3|DC4|NAK|SYN|ETB|CAN|EM|SUB|ESC|FS|GS|RS|US|SP|DEL|[abfnrtv\\\"''\&])'
+  escape_char: '(?:\\(?:{{escape_sym}}|(?:{{decs}}+)|(?:x{{hexs}}+)|(?:o{{octs}}+)))'
+
+  # small name with space at the end and one capturing group
+  sns_cap: '([\w'']+)\s*'
+  sns_cap_c: '(?:,\s*{{sns_cap}})?'
+  # small names with spaces at the end, delimited with commas, and six capturing groups
+  sns_cap6: '{{sns_cap}}{{sns_cap_c}}{{sns_cap_c}}{{sns_cap_c}}{{sns_cap_c}}{{sns_cap_c}}'
+
+  pns_cap: '({{prefix_name}})\s*'
+  pns_cap_c: '(?:,\s*{{pns_cap}})?'
+  pns_cap6: '{{pns_cap}}{{pns_cap_c}}{{pns_cap_c}}{{pns_cap_c}}{{pns_cap_c}}{{pns_cap_c}}'
+
+contexts:
+  main:
+    - match: \b(if|then|else|case|of|impossible)\b
+      scope: keyword.control.conditional.idris2
+    - match: '\\ *case'
+      scope: keyword.control.conditional.idris2
+    - match: \b(let|rewrite|in|do)\b
+      scope: keyword.control.flow.idris2
+    - match: \b(prefix|infix|infixl|infixr|autobind|typebind)\b
+      scope: keyword.declaration.fixity.idris2
+    - match: \b(forall)\b
+      scope: keyword.other.forall.idris2
+    - match: \b(failing)\b
+      scope: keyword.other.failing.idris2
+    - match: \b(where|with|syntax|proof|using)\b
+      scope: keyword.other.idris2
+    - match: (\?[^ ]+)
+      scope: variable.function.typed-hole.idris2
+      comment: Typed holes
+    - match: (~)
+      scope: keyword.operator.quasiquote.idris2
+      comment: Anti-quote
+    - match: \b(total|covering|partial)\b
+      scope: storage.modifier.totality.idris2
+    - match: \b(public|private|export|implicit)\b
+      scope: storage.modifier.visibility.idris2
+    - match: "%(hint|globalhint|defaulthint|inline|unsafe|noinline|deprecate|tcinline|extern|macro|spec|foreign|nomangle)"
+      scope: storage.modifier.fnopts.idris2
+      comment: Function options
+    - match: '(%{{basic_name}})'
+      scope: keyword.other.pragma.idris2
+      comment: Top-level pragmas like `%language`, and expression pragmas like `%search`
+    - match: |-
+        (--).*$
+        ?
+      comment: Line comment
+      scope: comment.line.idris2
+    - match: |-
+        (\|\|\|).*$
+        ?
+      comment: Line documentation comment
+      scope: comment.documentation.line.idris2
+    - include: multiline_comment
+    - match: \b(module)\b
+      captures:
+        1: keyword.control.idris2
+      push:
+        - meta_scope: meta.module.idris2
+        - match: ($|{|(?=--))
+          scope: keyword.operator.delimiter.idris2
+          comment: '`keyword.operator.delimiter`, not `punctuation.delimiter` to be consistent with the closing bracket'
+          pop: true
+        - match: '{{namespace}}'
+          scope: entity.name.namespace.idris2
+    - match: \b(import\s+public|import)\b
+      captures:
+        1: keyword.control.import.idris2
+      push:
+        - meta_scope: meta.import.idris2
+        - match: ($|;|(?=--))
+          scope: punctuation.delimiter.idris2
+          pop: true
+        - match: '{{namespace}}'
+          scope: entity.name.namespace.idris2
+    - match: \b(namespace)\b
+      captures:
+        1: keyword.control.import.namespace.idris2
+      push:
+        - meta_scope: meta.import.idris2
+        - match: ($|{|(?=--))
+          scope: keyword.operator.delimiter.idris2
+          comment: '`keyword.operator.delimiter`, not `punctuation.delimiter` to be consistent with the closing bracket'
+          pop: true
+        - match: '{{namespace}}'
+          scope: entity.name.namespace.idris2
+    - match: \b(constructor)\b
+      captures:
+        1: keyword.declaration.struct.idris2
+      push:
+        - meta_scope: meta.type.idris2
+        - match: ($|;|(?=--))
+          scope: keyword.operator.delimiter.idris2
+          pop: true
+        - match: '{{upper_name}}'
+          scope: storage.type.constructor.idris2
+    - include: param_decl
+    - include: data_decl
+    - include: function_signature
+    - include: ty_expression
+  name:
+    - match: '(\(\))'
+      scope: storage.type.idris2
+    - match: '\b({{namespace}}\.)?(?:({{upper_name}})|({{lower_name}}))\b'
+      comment: '`Namespace.Namespace.name` or `Namespace.Namespace.Name`'
+      captures:
+        1: entity.name.namespace.idris2
+        2: storage.type.idris2
+        #3: variable.function.prefix.idris2
+    - match: '(\()({{operator}})(\))'
+      comment: '(&&&)'
+      captures:
+        1: keyword.other.prefix.for-infix.idris2
+        #2: variable.function.infix.idris2
+        3: keyword.other.prefix.for-infix.idris2
+    - match: '(\()(\.)({{basic_name}})(\))'
+      comment: '(.fun)'
+      captures:
+        1: keyword.other.prefix.for-postfix.idris2
+        2: keyword.other.postfix.idris2
+        #3: variable.function.postfix.as-prefix.idris2
+        4: keyword.other.prefix.for-postfix.idris2
+  postfix_name:
+    - match: '(\.)({{basic_name}})'
+      comment: '.fun or .Fun'
+      captures:
+        1: keyword.other.postfix.idris2
+        #2: variable.function.postfix.idris2
+  data_decl:
+    - match: \b(data|record|interface|implementation)\s
+      captures:
+        1: keyword.declaration.type.idris2
+      push:
+        - meta_scope: meta.declaration.data.idris2
+        - match: \b(where)\b|(=)|$
+          captures:
+            1: keyword.other.idris2
+            2: keyword.operator.idris2
+          pop: true
+        - include: ty_expression
+  delimiter:
+    - match: '\('
+      captures:
+        0: keyword.operator.delimiter.idris2
+      push:
+        - match: '\)'
+          captures:
+            0: keyword.operator.delimiter.idris2
+          pop: true
+        - include: ty_expression
+    - match: '[\[\]{},;]'
+      scope: keyword.operator.delimiter.idris2
+  escape_characters:
+    - match: '{{escape_char}}'
+      scope: constant.character.escape.control.idris2
+  function_signature:
+    - match: '{{pns_cap6}}(:)(?!:)'
+      comment: |
+        The end pattern is a bit tricky. It's either ';' or something, at the end of the line,
+        but not '->', because a type signature can be multiline. Though, it doesn't help, if you
+        break the signature before arrows.
+        Unfortunately, when some names are listed, we support when there are only some of them, and we have repretition on the pattern above.
+        Repetition using `*` breaks captures (except the last one).
+      captures:
+        1: entity.name.function.declaration.idris2
+        2: entity.name.function.declaration.idris2
+        3: entity.name.function.declaration.idris2
+        4: entity.name.function.declaration.idris2
+        5: entity.name.function.declaration.idris2
+        6: entity.name.function.declaration.idris2
+        7: keyword.other.annot.idris2
+      push:
+        - meta_scope: meta.function.type-signature.idris2
+        - match: (?!->)
+          pop: true
+        - include: ty_expression
+  infix_function:
+    - match: '`'
+      captures:
+        0: punctuation.definition.entity.idris2
+      push:
+        - meta_scope: keyword.operator.word.idris2
+        - match: '`'
+          captures:
+            0: punctuation.definition.entity.idris2
+          pop: true
+  language_const:
+    - match: \b_\b
+      scope: constant.language.underscore.idris2
+  multiline_comment:
+    - match: '\{-'
+      comment: Block comment
+      push:
+        - meta_scope: comment.block.idris2
+        - match: '-\}'
+          pop: true
+        - include: multiline_comment
+  number_float:
+    - match: '\b([0-9]+\.[0-9]+([eE][+-]?[0-9]+)?|[0-9]+[eE][+-]?[0-9]+)\b'
+      comment: float literal
+      scope: constant.numeric.float.idris2
+  number_integer:
+    - match: '\b({{dec_int}}|0([xX]{{hex_int}}|[oO]{{oct_int}}|[bB]{{bit_int}}))\b'
+      comment: integer literal
+      scope: constant.numeric.idris2
+  operator:
+    - match: '\?[-!#\$%&\*\+\.\/<=>@\\^|~:]+|[-!#\$%&\*\+\.\/<=>@\\^|~:\?][-!#\$%&\*\+\.\/<=>@\\^|~:]*'
+      scope: keyword.operator.idris2
+  param_decl:
+    - match: \b(parameters)\s+
+      captures:
+        1: keyword.other.idris2
+      push:
+        - meta_scope: meta.declaration.data.idris2
+        - match: '$'
+          pop: true
+        - include: parameter_type
+  parameter_type:
+    - match: '(\(){{sns_cap6}}(:)(?!:)'
+      comment: '(x, y : Nat)'
+      captures:
+        1: punctuation.delimiter.idris2
+        2: variable.parameter.idris2
+        3: variable.parameter.idris2
+        4: variable.parameter.idris2
+        5: variable.parameter.idris2
+        6: variable.parameter.idris2
+        7: variable.parameter.idris2
+        8: keyword.other.annot.idris2
+      push:
+        - meta_scope: meta.parameter.named.idris2
+        - match: \)
+          captures:
+            0: punctuation.delimiter.idris2
+          pop: true
+        - include: ty_expression
+    - match: '(\{)(?:(auto|default (.+))\s+)?{{sns_cap6}}(:)(?!:)'
+      comment: '{auto p, d : a = b}'
+      captures:
+        1: punctuation.delimiter.idris2
+        2: storage.modifier.implicits.idris2
+        3: meta.function.default-arg-value.idris2
+        4: variable.parameter.idris2
+        5: variable.parameter.idris2
+        6: variable.parameter.idris2
+        7: variable.parameter.idris2
+        8: variable.parameter.idris2
+        9: variable.parameter.idris2
+        10: keyword.other.annot.idris2
+      push:
+        - meta_scope: meta.parameter.implicit.idris2
+        - match: '\}'
+          captures:
+            0: punctuation.delimiter.idris2
+          pop: true
+        - include: ty_expression
+  quasiquote_bracket:
+    - match: '`{'
+      captures:
+        0: keyword.operator.quasiquote.idris2
+      push:
+        - meta_scope: meta.quasiquote.idris2
+        - match: '}'
+          captures:
+            0: keyword.operator.quasiquote.idris2
+          pop: true
+        - include: name
+  quasiquote_paren:
+    - match: '`\('
+      captures:
+        0: keyword.operator.quasiquote.idris2
+      push:
+        - meta_scope: meta.quasiquote.idris2
+        - match: '\)'
+          captures:
+            0: keyword.operator.quasiquote.idris2
+          pop: true
+        - include: main
+  quasiquote_square_bracket:
+    - match: '`\['
+      captures:
+        0: keyword.operator.quasiquote.idris2
+      push:
+        - meta_scope: meta.quasiquote.idris2
+        - match: '\]'
+          captures:
+            0: keyword.operator.quasiquote.idris2
+          pop: true
+        - include: main
+  string_interpolation:
+    - match: '\\{'
+      captures:
+        0: punctuation.section.interpolation.begin.idris2
+      push:
+        - clear_scopes: true
+        - meta_content_scope: meta.interpolation.idris2
+        - match: '}'
+          captures:
+            0: punctuation.section.interpolation.begin.idris2
+          pop: true
+        - include: main
+  string:
+    - match: '"'
+      captures:
+        0: punctuation.definition.string.begin.idris2
+      push:
+        - meta_scope: string.quoted.double.idris2
+        - match: '"'
+          captures:
+            0: punctuation.definition.string.end.idris2
+          pop: true
+        - include: string_interpolation
+        - include: escape_characters
+  char:
+    - match: "(')(?:({{escape_char}})|[^\\'])(')"
+      scope: constant.character.idris2
+      captures:
+        1: punctuation.definition.char.begin.idris2
+        2: constant.character.escape.control.idris2
+        3: punctuation.definition.char.end.idris2
+  ty_expression:
+    - match: '->|=>'
+      scope: keyword.other.arrow.idris2
+    - include: parameter_type
+    - include: language_const
+    - include: name
+    - include: postfix_name
+    - include: operator
+    - include: quasiquote_paren
+    - include: quasiquote_bracket
+    - include: quasiquote_square_bracket
+    - include: infix_function
+    - include: delimiter
+    - include: number_integer
+    - include: number_float
+    - include: string
+    - include: char

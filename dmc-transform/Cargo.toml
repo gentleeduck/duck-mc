@@ -4,17 +4,25 @@ version.workspace = true
 edition.workspace = true
 
 [features]
-default = ["mermaid", "assets", "npm_command"]
+default = ["mermaid", "assets", "npm-command", "math", "emoji"]
 mermaid = []
 assets = ["dep:blake3"]
-npm_command = []
+npm-command = []
+pretty-code = ["dep:dmc-highlight"]
+math = ["dep:katex", "dep:pulldown-latex"]
+emoji = ["dep:emojis"]
 
 [dependencies]
 dmc-lexer = { path = "../dmc-lexer" }
 dmc-parser = { path = "../dmc-parser" }
+dmc-highlight = { path = "../dmc-highlight", optional = true }
 dmc-diagnostic = { workspace = true, features = ["parser", "transform"] }
 duck-diagnostic.workspace = true
 blake3 = { workspace = true, optional = true }
+pulldown-latex = { workspace = true, optional = true }
+katex = { workspace = true, optional = true }
+emojis = { workspace = true, optional = true }
+serde.workspace = true
 serde_json.workspace = true
 
 [dev-dependencies]

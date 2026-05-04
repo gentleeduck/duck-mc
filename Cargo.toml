@@ -5,6 +5,7 @@ members = [
   "dmc-diagnostic",
   "dmc-lexer",
   "dmc-parser",
+  "dmc-highlight",
   "dmc-codegen",
   "dmc-transform",
   "dmc-schema",
@@ -33,7 +34,7 @@ toml = "0.8"
 assert_cmd = "2"
 predicates = "3"
 insta = { version = "1", features = ["json", "redactions"] }
-syntect = { version = "5", default-features = false, features = ["default-fancy"] }
+syntect = { version = "5", default-features = false, features = ["default-onig", "plist-load"] }
 criterion = "0.5"
 plotters = { version = "0.3", default-features = false, features = ["svg_backend", "line_series", "bitmap_encoder"] }
 
@@ -41,6 +42,7 @@ plotters = { version = "0.3", default-features = false, features = ["svg_backend
 dmc-diagnostic = { path = "dmc-diagnostic" }
 dmc-lexer = { path = "dmc-lexer" }
 dmc-parser = { path = "dmc-parser" }
+dmc-highlight = { path = "dmc-highlight" }
 dmc-codegen = { path = "dmc-codegen" }
 dmc-transform = { path = "dmc-transform" }
 dmc-schema = { path = "dmc-schema" }
@@ -53,6 +55,9 @@ base64 = "0.22"
 regex = "1"
 fancy-regex = "0.16"
 unicode-segmentation = "1"
+pulldown-latex = "0.7"
+katex = { version = "0.4", default-features = false, features = ["quick-js"] }
+emojis = "0.8"
 
 # Dev
 pretty_assertions = "1"
