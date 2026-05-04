@@ -49,10 +49,10 @@ echo "== syncing scaffolding into $DST"
 
 copy .github/workflows/ci.yml
 copy .github/workflows/audit.yml
-copy .github/workflows/codeql.yml
 copy .github/workflows/typos.yml
 copy .github/workflows/scorecard.yml
 copy .github/workflows/release.yml
+# CodeQL is js/ts-only; copy only into repos that have TS sources.
 copy .github/labels.sh
 copy .github/protect-branches.sh
 copy .github/PULL_REQUEST_TEMPLATE.md
