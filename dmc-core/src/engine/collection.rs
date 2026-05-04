@@ -103,8 +103,8 @@ impl Collection {
     let mut records: Vec<Value> = Vec::with_capacity(outcomes.len());
     for (rec, local_diag_engine) in outcomes {
       diag_engine.extend(local_diag_engine);
-      if rec.is_some() {
-        records.push(rec.unwrap());
+      if let Some(r) = rec {
+        records.push(r);
       }
     }
 

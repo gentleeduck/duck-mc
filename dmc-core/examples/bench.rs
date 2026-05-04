@@ -5,8 +5,8 @@
 //!   2. Full build, native (cold)        - wall time vs N files.
 //!   3. Full build, sidecar light        - + remark-gfm.
 //!   4. Full build, sidecar heavy        - + remark-gfm + rehype-pretty-code (shiki).
-//!   5. Full build, sidecar kitchen-sink - gfm + math + katex + emoji +
-//!                                         pretty-code + slug + autolink-headings.
+//!   5. Full build, sidecar kitchen-sink - gfm + math + katex + emoji
+//!      + pretty-code + slug + autolink-headings.
 //!   6. Full build, velite light         - reference (gfm only).
 //!   7. Full build, velite kitchen-sink  - reference (same plugin chain).
 //!
@@ -1045,7 +1045,7 @@ fn plot_table(out: &Path, report: &Report) -> Result<(), Box<dyn std::error::Err
   for (ci, h) in headers.iter().enumerate() {
     let cw = col_w[ci] as i32;
     root.draw(&Rectangle::new([(x, y0), (x + cw, y0 + row_h)], border.stroke_width(1)))?;
-    root.draw_text(h, &header_font, (x + cell_pad as i32, y0 + 9))?;
+    root.draw_text(h, &header_font, (x + cell_pad, y0 + 9))?;
     x += cw;
   }
 
@@ -1070,7 +1070,7 @@ fn plot_table(out: &Path, report: &Report) -> Result<(), Box<dyn std::error::Err
       } else {
         cell_font.clone()
       };
-      root.draw_text(cell, &style, (x + cell_pad as i32, yy + 9))?;
+      root.draw_text(cell, &style, (x + cell_pad, yy + 9))?;
       x += cw;
     }
   }

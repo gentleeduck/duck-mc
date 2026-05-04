@@ -80,7 +80,7 @@ impl DevCmd {
   }
 }
 
-fn rebuild(cfg: &EngineConfig, config_path: &PathBuf, trigger: &str) {
+fn rebuild(cfg: &EngineConfig, config_path: &std::path::Path, trigger: &str) {
   let mut diag_engine = DiagnosticEngine::<Code>::new();
   let started = Instant::now();
   let result = Engine::run(cfg, Some(config_path), &mut diag_engine);

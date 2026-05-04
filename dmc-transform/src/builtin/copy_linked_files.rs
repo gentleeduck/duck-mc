@@ -96,11 +96,9 @@ impl<'a> Visitor for Apply<'a> {
         let span = i.span.clone();
         self.rewrite_slot(&mut i.src, span, "image");
       },
-      Node::Link(l) => {
-        if l.href.starts_with("./") || l.href.starts_with("../") {
-          let span = l.span.clone();
-          self.rewrite_slot(&mut l.href, span, "link");
-        }
+      Node::Link(l) if l.href.starts_with("./") || l.href.starts_with("../") => {
+        let span = l.span.clone();
+        self.rewrite_slot(&mut l.href, span, "link");
       },
       _ => {},
     }

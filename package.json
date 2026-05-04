@@ -1,8 +1,17 @@
 {
-	"name": "dmc",
-	"version": "0.0.0",
-	"private": true,
-	"dependencies": {
-		"plist": "^5.0.0"
-	}
+  "name": "dmc",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "prepare": "husky",
+    "fix": "cargo fmt --all",
+    "check": "cargo fmt --all -- --check && cargo clippy --workspace --all-targets -- -D warnings",
+    "test": "cargo test --workspace"
+  },
+  "dependencies": {
+    "plist": "^5.0.0"
+  },
+  "devDependencies": {
+    "husky": "^9.1.7"
+  }
 }

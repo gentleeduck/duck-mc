@@ -1,6 +1,6 @@
 use dmc_parser::ast::*;
 use dmc_parser::parse;
-use dmc_transform::{DisableGfm, Pipeline, Transformer};
+use dmc_transform::{DisableGfm, Pipeline};
 
 fn run(src: &str) -> Document {
   let mut doc = parse(src);

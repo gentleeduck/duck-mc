@@ -1,6 +1,6 @@
 use dmc_parser::ast::*;
 use dmc_parser::parse;
-use dmc_transform::{ComponentSource, Pipeline, Transformer};
+use dmc_transform::{ComponentSource, Pipeline};
 
 #[test]
 fn component_source_replaces_jsx_with_code_block() {

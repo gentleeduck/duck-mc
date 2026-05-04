@@ -66,6 +66,12 @@ impl NodeSink for Accumulator {
   }
 }
 
+impl Default for Accumulator {
+  fn default() -> Self {
+    Self::new()
+  }
+}
+
 impl Accumulator {
   pub fn new() -> Self {
     Self {

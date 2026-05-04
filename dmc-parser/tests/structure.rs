@@ -1,7 +1,6 @@
 mod common;
 use common::*;
 use dmc_parser::ast::*;
-use pretty_assertions::assert_eq;
 
 #[test]
 fn parses_frontmatter() {

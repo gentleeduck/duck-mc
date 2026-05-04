@@ -1,0 +1,5 @@
+echo "[husky] pre-commit: fmt apply..."
+
+cargo fmt --all
+
+echo "[husky] pre-commit done"

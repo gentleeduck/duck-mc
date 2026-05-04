@@ -107,10 +107,10 @@ fn isodate_validates() {
 fn slug_kebab_check() {
   let schema = s::slug();
   assert_eq!(schema.parse(&json!("my-post"), &ctx()).unwrap(), json!("my-post"));
-  let mut ctx2 = ctx();
+  let ctx2 = ctx();
   schema.parse(&json!("my-post"), &ctx2).unwrap();
   // duplicate in same context
-  assert!(schema.parse(&json!("my-post"), &mut ctx2).is_err());
+  assert!(schema.parse(&json!("my-post"), &ctx2).is_err());
   // bad shape
   assert!(schema.parse(&json!("MyPost"), &ctx()).is_err());
   assert!(schema.parse(&json!("my--post"), &ctx()).is_err());

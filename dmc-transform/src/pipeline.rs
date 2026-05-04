@@ -53,9 +53,9 @@ impl Pipeline {
   }
 
   /// Apply every registered transformer to `doc` in registration order.
-  pub fn run(&self, doc: &mut Document, meta: &SourceMeta, mut engine: &'_ mut DiagnosticEngine<Code>) {
+  pub fn run(&self, doc: &mut Document, meta: &SourceMeta, engine: &'_ mut DiagnosticEngine<Code>) {
     for t in &self.transformers {
-      t.transform(doc, meta, &mut engine);
+      t.transform(doc, meta, engine);
     }
   }
 
