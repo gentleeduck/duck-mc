@@ -1,13 +1,13 @@
 // //! Drive the full dmc-core orchestrator. Two modes:
 // //!
-// //!   compile mode (default) — one file → `CompileOutput`
+// //!   compile mode (default) - one file -> `CompileOutput`
 // //!     cargo run -p dmc-core --bin core
 // //!     cargo run -p dmc-core --bin core -- ../samples/headings.mdx
 // //!     echo '# hi' | cargo run -p dmc-core --bin core -- -
 // //!     cargo run -p dmc-core --bin core -- --field html
 // //!     cargo run -p dmc-core --bin core -- --json
 // //!
-// //!   engine mode — multi-file build via a synthesized config + temp output
+// //!   engine mode - multi-file build via a synthesized config + temp output
 // //!     cargo run -p dmc-core --bin core -- --engine
 // //!     cargo run -p dmc-core --bin core -- --engine --keep
 // //!
@@ -205,16 +205,16 @@
 //     println!("base: {}", samples_dir.display());
 //     println!("output: {}", out_dir.display());
 //     for c in &report.collections {
-//       println!("  ✓ {} — {} record(s) → {}", c.name, c.records, c.output_path.display());
+//       println!("  ok {} - {} record(s) -> {}", c.name, c.records, c.output_path.display());
 //       if let Ok(bytes) = std::fs::read_to_string(&c.output_path) {
 //         let preview: String = bytes.chars().take(400).collect();
-//         println!("    preview: {}{}", preview, if bytes.chars().count() > 400 { "…" } else { "" });
+//         println!("    preview: {}{}", preview, if bytes.chars().count() > 400 { "..." } else { "" });
 //       }
 //     }
 //     if !report.errors.is_empty() {
 //       println!("\nerrors:");
 //       for e in &report.errors {
-//         println!("  ✗ {}: {}", e.file.display(), e.message);
+//         println!("  x {}: {}", e.file.display(), e.message);
 //       }
 //     }
 //     if !quiet {

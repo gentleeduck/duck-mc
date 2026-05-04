@@ -6,7 +6,7 @@ use dmc_parser::ast::*;
 fn thematic_break_emits_node() {
   let d = parse_doc("---\n");
   // first child may be HorizontalRule or might be a Paragraph if first-line --- is consumed by lex_frontmatter
-  // For `---` not at column 0 of file start, lexer emits ThematicBreak — but `---` IS at start.
+  // For `---` not at column 0 of file start, lexer emits ThematicBreak - but `---` IS at start.
   // It will try to be frontmatter; without closing --- it falls back to ThematicBreak (per lex_frontmatter logic).
   let has_hr = d.children.iter().any(|n| matches!(n, Node::HorizontalRule(_)));
   assert!(has_hr, "got {:?}", d.children);

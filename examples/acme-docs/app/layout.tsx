@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import "./globals.css";
 
 export const metadata = {
-	title: "acme/ui — docs",
+	title: "acme/ui - docs",
 	description: "Component library docs powered by dmc",
 };
 

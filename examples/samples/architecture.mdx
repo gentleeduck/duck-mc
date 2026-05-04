@@ -12,10 +12,10 @@ End-to-end view of every layer, the data that flows between them, and the diagno
 
 ```mermaid
 flowchart LR
-  Source["📄 Source bytes<br/>(.mdx file / stdin / inline)"]
+  Source["Source bytes<br/>(.mdx file / stdin / inline)"]
   Source --> Meta
 
-  subgraph META["SourceMeta — dmc-diagnostic::metadata"]
+  subgraph META["SourceMeta - dmc-diagnostic::metadata"]
     direction TB
     Meta["SourceMeta {<br/>path: Arc&lt;str&gt;,<br/>version: u64,<br/>origin: Origin<br/>}"]
     Origin["Origin enum<br/>File(PathBuf) | Stdin |<br/>Inline(&amp;'static str) | Memory"]
@@ -25,7 +25,7 @@ flowchart LR
   Meta --> Lex
   Source --> Lex
 
-  subgraph LEX["🔤 Lexer — dmc-lexer"]
+  subgraph LEX["Lexer - dmc-lexer"]
     direction TB
     LexerNew["Lexer::new(source, meta, &amp;mut engine)"]
     LexScan["scan_tokens()<br/>(memchr SIMD scanners)"]
@@ -35,17 +35,17 @@ flowchart LR
 
   Lex --> Parse
 
-  subgraph PARSE["🌳 Parser — dmc-parser"]
+  subgraph PARSE["Parser - dmc-parser"]
     direction TB
     ParserNew["Parser::new(tokens, meta, &amp;mut engine)"]
-    ParseLoop["parse() — block dispatch loop"]
+    ParseLoop["parse() - block dispatch loop"]
     AstAll["Document{children, span}"]
     ParserNew --> ParseLoop --> AstAll
   end
 
   Parse --> Trans
 
-  subgraph TRANS["⚙️ Transform — dmc-transform"]
+  subgraph TRANS["Transform - dmc-transform"]
     direction TB
     PipelineRun["Pipeline::run(doc, &amp;meta, &amp;mut engine)"]
     Visitor["Visitor + walk_root<br/>(splice-aware: Keep / KeepSkipChildren /<br/>Replace(Vec&lt;Node&gt;) / Remove)"]
@@ -55,7 +55,7 @@ flowchart LR
 
   Trans --> Gen
 
-  subgraph GEN["🎨 Codegen — dmc-codegen"]
+  subgraph GEN["Codegen - dmc-codegen"]
     direction TB
     Html["HtmlEmitter::render(doc, &amp;mut engine)"]
     Mdx["MdxBodyEmitter::render(doc, &amp;mut engine)"]
@@ -67,14 +67,14 @@ flowchart LR
 
   Gen --> Compile
 
-  subgraph CORE["📦 Core — dmc-core"]
+  subgraph CORE["Core - dmc-core"]
     direction TB
     CompileFn["compile(source) -> CompileOutput"]
     Output["CompileOutput {<br/>html, body, frontmatter,<br/>frontmatter_raw, content,<br/>excerpt, metadata, toc,<br/>imports, exports<br/>}"]
     CompileFn --> Output
   end
 
-  subgraph DIAG["🚨 DiagnosticEngine&lt;Code&gt; — duck-diagnostic"]
+  subgraph DIAG["DiagnosticEngine&lt;Code&gt; - duck-diagnostic"]
     direction LR
     LexCodes["E001..E010<br/>W001 lexer"]
     ParseCodes["P001..P014<br/>PW001..PW004 parser"]
@@ -98,7 +98,7 @@ flowchart TD
   subgraph LEXER["Lexer&lt;'eng, 'src&gt;"]
     direction TB
     Cursor["Cursor state:<br/>start, current,<br/>line, column,<br/>frontmatter_reserved"]
-    LexTokens["lex_tokens(c) — dispatch"]
+    LexTokens["lex_tokens(c) - dispatch"]
   end
 
   Cursor --> LexTokens
@@ -108,7 +108,7 @@ flowchart TD
   subgraph MODULES["Per-construct lex modules"]
     direction TB
     M1["fontmatter.rs<br/>--- yaml ---"]
-    M2["code.rs<br/>``` fences + inline `…`"]
+    M2["code.rs<br/>``` fences + inline `...`"]
     M3["jsx.rs<br/>&lt;Tag attr={expr}&gt;"]
     M4["lists.rs<br/>- / 1. / [ ] / [x]"]
     M5["statements.rs<br/>import / export"]
@@ -118,23 +118,23 @@ flowchart TD
 
   Modules --> Emit
 
-  Emit["emit(TokenKind)<br/>→ Token{kind, span, raw}<br/>(skips trivia unless line-leading 4-space indent)"]
+  Emit["emit(TokenKind)<br/>-> Token{kind, span, raw}<br/>(skips trivia unless line-leading 4-space indent)"]
 
   Emit --> Token
-  Token["Token&lt;'src&gt; {<br/>kind: TokenKind,<br/>span: Span,<br/>raw: &amp;'src str  ← zero-copy<br/>}"]
+  Token["Token&lt;'src&gt; {<br/>kind: TokenKind,<br/>span: Span,<br/>raw: &amp;'src str  <- zero-copy<br/>}"]
 
   Token --> Stream["Vec&lt;Token&lt;'src&gt;&gt;"]
 
   Cursor -. on error .-> EmitDiag
-  EmitDiag["emit_diagnostic(Diagnostic)<br/>→ E001..E010 errors,<br/>   W001 warnings"]
+  EmitDiag["emit_diagnostic(Diagnostic)<br/>-> E001..E010 errors,<br/>   W001 warnings"]
   EmitDiag --> Engine["DiagnosticEngine&lt;Code&gt;"]
 ```
 
 **Key properties:**
-- **Zero-copy**: `Token.raw` is `&'src str` — points into source buffer, no String allocation per token.
+- **Zero-copy**: `Token.raw` is `&'src str` - points into source buffer, no String allocation per token.
 - **memchr SIMD**: `skip_until_byte`, `skip_while_byte` use vectorized scanners.
 - **Recovery**: errors emit + advance, never abort.
-- **State**: `frontmatter_reserved` flips on first `---…---` block so subsequent `---` lines become thematic breaks unambiguously.
+- **State**: `frontmatter_reserved` flips on first `---...---` block so subsequent `---` lines become thematic breaks unambiguously.
 
 ## Parser internals
 
@@ -145,13 +145,13 @@ flowchart TD
   subgraph PARSER["Parser&lt;'eng, 'tokens&gt;"]
     direction TB
     ParserStruct["Parser {<br/>tokens, pos,<br/>meta: Arc&lt;SourceMeta&gt;,<br/>engine<br/>}"]
-    ParseLoop["parse() — top-level dispatch loop"]
+    ParseLoop["parse() - top-level dispatch loop"]
   end
 
   ParserStruct --> ParseLoop
   ParseLoop --> Block
 
-  Block["parse_block() peeks token kind →<br/>routes to specialised parser"]
+  Block["parse_block() peeks token kind -><br/>routes to specialised parser"]
 
   Block --> P1["parse_frontmatter<br/>(yaml stays raw)"]
   Block --> P2["parse_heading<br/>(# / setext)"]
@@ -160,7 +160,7 @@ flowchart TD
   Block --> P5["parse_blockquote<br/>(>)"]
   Block --> P6["try_parse_table<br/>(GFM | header | : alignment :)"]
   Block --> P7["parse_jsx<br/>(elements / fragments / self-close)"]
-  Block --> P8["parse_jsx_expression<br/>({…})"]
+  Block --> P8["parse_jsx_expression<br/>({...})"]
   Block --> P9["consume_import / consume_export"]
   Block --> P10["parse_paragraph<br/>(fallback)"]
 
@@ -177,12 +177,12 @@ flowchart TD
   Doc["Document {<br/>children: Vec&lt;Node&gt;,<br/>span<br/>}"]
 
   ParserStruct -. on error .-> Diag
-  Diag["diag/warn → P001..P014, PW001..PW004"]
+  Diag["diag/warn -> P001..P014, PW001..PW004"]
   Diag --> Engine["DiagnosticEngine"]
 ```
 
 **Key properties:**
-- **Pure structure**: AST is MDX-only — no derived fields. `Heading.id` is computed lazily via `Heading::slug()`. `Frontmatter.data` parsed at compile boundary, not by parser.
+- **Pure structure**: AST is MDX-only - no derived fields. `Heading.id` is computed lazily via `Heading::slug()`. `Frontmatter.data` parsed at compile boundary, not by parser.
 - **Real spans**: every node carries the originating token's span (not `default_span()`).
 - **Force-advance**: a no-progress iteration advances anyway, so malformed tokens can't wedge the parser.
 - **Recovery**: unterminated JSX synthesises a self-close + emits PW004.
@@ -205,10 +205,10 @@ flowchart TD
   Walker --> Actions
 
   Actions["NodeAction"]
-  Actions --> A1["Keep → recurse children"]
-  Actions --> A2["KeepSkipChildren → no recurse"]
-  Actions --> A3["Replace(Vec&lt;Node&gt;) → splice"]
-  Actions --> A4["Remove → drop from parent Vec"]
+  Actions --> A1["Keep -> recurse children"]
+  Actions --> A2["KeepSkipChildren -> no recurse"]
+  Actions --> A3["Replace(Vec&lt;Node&gt;) -> splice"]
+  Actions --> A4["Remove -> drop from parent Vec"]
 
   Run --> T1
   Run --> T2
@@ -221,14 +221,14 @@ flowchart TD
   Run --> T9
 
   T1["AutolinkHeadings<br/>wraps heading children in &lt;a href='#slug'&gt;"]
-  T2["BareUrlAutolink<br/>http(s)://… in Text → Link"]
-  T3["CodeImport<br/>file=path{ranges} → file contents<br/>diagnostics: T001, T002, TW004"]
-  T4["ComponentSource<br/>&lt;ComponentSource path=… /&gt; → CodeBlock<br/>diagnostics: T007, TW002, TW004"]
-  T5["ComponentPreview<br/>&lt;ComponentPreview name=… /&gt; → CodeBlock<br/>diagnostics: T003..T006, TW002"]
+  T2["BareUrlAutolink<br/>http(s)://... in Text -> Link"]
+  T3["CodeImport<br/>file=path{ranges} -> file contents<br/>diagnostics: T001, T002, TW004"]
+  T4["ComponentSource<br/>&lt;ComponentSource path=... /&gt; -> CodeBlock<br/>diagnostics: T007, TW002, TW004"]
+  T5["ComponentPreview<br/>&lt;ComponentPreview name=... /&gt; -> CodeBlock<br/>diagnostics: T003..T006, TW002"]
   T6["CopyLinkedFiles<br/>copy assets, hash-rename, rewrite href/src<br/>diagnostics: TW003, T008"]
-  T7["DisableGfm<br/>strikethrough/table/tasklist → plain"]
-  T8["Mermaid (cfg)<br/>``` mermaid fence → &lt;MermaidSvg svg=… /&gt;<br/>L1 mem + L2 disk SVG cache<br/>diagnostics: TW001, T009"]
-  T9["NpmCommand (cfg)<br/>npm install → &lt;PackageManagerTabs npm yarn pnpm bun /&gt;"]
+  T7["DisableGfm<br/>strikethrough/table/tasklist -> plain"]
+  T8["Mermaid (cfg)<br/>``` mermaid fence -> &lt;MermaidSvg svg=... /&gt;<br/>L1 mem + L2 disk SVG cache<br/>diagnostics: TW001, T009"]
+  T9["NpmCommand (cfg)<br/>npm install -> &lt;PackageManagerTabs npm yarn pnpm bun /&gt;"]
 
   T3 -. error queue .-> Pending
   T4 -. error queue .-> Pending
@@ -240,9 +240,9 @@ flowchart TD
 ```
 
 **Key properties:**
-- **Walker honours all 4 NodeAction variants** — Replace splices `Vec&lt;Node&gt;`, Remove drops the index, Keep recurses, KeepSkipChildren stops descent.
-- **`meta` threaded through** — transformers like CodeImport derive `base_dir` from `meta.origin` when File-backed; emit `BaseDirNotFound` warning for Stdin/Inline/Memory.
-- **Pure helpers on the public struct** — `CodeImport::parse_file_meta`, `Mermaid::render_mmdc`, etc. State-touching code lives on `Apply`.
+- **Walker honours all 4 NodeAction variants** - Replace splices `Vec&lt;Node&gt;`, Remove drops the index, Keep recurses, KeepSkipChildren stops descent.
+- **`meta` threaded through** - transformers like CodeImport derive `base_dir` from `meta.origin` when File-backed; emit `BaseDirNotFound` warning for Stdin/Inline/Memory.
+- **Pure helpers on the public struct** - `CodeImport::parse_file_meta`, `Mermaid::render_mmdc`, etc. State-touching code lives on `Apply`.
 
 ## Codegen internals
 
@@ -257,8 +257,8 @@ flowchart TD
   subgraph PATH1["HtmlEmitter&lt;'a&gt;"]
     direction TB
     HtmlNew["HtmlEmitter::render(doc, &amp;mut engine)"]
-    HtmlEmit["emit(node) — variant dispatch"]
-    HtmlSpec["JSX special-cases:<br/>&lt;MermaidSvg svg /&gt; → raw inline SVG<br/>&lt;PackageManagerTabs … /&gt; → tab-styled &lt;pre&gt;s"]
+    HtmlEmit["emit(node) - variant dispatch"]
+    HtmlSpec["JSX special-cases:<br/>&lt;MermaidSvg svg /&gt; -> raw inline SVG<br/>&lt;PackageManagerTabs ... /&gt; -> tab-styled &lt;pre&gt;s"]
     HtmlOut["HTML String<br/>classes prefixed: gentledmc-*"]
     HtmlNew --> HtmlEmit --> HtmlSpec --> HtmlOut
   end
@@ -266,9 +266,9 @@ flowchart TD
   subgraph PATH2["MdxBodyEmitter&lt;'a&gt;"]
     direction TB
     MdxNew["MdxBodyEmitter::render(doc, &amp;mut engine)"]
-    HoistIE["hoist Imports / Exports → prelude"]
-    EmitJs["emit each node as jsx(…) / jsxs(…)"]
-    Wrap["wrap body in:<br/>function _createMdxContent(props) { … }"]
+    HoistIE["hoist Imports / Exports -> prelude"]
+    EmitJs["emit each node as jsx(...) / jsxs(...)"]
+    Wrap["wrap body in:<br/>function _createMdxContent(props) { ... }"]
     MdxOut["JS body string<br/>(MDX runtime invokes with<br/>{Fragment, jsx, jsxs})"]
     MdxNew --> HoistIE --> EmitJs --> Wrap --> MdxOut
   end
@@ -283,9 +283,9 @@ flowchart TD
 ```
 
 **Key properties:**
-- **Engine plumbed like other layers** — `&mut DiagnosticEngine&lt;Code&gt;` parameter, no buffer-and-drain ceremony.
-- **Class prefix** — every emitted CSS class starts with `gentledmc-` to avoid collision with user / framework styles.
-- **Synthetic JSX** — transforms produce `&lt;MermaidSvg /&gt;` and `&lt;PackageManagerTabs /&gt;`; HTML emitter unwraps them server-side, MDX leaves them for the user's React component map.
+- **Engine plumbed like other layers** - `&mut DiagnosticEngine&lt;Code&gt;` parameter, no buffer-and-drain ceremony.
+- **Class prefix** - every emitted CSS class starts with `gentledmc-` to avoid collision with user / framework styles.
+- **Synthetic JSX** - transforms produce `&lt;MermaidSvg /&gt;` and `&lt;PackageManagerTabs /&gt;`; HTML emitter unwraps them server-side, MDX leaves them for the user's React component map.
 
 ## Compile-layer aggregation
 
@@ -306,7 +306,7 @@ flowchart TD
     Walked["Pipeline.run"]
     Rendered["Html + Mdx render"]
 
-    Finalize["finalize(source, doc):<br/>frontmatter (yaml parse),<br/>strip_frontmatter,<br/>plain_text → excerpt,<br/>build_metadata,<br/>build_toc"]
+    Finalize["finalize(source, doc):<br/>frontmatter (yaml parse),<br/>strip_frontmatter,<br/>plain_text -> excerpt,<br/>build_metadata,<br/>build_toc"]
 
     Compile --> Lexed --> LE
     Lexed --> Parsed --> PE
@@ -335,31 +335,31 @@ flowchart LR
   subgraph DUCKMD["dmc-diagnostic crate"]
     direction TB
     Code["enum Code (gated by feature flags)"]
-    LexerCodes["lexer feature → E001..E010, W001"]
-    ParserCodes["parser feature → P001..P014, PW001..PW004"]
-    TransformCodes["transform feature → T001..T009, TW001..TW004"]
-    CodegenCodes["codegen feature → G001, GW001..GW002"]
+    LexerCodes["lexer feature -> E001..E010, W001"]
+    ParserCodes["parser feature -> P001..P014, PW001..PW004"]
+    TransformCodes["transform feature -> T001..T009, TW001..TW004"]
+    CodegenCodes["codegen feature -> G001, GW001..GW002"]
     SourceMeta2["metadata::SourceMeta + Origin"]
   end
 
   DUCKMD -- "implements DiagnosticCode for Code" --> DUCK
-  Engine -- emits → --> Diagnostic
-  Diagnostic -- carries → --> Span
-  Diagnostic -- carries → --> Severity
-  Diagnostic -- carries → --> Code
+  Engine -- emits -> --> Diagnostic
+  Diagnostic -- carries -> --> Span
+  Diagnostic -- carries -> --> Severity
+  Diagnostic -- carries -> --> Code
 
   Lex["Lexer"] --> Engine
   Parse["Parser"] --> Engine
   Trans["Transform"] --> Engine
   Codegen["Codegen"] --> Engine
-  Engine -- format_all_plain → --> Stderr["human-readable output"]
-  Engine -- iterate → --> Json["JSON / structured output"]
+  Engine -- format_all_plain -> --> Stderr["human-readable output"]
+  Engine -- iterate -> --> Json["JSON / structured output"]
 ```
 
 **Key properties:**
-- **Single shared type across all layers** — `DiagnosticEngine&lt;Code&gt;` is the mailbox; layers borrow it mutably and emit.
-- **Feature-gated codes** — `dmc-lexer` only sees lexer codes, `dmc-codegen` only sees codegen codes. Top-level `dmc-core` enables every feature → full enum.
-- **Per-token Span sharing via Arc&lt;str&gt;** — one allocation for the file path, every span clones the Arc cheaply.
+- **Single shared type across all layers** - `DiagnosticEngine&lt;Code&gt;` is the mailbox; layers borrow it mutably and emit.
+- **Feature-gated codes** - `dmc-lexer` only sees lexer codes, `dmc-codegen` only sees codegen codes. Top-level `dmc-core` enables every feature -> full enum.
+- **Per-token Span sharing via Arc&lt;str&gt;** - one allocation for the file path, every span clones the Arc cheaply.
 
 ## Workspace layout
 
@@ -414,7 +414,7 @@ sequenceDiagram
   participant Engine as DiagnosticEngine
 
   Caller->>Core: compile(source)
-  Core->>Engine: new() (×4 — one per layer)
+  Core->>Engine: new() (x4 - one per layer)
   Core->>Lexer: Lexer::new(src, meta, &mut engine)
   Lexer->>Engine: emit E*** / W*** during scan
   Lexer-->>Core: Vec<Token>
@@ -429,7 +429,7 @@ sequenceDiagram
   Codegen-->>Core: HTML string
   Core->>Codegen: MdxBodyEmitter::render(&doc, &mut engine)
   Codegen-->>Core: MDX body string
-  Core-->>Caller: CompileOutput { html, body, frontmatter, … }
+  Core-->>Caller: CompileOutput { html, body, frontmatter, ... }
   Note over Engine: diagnostics from all layers<br/>currently dropped at boundary;<br/>plumbing them into CompileOutput<br/>is the next task
 ```
 
@@ -437,40 +437,40 @@ sequenceDiagram
 
 ```
 @dmc/
-├── samples/                       ← shared input fixtures
-│   ├── index.mdx                  ← canonical full-feature sample
-│   ├── headings.mdx
-│   ├── bare-urls.mdx
-│   ├── code-import.mdx
-│   ├── snippets/                  ← imported by code-import.mdx
-│   ├── errors/                    ← lexer error fixtures (E*** triggers)
-│   └── architecture.mdx           ← THIS FILE
-├── dmc-lexer/
-│   ├── src/{lib,token,utils}.rs
-│   ├── src/lexers/{code,fontmatter,jsx,lists,statements,typography,whitespaces}.rs
-│   └── lexer-samples/lexer.rs     ← bin
-├── dmc-parser/
-│   ├── src/{lib,parser,block,inline,jsx,table}.rs
-│   ├── src/ast/{node,jsx,mod}.rs
-│   └── parse-samples/parse.rs     ← bin
-├── dmc-transform/
-│   ├── src/{lib,pipeline,visit}.rs
-│   ├── src/builtin/{autolink_headings,bare_url,code_import,
-│   │                component_preview,component_source,
-│   │                copy_linked_files,disable_gfm,mermaid,npm_command}.rs
-│   └── transform-samples/transform.rs   ← bin
-├── dmc-codegen/
-│   ├── src/{lib,escape,html,mdx}.rs
-│   └── codegen-samples/codegen.rs       ← bin
-├── dmc-core/
-│   └── src/{lib,compile,engine,main}.rs ← orchestrator + CLI
-├── dmc-diagnostic/
-│   └── src/{lib,metadata}.rs            ← Code enum + SourceMeta
-├── dmc-schema/                ← frontmatter validation
-├── dmc-napi/                  ← Node.js FFI
-└── fuzz/                          ← libfuzzer (excluded from workspace)
+|- samples/                       <- shared input fixtures
+|   |- index.mdx                  <- canonical full-feature sample
+|   |- headings.mdx
+|   |- bare-urls.mdx
+|   |- code-import.mdx
+|   |- snippets/                  <- imported by code-import.mdx
+|   |- errors/                    <- lexer error fixtures (E*** triggers)
+|   `- architecture.mdx           <- THIS FILE
+|- dmc-lexer/
+|   |- src/{lib,token,utils}.rs
+|   |- src/lexers/{code,fontmatter,jsx,lists,statements,typography,whitespaces}.rs
+|   `- lexer-samples/lexer.rs     <- bin
+|- dmc-parser/
+|   |- src/{lib,parser,block,inline,jsx,table}.rs
+|   |- src/ast/{node,jsx,mod}.rs
+|   `- parse-samples/parse.rs     <- bin
+|- dmc-transform/
+|   |- src/{lib,pipeline,visit}.rs
+|   |- src/builtin/{autolink_headings,bare_url,code_import,
+|   |                component_preview,component_source,
+|   |                copy_linked_files,disable_gfm,mermaid,npm_command}.rs
+|   `- transform-samples/transform.rs   <- bin
+|- dmc-codegen/
+|   |- src/{lib,escape,html,mdx}.rs
+|   `- codegen-samples/codegen.rs       <- bin
+|- dmc-core/
+|   `- src/{lib,compile,engine,main}.rs <- orchestrator + CLI
+|- dmc-diagnostic/
+|   `- src/{lib,metadata}.rs            <- Code enum + SourceMeta
+|- dmc-schema/                <- frontmatter validation
+|- dmc-napi/                  <- Node.js FFI
+`- fuzz/                          <- libfuzzer (excluded from workspace)
 ```
 
 ## Summary in one sentence
 
-`bytes` → **Lexer** (zero-copy tokens) → **Parser** (pure-structure AST) → **Transform** (visitor pipeline mutating in place / splicing) → **Codegen** (HTML + JS body for MDX runtime) → **Core** wraps everything into `CompileOutput`, with a single `DiagnosticEngine` carrying typed `Code`s from every layer.
+`bytes` -> **Lexer** (zero-copy tokens) -> **Parser** (pure-structure AST) -> **Transform** (visitor pipeline mutating in place / splicing) -> **Codegen** (HTML + JS body for MDX runtime) -> **Core** wraps everything into `CompileOutput`, with a single `DiagnosticEngine` carrying typed `Code`s from every layer.

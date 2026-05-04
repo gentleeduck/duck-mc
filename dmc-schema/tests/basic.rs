@@ -50,7 +50,7 @@ fn object_with_optional_and_default() {
   let out = schema.parse(&json!({"title": "Hello"}), &ctx()).unwrap();
   assert_eq!(out["title"], "Hello");
   assert_eq!(out["draft"], false);
-  assert!(out.get("tags").is_none()); // optional + omitted → not present
+  assert!(out.get("tags").is_none()); // optional + omitted -> not present
 
   let out = schema.parse(&json!({"title": "Hi", "tags": ["a"]}), &ctx()).unwrap();
   assert_eq!(out["tags"], json!(["a"]));
@@ -123,7 +123,7 @@ fn unique_dedupes() {
   let ctx2 = ctx();
   schema.parse(&json!("hello"), &ctx2).unwrap();
   assert!(schema.parse(&json!("hello"), &ctx2).is_err());
-  // different bucket — independent
+  // different bucket - independent
   let other = s::unique().by("authors");
   other.parse(&json!("hello"), &ctx2).unwrap();
 }
@@ -139,5 +139,5 @@ fn metadata_and_excerpt_use_ctx() {
   assert!(m["readingTime"].as_u64().unwrap() >= 1);
 
   let e = s::excerpt().length(20).parse(&json!(null), &c).unwrap();
-  assert!(e.as_str().unwrap().ends_with('…'));
+  assert!(e.as_str().unwrap().ends_with("..."));
 }

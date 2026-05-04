@@ -55,7 +55,7 @@ function DocView({ doc }: { doc: DocRecord }) {
           </ul>
         )}
         <p className="meta">
-          {doc.metadata.wordCount} words · {doc.metadata.readingTime} min read
+          {doc.metadata.wordCount} words - {doc.metadata.readingTime} min read
         </p>
       </header>
 

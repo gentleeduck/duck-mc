@@ -1,15 +1,74 @@
 # dmc
 
-Rust MDX compiler. Drop-in replacement for [velite](https://github.com/zce/velite).
+`dmc` is a Rust MDX compiler with a velite-shaped TypeScript API. This repo currently contains the native Rust pipeline, the `@duck/md` NAPI package, an optional Node sidecar for JS remark/rehype plugins, and multiple example apps.
 
-- velite-shape JSON output (camelCase, frontmatter hoisted, typed `index.d.ts`)
-- velite-parity `s.*` schema builder (string/number/boolean/array/object/enum/literal/union + raw/markdown/mdx/toc/metadata/excerpt/path/slug/unique/isodate/file/image)
-- `defineConfig` accepts the same shape velite users already wrote
-- TypeScript config support via `bun` or `node --import tsx`
-- `dmc dev` watch mode
-- `subheading-anchor` autolink class on every heading
-- Native plugin pipeline (no Node child process for the common case)
-- Optional Node sidecar (`@duck/md-sidecar`) for community remark/rehype plugins
+## Current state
+
+- Native Rust pipeline for lexing, parsing, transforms, code generation, schema validation, and collection builds.
+- Velite-style TypeScript helpers in `@duck/md`: `defineConfig`, `defineCollection`, `defineSchema`, `definePlugin`, and `s.*`.
+- Native default features for pretty code, math, emoji, bare URL autolinks, heading autolinks, code imports, and npm command tabs.
+- Optional `@duck/md-sidecar` package for configs that still need JS plugin execution.
+
+## Workspace crates
+
+| Crate | Role |
+| --- | --- |
+| `dmc-diagnostic` | Shared diagnostic codes and source metadata. |
+| `dmc-lexer` | Tokenizer for MDX, JSX, and GFM-style syntax. |
+| `dmc-parser` | Typed AST parser for block, inline, JSX, and table nodes. |
+| `dmc-highlight` | Bundled syntect-based syntax highlighting assets and helpers. |
+| `dmc-transform` | Native transform pipeline and built-in transformers. |
+| `dmc-codegen` | HTML and MDX body emitters. |
+| `dmc-schema` | Velite-style schema builders and markdown-aware fields. |
+| `dmc-core` | Compile/build engine, CLI, watch mode, and collection output. |
+| `dmc-napi` | NAPI bindings and the `@duck/md` package surface. |
+
+## JS packages in this repo
+
+- `dmc-napi/` -> `@duck/md`
+- `dmc-sidecar/` -> `@duck/md-sidecar`
+
+`dmc-sidecar` is in the repo, but it is not part of the Rust workspace in `Cargo.toml`.
+
+## Examples
+
+- [`examples/web/`](examples/web/) - Vite + React demo that renders the compiled `body` string at runtime.
+- [`examples/nextjs/`](examples/nextjs/) - Next.js App Router demo that builds content with `@duck/md`.
+- [`examples/nextjs-velite/`](examples/nextjs-velite/) - velite version of the same style of demo for side-by-side comparison.
+- [`examples/acme-docs/`](examples/acme-docs/) - larger docs-site-style Next.js example.
+- [`examples/samples/`](examples/samples/) - shared MDX fixtures and architecture samples.
+- [`examples/COMPARISON.md`](examples/COMPARISON.md) - notes for the dmc vs velite demo setup.
+
+## Docs
+
+- [`docs/`](docs/) - architecture notes, benchmarks, migration notes, and performance writeups.
+- [`dmc-docs/`](dmc-docs/) - crate-level documentation.
+
+## Build and test
+
+```sh
+pnpm install
+cargo build
+cargo test --workspace
+pnpm --filter @duck/md run build
+```
+
+## Run examples
+
+```sh
+pnpm --filter dmc-web dev
+pnpm --filter dmc-nextjs dev
+pnpm --filter velite-nextjs dev
+pnpm --filter acme-docs dev
+```
+
+## CLI
+
+```sh
+cargo run -p dmc-core --bin dmc -- build --config dmc.config.ts
+cargo run -p dmc-core --bin dmc -- dev --config dmc.config.ts
+cargo run -p dmc-core --bin dmc -- compile path/to/file.mdx
+```
 
 ## Migrating from velite
 
@@ -18,48 +77,7 @@ Rust MDX compiler. Drop-in replacement for [velite](https://github.com/zce/velit
 + import { defineConfig, s } from '@duck/md'
 ```
 
-Full migration guide: [`docs/migrating-from-velite.md`](docs/migrating-from-velite.md).
-
-## Run
-
-```sh
-# build the whole workspace
-cargo build
-
-# build the napi binding for Node
-cd dmc-napi && pnpm install && pnpm build
-
-# run the React/Vite example
-cd examples/web && pnpm install && pnpm dev
-```
-
-## CLI
-
-```sh
-dmc build --config dmc.config.ts          # one-shot
-dmc dev   --config dmc.config.ts          # watch + rebuild
-dmc build --strict --clean                    # fail on schema error, wipe output
-dmc compile path/to/file.mdx                  # single-file dump to stdout
-dmc init                                      # scaffold dmc.toml
-```
-
-## Workspace layout
-
-| Crate               | Role                                                                                                                                                         |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `dmc-lexer`     | tokens (JSX boundary heuristic, GFM tables / strikethrough / tasklist, `<url>` autolinks)                                                                    |
-| `dmc-parser`    | parser + AST (`pub mod ast`) — AST nodes live with the parser                                                                                                |
-| `dmc-codegen`   | HTML emitter + MDX body emitter (`_createMdxContent` factory string)                                                                                         |
-| `dmc-transform` | visitor + 5 native transformers: code_import (w/ `{1,3-5}` ranges), npm_command, bare_url, autolink_headings (`subheading-anchor`), pretty_code (line marks) |
-| `dmc-schema`    | velite-parity schema builder + JSON descriptor compiler                                                                                                      |
-| `dmc-core`      | engine + loaders (matter/yaml/json) + CLI (`build`/`init`/`compile`/`dev`)                                                                                   |
-| `dmc-napi`      | `@duck/md` npm package — Node FFI                                                                                                                            |
-| `dmc-sidecar`   | `@duck/md-sidecar` — Node-side runner for community JS plugins                                                                                               |
-
-## Examples
-
-- [`examples/web/`](examples/web/) — Vite + React, `MdxContent` runtime that strips `import`s and binds components via `new Function(body)(jsxRuntime, components)`
-- [`examples/nextjs/`](examples/nextjs/) — Next.js App Router + server-rendered HTML
+See [`docs/migrating-from-velite.md`](docs/migrating-from-velite.md) for the current compatibility notes.
 
 ## License
 

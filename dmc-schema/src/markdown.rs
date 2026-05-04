@@ -74,7 +74,7 @@ impl Schema for ExcerptSchema {
       s
     } else {
       let truncated: String = s.chars().take(self.length).collect();
-      format!("{}…", truncated.trim_end())
+      format!("{}...", truncated.trim_end())
     };
     Ok(Value::String(out))
   }

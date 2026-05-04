@@ -699,7 +699,7 @@ export async function build(input: UserConfig): Promise<BuildReport> {
 		}
 	}
 
-	// Strip JS plugin function refs from the napi input — they can't cross
+	// Strip JS plugin function refs from the napi input - they can't cross
 	// the FFI boundary. The in-process post-pass below applies them.
 	const stripped: UserConfig = {
 		...input,
@@ -717,7 +717,7 @@ export async function build(input: UserConfig): Promise<BuildReport> {
 	const report = native.build(adaptToBuildInput(stripped)) as BuildReport;
 	await applyCustomLoaders(input, report);
 
-	// In-process unified pipeline — type-safe plugin refs run here.
+	// In-process unified pipeline - type-safe plugin refs run here.
 	const remark: Pluggable[] = [
 		...((input.markdown?.remarkPlugins ?? []) as Pluggable[]),
 		...((input.mdx?.remarkPlugins ?? []) as Pluggable[]),

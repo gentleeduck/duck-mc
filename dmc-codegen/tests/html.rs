@@ -8,7 +8,7 @@ fn html(src: &str) -> String {
 
 #[test]
 fn h1_with_id() {
-  // codegen does NOT include autolink — that's the transformer's job.
+  // codegen does NOT include autolink - that's the transformer's job.
   // Test the codegen alone here, separate from the pipeline.
   use dmc_parser::ast::*;
   let doc = Document {
@@ -72,7 +72,7 @@ fn escape_text_special_chars() {
   let h = html("a & b < c > d");
   assert!(h.contains("&amp;"));
   assert!(h.contains("&lt;"));
-  // > may stay or be escaped — both fine, but text content should not contain raw ampersands
+  // > may stay or be escaped - both fine, but text content should not contain raw ampersands
   assert!(!h.contains(" & "));
 }
 
@@ -112,5 +112,5 @@ fn table_html_with_align() {
   assert!(h.contains("align=\"right\""));
 }
 
-// pretty-code transformer removed — syntax highlighting now handled by
+// pretty-code transformer removed - syntax highlighting now handled by
 // shiki/rehype-pretty-code via the JS sidecar plugin pipeline.

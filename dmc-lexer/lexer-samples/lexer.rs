@@ -27,7 +27,7 @@ fn main() -> io::Result<()> {
   let mode = Mode { show_tokens, show_json, quiet };
 
   if args.is_empty() && atty_stdin() {
-    // no arg + no piped stdin → loop over every error sample in the shared
+    // no arg + no piped stdin -> loop over every error sample in the shared
     // samples/errors dir at the workspace root.
     let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..").join("samples").join("errors");
     let mut entries: Vec<PathBuf> = std::fs::read_dir(&dir)?
@@ -97,7 +97,7 @@ fn lex_and_print(label: &str, source: &str, mode: &Mode, meta: Arc<SourceMeta>) 
       return (0, 0);
     }
     engine.print_all(source);
-    println!("→ {} error(s), {} warning(s)\n", e, w);
+    println!("-> {} error(s), {} warning(s)\n", e, w);
   }
   (e, w)
 }

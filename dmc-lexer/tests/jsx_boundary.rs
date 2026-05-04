@@ -29,7 +29,7 @@ fn lt_then_slash_is_close() {
 
 #[test]
 fn lt_then_gt_fragment_dispatches_to_jsx() {
-  // currently lex_jsx_tag does not yet handle fragments — but the dispatcher
+  // currently lex_jsx_tag does not yet handle fragments - but the dispatcher
   // should at least route into it (L14 will finish frag support).
   let kinds = lex_kinds("<></>");
   assert!(kinds.first() == Some(&TokenKind::JsxOpenTagStart), "expected JsxOpenTagStart, got {:?}", kinds);

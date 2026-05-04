@@ -109,7 +109,7 @@ fn main() -> io::Result<()> {
   let warnings = diag.warning_count();
   let total = diag.iter().count();
 
-  // JSON mode → full structured dump, exit early.
+  // JSON mode -> full structured dump, exit early.
   if show_json {
     let want_pre = diff || (!after_only);
     let want_post = !before_only;
@@ -273,20 +273,20 @@ fn print_doc(doc: &Document) {
 }
 
 fn print_node(node: &Node, prefix: &str, last: bool) {
-  let connector = if last { "└─ " } else { "├─ " };
-  let child_prefix = format!("{prefix}{}", if last { "   " } else { "│  " });
+  let connector = if last { "`- " } else { "|- " };
+  let child_prefix = format!("{prefix}{}", if last { "   " } else { "|  " });
 
   if let Node::Table(t) = node {
     let aligns: Vec<String> = t.align.iter().map(|a| format!("{:?}", a)).collect();
     println!("{prefix}{connector}Table        align=[{}]", aligns.join(", "));
     for (ri, row) in t.children.iter().enumerate() {
       let row_last = ri + 1 == t.children.len();
-      let row_conn = if row_last { "└─ " } else { "├─ " };
-      let cell_prefix = format!("{child_prefix}{}", if row_last { "   " } else { "│  " });
+      let row_conn = if row_last { "`- " } else { "|- " };
+      let cell_prefix = format!("{child_prefix}{}", if row_last { "   " } else { "|  " });
       println!("{child_prefix}{row_conn}TableRow[{ri}]");
       for (ci, cell) in row.cells.iter().enumerate() {
         let cell_last = ci + 1 == row.cells.len();
-        let cell_conn = if cell_last { "└─ " } else { "├─ " };
+        let cell_conn = if cell_last { "`- " } else { "|- " };
         let text: String = cell
           .children
           .iter()
@@ -366,7 +366,7 @@ fn trunc(s: &str, max: usize) -> String {
     s.to_string()
   } else {
     let mut out: String = s.chars().take(max).collect();
-    out.push('…');
+    out.push_str("...");
     out
   }
 }
