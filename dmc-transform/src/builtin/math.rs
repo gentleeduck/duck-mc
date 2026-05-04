@@ -18,6 +18,9 @@ use duck_diagnostic::DiagnosticEngine;
 use std::collections::HashMap;
 use std::sync::{Mutex, OnceLock};
 
+type MathCacheKey = (String, bool, crate::MathEngine);
+type MathCache = HashMap<MathCacheKey, String>;
+
 /// Render `$...$` and `$$...$$` math spans to MathML.
 ///
 /// Two entry points:
@@ -155,8 +158,8 @@ impl Math {
     S.get_or_init(|| std::sync::atomic::AtomicU8::new(engine_to_u8(crate::MathEngine::default())))
   }
 
-  fn cache() -> &'static Mutex<HashMap<(String, bool, crate::MathEngine), String>> {
-    static C: OnceLock<Mutex<HashMap<(String, bool, crate::MathEngine), String>>> = OnceLock::new();
+  fn cache() -> &'static Mutex<MathCache> {
+    static C: OnceLock<Mutex<MathCache>> = OnceLock::new();
     C.get_or_init(|| Mutex::new(HashMap::new()))
   }
 
@@ -387,8 +390,6 @@ fn u8_to_engine(b: u8) -> crate::MathEngine {
 
 fn utf8_char_len(b: u8) -> usize {
   if b < 0x80 {
-    1
-  } else if b < 0xC0 {
     1
   } else if b < 0xE0 {
     2

@@ -5,8 +5,6 @@ use dmc_lexer::token::TokenKind;
 fn utf8_char_len(b: u8) -> usize {
   if b < 0x80 {
     1
-  } else if b < 0xC0 {
-    1
   } else if b < 0xE0 {
     2
   } else if b < 0xF0 {
