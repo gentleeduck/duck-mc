@@ -29,7 +29,7 @@ fn inner_pre(figure: &JsxElement) -> &JsxElement {
     .expect("figure should contain a <pre>")
 }
 
-fn attr(el: &JsxElement, name: &str) -> Option<&JsxAttrValue> {
+fn attr<'a>(el: &'a JsxElement, name: &str) -> Option<&'a JsxAttrValue> {
   el.attrs.iter().find(|a| a.name == name).map(|a| &a.value)
 }
 
