@@ -2,7 +2,7 @@ import { defineConfig, s } from "@duck/md";
 
 export default defineConfig({
   root: "content",
-  output: { data: ".gentleduck" },
+  output: { data: ".gentleduck", html: true },
   collections: {
     docs: {
       name: "doc",

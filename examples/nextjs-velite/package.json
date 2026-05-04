@@ -1,0 +1,34 @@
+{
+  "name": "velite-nextjs",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "content": "velite build",
+    "predev": "pnpm content",
+    "prebuild": "pnpm content",
+    "dev": "next dev -p 3001",
+    "build": "next build",
+    "start": "next start -p 3001"
+  },
+  "dependencies": {
+    "next": "^15",
+    "react": "^19",
+    "react-dom": "^19",
+    "rehype-autolink-headings": "^7",
+    "rehype-katex": "^7",
+    "rehype-pretty-code": "^0.14.1",
+    "rehype-slug": "^6",
+    "remark-emoji": "^5",
+    "remark-gfm": "^4",
+    "remark-math": "^6",
+    "shiki": "^1.29.2",
+    "velite": "^0.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "typescript": "^5"
+  }
+}

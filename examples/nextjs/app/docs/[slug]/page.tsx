@@ -6,8 +6,12 @@ type Doc = (typeof docs)[number] & {
   description?: string;
 };
 
+// Strip the `docs/` directory prefix so URLs are `/docs/hello` rather
+// than `/docs/docs%2Fhello`.
+const stripDir = (p: string) => p.replace(/^docs\//, "");
+
 export function generateStaticParams() {
-  return docs.map((d) => ({ slug: d.permalink }));
+  return docs.map((d) => ({ slug: stripDir(d.permalink) }));
 }
 
 export default async function Page({
@@ -16,7 +20,7 @@ export default async function Page({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const doc = docs.find((d) => d.permalink === slug) as Doc | undefined;
+  const doc = docs.find((d) => stripDir(d.permalink) === slug) as Doc | undefined;
   if (!doc) notFound();
   return (
     <article>
@@ -27,6 +31,6 @@ export default async function Page({
   );
 }
 
-function htmlOf(doc: Doc & { __compiled?: { html?: string } }) {
-  return doc.__compiled?.html ?? "";
+function htmlOf(doc: Doc & { html?: string }) {
+  return doc.html ?? "";
 }

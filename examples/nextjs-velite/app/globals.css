@@ -1,0 +1,133 @@
+/* Mirror of the dmc app's globals.css so visual diffs reflect the
+ * compiler chain, not stylesheet drift. Only deliberate divergence:
+ * KaTeX needs its own `.katex` styles loaded via the official CDN
+ * (imported by the slug page) so the rendered math has glyph spacing. */
+
+:root {
+  --bg: #0d1117;
+  --fg: #e6edf3;
+  --muted: #8b949e;
+  --border: #30363d;
+  --accent: #58a6ff;
+  --code-bg: #161b22;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+main, article {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 2rem 1.25rem 6rem;
+}
+
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+h1, h2, h3, h4, h5, h6 { line-height: 1.25; margin-top: 2.2rem; margin-bottom: 0.6rem; }
+h1 { font-size: 2rem; }
+h2 { border-bottom: 1px solid var(--border); padding-bottom: 0.25rem; }
+
+p { margin: 0.6em 0; }
+ul, ol { padding-left: 1.4rem; }
+
+table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
+th, td { border: 1px solid var(--border); padding: 0.4rem 0.6rem; text-align: left; }
+th { background: var(--code-bg); }
+
+blockquote {
+  margin: 1rem 0;
+  padding: 0.5rem 1rem;
+  border-left: 3px solid var(--accent);
+  color: var(--muted);
+  background: var(--code-bg);
+}
+
+code, pre, span[data-line] > span {
+  font-family: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+
+:not(pre) > code {
+  background: var(--code-bg);
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+  font-size: 0.92em;
+}
+
+pre {
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem;
+  overflow-x: auto;
+  font-size: 14px;
+  line-height: 1.55;
+  margin: 1rem 0;
+  position: relative;
+}
+figure[data-rehype-pretty-code-figure] > pre[data-language] {
+  margin: 0;
+}
+figcaption[data-rehype-pretty-code-title] {
+  color: var(--muted);
+  font-size: 12px;
+  margin-bottom: 0.5rem;
+  border-bottom: 1px dashed var(--border);
+  padding-bottom: 0.4rem;
+}
+pre code { display: block; }
+pre [data-line] { display: block; }
+pre [data-highlighted-line] {
+  background: rgba(88, 166, 255, 0.12);
+  margin: 0 -1rem;
+  padding: 0 1rem;
+  border-left: 2px solid var(--accent);
+}
+
+/* rehype-pretty-code multi-theme output emits --shiki-light/--shiki-dark
+ * but no fallback `color`/`background-color`. Without these rules, every
+ * token renders with no color. Map dark mode by default; flip with a
+ * `data-theme="light"` attr on <html> if you want light. */
+pre, pre code, pre code span {
+  color: var(--shiki-dark);
+}
+pre[data-theme*="catppuccin-mocha"],
+figure[data-rehype-pretty-code-figure] pre {
+  background-color: var(--shiki-dark-bg);
+}
+html[data-theme="light"] pre,
+html[data-theme="light"] pre code,
+html[data-theme="light"] pre code span {
+  color: var(--shiki-light);
+}
+html[data-theme="light"] figure[data-rehype-pretty-code-figure] pre {
+  background-color: var(--shiki-light-bg);
+}
+
+.site-nav {
+  position: sticky;
+  top: 0;
+  background: rgba(13, 17, 23, 0.85);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--border);
+  padding: 0.6rem 1.25rem;
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+.site-nav .badge {
+  font-weight: 600;
+  background: #f0883e;
+  color: var(--bg);
+  padding: 0.1rem 0.5rem;
+  border-radius: 4px;
+  font-size: 12px;
+}

@@ -3,6 +3,8 @@
 Cargo.lock.bak
 node_modules
 **/node_modules
+**/.next
+**/.codex
 **/.gentleduck
 **/.velite
 **/dist
@@ -10,3 +12,4 @@ node_modules
 **/tmp*
 **/temp*
 **/docs
+/.claude/
