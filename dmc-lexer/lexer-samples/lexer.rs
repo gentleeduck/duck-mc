@@ -55,7 +55,7 @@ fn main() -> io::Result<()> {
     io::stdin().read_to_string(&mut buf)?;
     buf
   };
-  let stdin_meta = Arc::new(SourceMeta { path: Arc::from("<stdin>"), version: 0, origin: Origin::Stdin });
+  let stdin_meta = Arc::new(SourceMeta { path: Arc::from("<stdin>"), origin: Origin::Stdin });
   lex_and_print("<stdin>", &source, &mode, stdin_meta);
   Ok(())
 }
@@ -69,7 +69,7 @@ struct Mode {
 fn run_one(path: &PathBuf, mode: &Mode) -> io::Result<(usize, usize)> {
   let source = std::fs::read_to_string(path)?;
   let label = path.file_name().unwrap().to_string_lossy().into_owned();
-  let meta = Arc::new(SourceMeta { path: Arc::from(label.clone()), version: 0, origin: Origin::File(path.clone()) });
+  let meta = Arc::new(SourceMeta { path: Arc::from(label.clone()), origin: Origin::File(path.clone()) });
   Ok(lex_and_print(&label, &source, mode, meta))
 }
 

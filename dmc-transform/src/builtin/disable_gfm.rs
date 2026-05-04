@@ -15,8 +15,8 @@ impl Transformer for DisableGfm {
   fn transform(
     &self,
     doc: &mut Document,
-    #[allow(unused_variables)] meta: &SourceMeta,
-    #[allow(unused_variables)] diag_engine: &mut duck_diagnostic::DiagnosticEngine<Code>,
+    _meta: &SourceMeta,
+    _diag_engine: &mut duck_diagnostic::DiagnosticEngine<Code>,
   ) {
     Self::rewrite(&mut doc.children);
   }

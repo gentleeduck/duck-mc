@@ -282,11 +282,6 @@ impl Transformer for Math {
   }
 }
 
-/// Free-function alias. Prefer [`Math::preprocess_source`].
-pub fn preprocess_math_source(source: &str) -> String {
-  Math::preprocess_source(source)
-}
-
 struct Apply;
 
 impl Visitor for Apply {

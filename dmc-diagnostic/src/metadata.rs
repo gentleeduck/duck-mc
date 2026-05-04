@@ -1,17 +1,12 @@
 /// Identity of the bytes being lexed. Threaded through every emitted `Span`
 /// (via `path`) and consulted by callers that need to resolve relative paths
-/// (`origin`) or invalidate caches (`version`). Cheap to clone: `path` is
-/// `Arc<str>`, `origin` is small.
+/// (`origin`). Cheap to clone: `path` is `Arc<str>`, `origin` is small.
 pub struct SourceMeta {
   /// Display string used as `Span.file`. Refcounted so every emitted span
   /// shares one allocation. Use the canonical filesystem path for `File`,
   /// `"<stdin>"` for `Stdin`, a fixture name for `Inline`, anything stable
   /// for `Memory` (e.g. an LSP URI).
   pub path: std::sync::Arc<str>,
-  /// Monotonic edit counter. Caller bumps on every modification. Used by
-  /// incremental layers / caches to detect staleness. Ignore (leave at 0)
-  /// for one-shot lexing of a static file.
-  pub version: u64,
   /// Where the bytes came from. Drives path resolution + caching policy.
   pub origin: Origin,
 }
@@ -36,6 +31,6 @@ pub enum Origin {
   /// is the human-readable label (e.g. `"E004-fixture"`).
   Inline(&'static str),
   /// In-RAM buffer (LSP unsaved doc, generated content). The bytes don't
-  /// live on disk; lean on `SourceMeta.version` for change tracking.
+  /// live on disk.
   Memory,
 }

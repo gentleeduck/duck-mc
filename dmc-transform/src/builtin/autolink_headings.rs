@@ -27,8 +27,8 @@ impl Transformer for AutolinkHeadings {
   fn transform(
     &self,
     doc: &mut Document,
-    #[allow(unused_variables)] meta: &SourceMeta,
-    #[allow(unused_variables)] diag_engine: &mut duck_diagnostic::DiagnosticEngine<Code>,
+    _meta: &SourceMeta,
+    _diag_engine: &mut duck_diagnostic::DiagnosticEngine<Code>,
   ) {
     let mut v = Apply { aria_label: self.aria_label.clone() };
     walk_root(&mut doc.children, &mut v);

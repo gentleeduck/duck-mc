@@ -23,18 +23,6 @@ pub trait Visitor {
   }
 }
 
-/// Visit `node` then recurse unless the visitor returned `KeepSkipChildren`.
-/// `Replace` / `Remove` are ignored at this level (no parent Vec to act on).
-/// Use for a single node without parent context; for document-wide walks
-/// call `walk_root` on `doc.children`.
-pub fn walk_mut<V: Visitor>(node: &mut Node, v: &mut V) {
-  match v.visit_node(node) {
-    NodeAction::Keep => walk_children_mut(node, v),
-    NodeAction::KeepSkipChildren => {},
-    NodeAction::Replace(_) | NodeAction::Remove => {},
-  }
-}
-
 /// Recurse into the per-variant inner children of `parent`. Leaf variants
 /// (Text, InlineCode, CodeBlock, Image, JsxExpression, ...) are no-ops.
 pub fn walk_children_mut<V: Visitor>(parent: &mut Node, v: &mut V) {

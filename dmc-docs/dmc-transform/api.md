@@ -100,9 +100,8 @@ The standard transformer entrypoint:
 walk_root(&mut doc.children, &mut my_visitor);
 ```
 
-Two helpers also live in `dmc_transform::visit` (not re-exported):
+One helper also lives in `dmc_transform::visit` (not re-exported):
 
-- `walk_mut(node, v)` for a single node without parent context.
 - `walk_children_mut(parent, v)` recurses into a single node's
   inner-children Vec. Tables get special handling: walks into each
   cell's `children` independently.
@@ -234,9 +233,6 @@ All implement `Transformer`. Constructors and field shapes:
 
 - `Math::load_cache(path)`, `Math::save_cache(path)`
   JSON persistence. Best effort, errors swallowed.
-
-- `dmc_transform::preprocess_math_source(source: &str) -> String`
-  Free-function alias of `Math::preprocess_source`.
 
 ### CodeImport associated functions
 

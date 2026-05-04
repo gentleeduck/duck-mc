@@ -21,10 +21,6 @@ name = "dmc"
 path = "src/main.rs"
 required-features = ["cli", "watch"]
 
-[[bin]]
-name = "core"
-path = "core-samples/core.rs"
-
 [dependencies]
 blake3.workspace = true
 dmc-lexer.workspace = true

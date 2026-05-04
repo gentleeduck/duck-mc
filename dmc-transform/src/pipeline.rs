@@ -101,7 +101,7 @@ impl Pipeline {
   pub fn run_silent(&self, doc: &mut Document) {
     use dmc_diagnostic::metadata::Origin;
     use std::sync::Arc;
-    let meta = SourceMeta { path: Arc::from("<test>"), version: 0, origin: Origin::Inline("<test>") };
+    let meta = SourceMeta { path: Arc::from("<test>"), origin: Origin::Inline("<test>") };
     let mut engine = DiagnosticEngine::new();
     self.run(doc, &meta, &mut engine);
   }

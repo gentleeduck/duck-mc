@@ -56,13 +56,13 @@ fn main() -> io::Result<()> {
       let src = std::fs::read_to_string(&path)?;
       let dir = path.parent().map(|p| p.to_path_buf());
       let label = path.file_name().unwrap().to_string_lossy().into_owned();
-      let meta = Arc::new(SourceMeta { path: Arc::from(label.clone()), version: 0, origin: Origin::File(path) });
+      let meta = Arc::new(SourceMeta { path: Arc::from(label.clone()), origin: Origin::File(path) });
       (label, src, dir, meta)
     },
     Some("-") => {
       let mut buf = String::new();
       io::stdin().read_to_string(&mut buf)?;
-      let meta = Arc::new(SourceMeta { path: Arc::from("<stdin>"), version: 0, origin: Origin::Stdin });
+      let meta = Arc::new(SourceMeta { path: Arc::from("<stdin>"), origin: Origin::Stdin });
       ("<stdin>".to_string(), buf, None, meta)
     },
     Some(p) => {
@@ -70,7 +70,7 @@ fn main() -> io::Result<()> {
       let src = std::fs::read_to_string(&path)?;
       let dir = path.parent().map(|p| p.to_path_buf());
       let label = path.file_name().unwrap().to_string_lossy().into_owned();
-      let meta = Arc::new(SourceMeta { path: Arc::from(label.clone()), version: 0, origin: Origin::File(path) });
+      let meta = Arc::new(SourceMeta { path: Arc::from(label.clone()), origin: Origin::File(path) });
       (label, src, dir, meta)
     },
   };

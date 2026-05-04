@@ -48,7 +48,7 @@ impl Transformer for ComponentPreview {
   fn transform(
     &self,
     doc: &mut Document,
-    #[allow(unused_variables)] meta: &SourceMeta,
+    _meta: &SourceMeta,
     diag_engine: &mut duck_diagnostic::DiagnosticEngine<Code>,
   ) {
     // Both paths required; missing either silently no-ops the pass.

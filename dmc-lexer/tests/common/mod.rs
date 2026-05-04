@@ -6,7 +6,7 @@ use duck_diagnostic::DiagnosticEngine;
 use std::sync::Arc;
 
 fn test_meta() -> Arc<SourceMeta> {
-  Arc::new(SourceMeta { path: Arc::from("<test>"), version: 0, origin: Origin::Inline("<test>") })
+  Arc::new(SourceMeta { path: Arc::from("<test>"), origin: Origin::Inline("<test>") })
 }
 
 pub fn lex_kinds(src: &str) -> Vec<TokenKind> {

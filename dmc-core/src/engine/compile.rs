@@ -190,11 +190,7 @@ impl Compiler {
     diag_engine: &mut DiagnosticEngine<Code>,
   ) -> CompileOutput {
     // Each layer holds its own DiagnosticEngine, mirroring the Lexer pattern.
-    let meta = Arc::from(SourceMeta {
-      path: Arc::from(path.display().to_string()),
-      version: 0, // TODO:
-      origin: Origin::File(path.into()),
-    });
+    let meta = Arc::from(SourceMeta { path: Arc::from(path.display().to_string()), origin: Origin::File(path.into()) });
     // Source-level math: rewrite `$...$` / `$$...$$` to `<MathMl/>` JSX
     // so the parser does not interpret `_` or `^` inside math as Markdown
     // emphasis markers.

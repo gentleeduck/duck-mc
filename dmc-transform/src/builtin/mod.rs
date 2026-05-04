@@ -28,7 +28,7 @@ pub use disable_gfm::DisableGfm;
 #[cfg(feature = "emoji")]
 pub use emoji::Emoji;
 #[cfg(feature = "math")]
-pub use math::{Math, preprocess_math_source};
+pub use math::Math;
 #[cfg(feature = "mermaid")]
 pub use mermaid::Mermaid;
 #[cfg(feature = "npm-command")]

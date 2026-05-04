@@ -35,20 +35,20 @@ fn main() -> io::Result<()> {
       let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../samples/index.mdx");
       let src = std::fs::read_to_string(&path)?;
       let label = path.file_name().unwrap().to_string_lossy().into_owned();
-      let meta = Arc::new(SourceMeta { path: Arc::from(label.clone()), version: 0, origin: Origin::File(path) });
+      let meta = Arc::new(SourceMeta { path: Arc::from(label.clone()), origin: Origin::File(path) });
       (label, src, meta)
     },
     Some("-") => {
       let mut buf = String::new();
       io::stdin().read_to_string(&mut buf)?;
-      let meta = Arc::new(SourceMeta { path: Arc::from("<stdin>"), version: 0, origin: Origin::Stdin });
+      let meta = Arc::new(SourceMeta { path: Arc::from("<stdin>"), origin: Origin::Stdin });
       ("<stdin>".to_string(), buf, meta)
     },
     Some(p) => {
       let path = PathBuf::from(p);
       let src = std::fs::read_to_string(&path)?;
       let label = path.file_name().unwrap().to_string_lossy().into_owned();
-      let meta = Arc::new(SourceMeta { path: Arc::from(label.clone()), version: 0, origin: Origin::File(path) });
+      let meta = Arc::new(SourceMeta { path: Arc::from(label.clone()), origin: Origin::File(path) });
       (label, src, meta)
     },
   };

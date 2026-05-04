@@ -99,7 +99,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
 /// tests + the `parse` bin; production callers should construct their own
 /// `DiagnosticEngine`.
 pub fn parse(source: &str) -> Document {
-  let meta = Arc::from(SourceMeta { path: Arc::from("<inline>"), version: 0, origin: Origin::Inline("<inline>") });
+  let meta = Arc::from(SourceMeta { path: Arc::from("<inline>"), origin: Origin::Inline("<inline>") });
   let mut lex_engine = DiagnosticEngine::new();
   let mut lexer = Lexer::new(source, meta.clone(), &mut lex_engine);
   let _ = lexer.scan_tokens();
@@ -116,7 +116,7 @@ pub fn parse(source: &str) -> Document {
 /// Used by table cells, which receive raw cell strings rather than
 /// pre-tokenised inline content.
 pub fn parse_inline_str(s: &str) -> Vec<crate::ast::Node> {
-  let meta = Arc::from(SourceMeta { path: Arc::from("<inline>"), version: 0, origin: Origin::Inline("<inline>") });
+  let meta = Arc::from(SourceMeta { path: Arc::from("<inline>"), origin: Origin::Inline("<inline>") });
   let mut lex_engine = DiagnosticEngine::new();
   let mut lexer = Lexer::new(s, meta.clone(), &mut lex_engine);
   let _ = lexer.scan_tokens();
