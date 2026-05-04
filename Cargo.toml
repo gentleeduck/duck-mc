@@ -64,7 +64,9 @@ regex = "1"
 fancy-regex = "0.16"
 unicode-segmentation = "1"
 pulldown-latex = "0.7"
-katex = { version = "0.4", default-features = false, features = ["quick-js"] }
+# katex backend differs per platform: quick-js on POSIX (faster), duktape
+# on Windows (cross-platform). Per-crate target-conditional deps select.
+katex = { version = "0.4", default-features = false }
 emojis = "0.8"
 
 # Dev
