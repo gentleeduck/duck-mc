@@ -86,12 +86,12 @@ fn emit_enum(out: &mut String, ty_name: &str, all_const: &str, names: &[String])
   out.push_str("  }\n");
 
   // from_str: name -> Option<Self>
-  out.push_str(&format!(
+  out.push_str(
     "  /// Inverse of [`name`]: lookup an enum variant by its canonical name.\n\
      /// Returns `None` if no variant matches.\n\
-     pub fn from_name(s: &str) -> Option<Self> {{\n\
-        match s {{\n"
-  ));
+     pub fn from_name(s: &str) -> Option<Self> {\n\
+        match s {\n",
+  );
   for (ident, raw) in &variants {
     out.push_str(&format!("      {:?} => Some(Self::{ident}),\n", raw));
   }
