@@ -16,7 +16,7 @@ dmc-core/src/
 |   |- config.rs           EngineConfig + load_ts
 |   |- cache.rs            FileCache + fingerprint
 |   |- sidecar.rs          Sidecar pool + run_sidecar
-|   |- accumlator.rs       sink that pulls metadata
+|   |- accumulator.rs      sink that pulls metadata
 |   |- index.rs            write_index(out_dir, ...)
 |   |- schema_ts.rs        TS schema descriptor compile
 |   `- utils.rs            wrap_mdx_module, minify_js, build_velite_record

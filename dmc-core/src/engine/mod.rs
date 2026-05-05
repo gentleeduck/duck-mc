@@ -5,7 +5,7 @@ use duck_diagnostic::DiagnosticEngine;
 
 use crate::engine::config::EngineConfig;
 
-pub mod accumlator;
+pub mod accumulator;
 pub mod cache;
 pub mod collection;
 pub mod compile;
