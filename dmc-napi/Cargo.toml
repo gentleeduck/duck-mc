@@ -16,14 +16,20 @@ publish = false
 crate-type = ["cdylib"]
 
 [dependencies]
-dmc-core = { path = "../dmc-core" }
-dmc-diagnostic = { path = "../dmc-diagnostic" }
+dmc-core = { version = "0.1.0", path = "../dmc-core" }
+dmc-diagnostic = { version = "0.1.0", path = "../dmc-diagnostic" }
 duck-diagnostic.workspace = true
-katex.workspace = true
 napi = { version = "2", default-features = false, features = ["napi9", "serde-json"] }
 napi-derive = "2"
 serde.workspace = true
 serde_json.workspace = true
+
+# katex backend selected per target. quick-js is faster but POSIX-only.
+[target.'cfg(not(target_os = "windows"))'.dependencies]
+katex = { workspace = true, features = ["quick-js"] }
+
+[target.'cfg(target_os = "windows")'.dependencies]
+katex = { workspace = true, features = ["duktape"] }
 
 [build-dependencies]
 napi-build = "2"
