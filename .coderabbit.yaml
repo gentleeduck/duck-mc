@@ -1,0 +1,73 @@
+# https://docs.coderabbit.ai/guides/configure-coderabbit
+# Schema: https://coderabbit.ai/integrations/schema.v2.json
+language: en-US
+early_access: false
+tone_instructions: |
+  Caveman-mode terse. Drop articles, filler, hedging. Fragments OK.
+  Code blocks unchanged. Errors quoted exact. No AI slop phrases.
+
+reviews:
+  profile: chill
+  request_changes_workflow: false
+  high_level_summary: true
+  high_level_summary_placeholder: '@coderabbitai summary'
+  poem: false
+  review_status: true
+  collapse_walkthrough: false
+  changed_files_summary: true
+  sequence_diagrams: true
+  abort_on_close: true
+  auto_review:
+    enabled: true
+    drafts: false
+    base_branches:
+      - master
+      - main
+  path_filters:
+    - '!**/target/**'
+    - '!**/node_modules/**'
+    - '!**/tmp*/**'
+    - '!**/temp*/**'
+    - '!**/*.lock'
+    - '!**/Cargo.lock'
+    - '!**/pnpm-lock.yaml'
+    - '!**/package-lock.json'
+    - '!duck-benchmarks/**/*.json'
+    - '!duck-benchmarks/**/*.svg'
+    - '!**/.dmc/**'
+    - '!**/.gentleduck/**'
+    - '!**/.next/**'
+    - '!dmc-highlight/assets/**'
+  path_instructions:
+    - path: 'dmc-*/src/**/*.rs'
+      instructions: |
+        Rust crate code. Check for: clippy idioms, error handling
+        without unwrap on user-facing paths, proper Send + Sync on
+        Transformer impls, no AI slop in comments, ASCII-only prose.
+        Comments explain WHY not WHAT.
+    - path: 'dmc-*/tests/**/*.rs'
+      instructions: |
+        Tests. Defensive unreachable!() and unwrap() in tests are OK.
+        Look for missing edge cases (empty input, unicode, large files).
+    - path: 'dmc-docs/**/*.md'
+      instructions: |
+        Documentation. Reject em-dashes, en-dashes, ellipsis glyphs,
+        curly quotes, unicode arrows. Use ASCII: -, ', ", ..., ->.
+        Reject AI slop ("comprehensive", "robust", "leverage",
+        "seamless", "delve", "furthermore").
+    - path: '**/*.{ts,tsx}'
+      instructions: |
+        TS/JS. Tab indent (per .editorconfig). No any without
+        justification. Check for client/server boundary on examples/.
+
+chat:
+  auto_reply: true
+
+knowledge_base:
+  opt_out: false
+  learnings:
+    scope: auto
+  issues:
+    scope: auto
+  pull_requests:
+    scope: auto
