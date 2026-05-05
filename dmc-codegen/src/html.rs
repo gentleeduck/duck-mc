@@ -163,10 +163,8 @@ impl HtmlEmitter {
       },
       Node::ListItem(_) | Node::TaskListItem(_) => self.out.push_str("</li>"),
       Node::Link(_) => self.out.push_str("</a>"),
-      Node::JsxElement(e) => {
-        if !e.name.is_empty() {
-          self.out.push_str(&format!("</{}>", e.name));
-        }
+      Node::JsxElement(e) if !e.name.is_empty() => {
+        self.out.push_str(&format!("</{}>", e.name));
       },
       Node::JsxFragment(_) => {},
       _ => {},

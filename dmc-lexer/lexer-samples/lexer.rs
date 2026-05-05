@@ -156,11 +156,17 @@ fn take_flag(args: &mut Vec<String>, name: &str) -> bool {
   had
 }
 
+/// Best-effort: if stdin is a terminal, treat as "no piped input".
+/// Uses a libc-free check via /proc on unix; on Windows /proc does not
+/// exist and the sample never reads piped input via this branch, so we
+/// assume tty.
+#[cfg(unix)]
 fn atty_stdin() -> bool {
-  // Best-effort: if stdin is a terminal, treat as "no piped input".
-  // We use the cheap libc-free check via /proc.
+  use std::os::unix::fs::FileTypeExt;
   std::fs::metadata("/proc/self/fd/0").map(|m| !m.file_type().is_fifo() && !m.file_type().is_socket()).unwrap_or(true)
 }
 
-#[cfg(target_family = "unix")]
-use std::os::unix::fs::FileTypeExt;
+#[cfg(not(unix))]
+fn atty_stdin() -> bool {
+  true
+}
