@@ -145,7 +145,7 @@ impl fmt::Display for TokenKind {
       TokenKind::SoftBreak => "SoftBreak",
       TokenKind::Newline => "Newline",
       TokenKind::Whitespace => "Whitespace",
-      TokenKind::Quote => "Qoute",
+      TokenKind::Quote => "Quote",
       TokenKind::Eof => "Eof",
     };
     write!(f, "{}", s)

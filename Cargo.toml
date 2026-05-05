@@ -16,7 +16,7 @@ exclude = ["fuzz"]
 [workspace.package]
 version = "0.1.0"
 edition = "2024"
-rust-version = "1.85"
+rust-version = "1.95"
 license = "MIT"
 authors = ["gentleduck"]
 repository = "https://github.com/gentleeduck/duck-mc"
@@ -47,13 +47,13 @@ criterion = "0.5"
 plotters = { version = "0.3", default-features = false, features = ["svg_backend", "line_series", "bitmap_encoder"] }
 
 # Workspace crates
-dmc-diagnostic = { path = "dmc-diagnostic" }
-dmc-lexer = { path = "dmc-lexer" }
-dmc-parser = { path = "dmc-parser" }
-dmc-highlight = { path = "dmc-highlight" }
-dmc-codegen = { path = "dmc-codegen" }
-dmc-transform = { path = "dmc-transform" }
-dmc-schema = { path = "dmc-schema" }
+dmc-diagnostic = { version = "0.1.0", path = "dmc-diagnostic" }
+dmc-lexer = { version = "0.1.0", path = "dmc-lexer" }
+dmc-parser = { version = "0.1.0", path = "dmc-parser" }
+dmc-highlight = { version = "0.1.0", path = "dmc-highlight" }
+dmc-codegen = { version = "0.1.0", path = "dmc-codegen" }
+dmc-transform = { version = "0.1.0", path = "dmc-transform" }
+dmc-schema = { version = "0.1.0", path = "dmc-schema" }
 blake3 = "1"
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp", "gif"] }
 notify = "6"
@@ -64,7 +64,9 @@ regex = "1"
 fancy-regex = "0.16"
 unicode-segmentation = "1"
 pulldown-latex = "0.7"
-katex = { version = "0.4", default-features = false, features = ["quick-js"] }
+# katex backend differs per platform: quick-js on POSIX (faster), duktape
+# on Windows (cross-platform). Per-crate target-conditional deps select.
+katex = { version = "0.4", default-features = false }
 emojis = "0.8"
 
 # Dev

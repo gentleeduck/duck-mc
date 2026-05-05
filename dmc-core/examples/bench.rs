@@ -534,15 +534,13 @@ fn measure_sidecar_scale(
 /// Run velite against the same fixtures. Sets up a tempdir with a
 /// velite.config.ts, symlinks node_modules from bench-deps, then times
 /// `node node_modules/velite/dist/cli.js build` per scale point.
+#[cfg(unix)]
 fn measure_velite_scale(n: usize, fixture: &str, deps: &Path, velite_config: &str) -> Result<Stats, String> {
   let tmp = TempDir::new().map_err(|e| e.to_string())?;
   write_fixtures_with(tmp.path(), n, fixture);
 
   // Symlink node_modules so velite finds its own internals.
-  #[cfg(unix)]
   std::os::unix::fs::symlink(deps.join("node_modules"), tmp.path().join("node_modules")).map_err(|e| e.to_string())?;
-  #[cfg(not(unix))]
-  return Err("velite bench currently unix-only (symlink)".into());
 
   fs::write(tmp.path().join("velite.config.ts"), velite_config).map_err(|e| e.to_string())?;
 
@@ -581,6 +579,11 @@ fn measure_velite_scale(n: usize, fixture: &str, deps: &Path, velite_config: &st
     }
   }
   Ok(Stats::from_samples(samples))
+}
+
+#[cfg(not(unix))]
+fn measure_velite_scale(_n: usize, _fixture: &str, _deps: &Path, _velite_config: &str) -> Result<Stats, String> {
+  Err("velite bench currently unix-only (symlink)".into())
 }
 
 fn fmt_stats_ms(s: &Stats, n: usize) -> String {
