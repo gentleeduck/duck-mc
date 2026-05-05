@@ -10,6 +10,7 @@ documentation.workspace = true
 keywords.workspace = true
 categories.workspace = true
 description = "Bundled syntect grammars and themes for dmc syntax highlighting"
+readme = "README.md"
 build = "build.rs"
 
 [dependencies]

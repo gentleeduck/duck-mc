@@ -10,6 +10,7 @@ documentation.workspace = true
 keywords.workspace = true
 categories.workspace = true
 description = "Shared diagnostic codes and source metadata for the dmc MDX compiler"
+readme = "README.md"
 
 # Unified diagnostic codes for the dmc pipeline. Variants are gated by
 # per-layer features so each crate only pulls in the codes it actually emits.
