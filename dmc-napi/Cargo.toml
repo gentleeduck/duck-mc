@@ -16,8 +16,8 @@ publish = false
 crate-type = ["cdylib"]
 
 [dependencies]
-dmc-core = { path = "../dmc-core" }
-dmc-diagnostic = { path = "../dmc-diagnostic" }
+dmc-core = { version = "0.1.0", path = "../dmc-core" }
+dmc-diagnostic = { version = "0.1.0", path = "../dmc-diagnostic" }
 duck-diagnostic.workspace = true
 napi = { version = "2", default-features = false, features = ["napi9", "serde-json"] }
 napi-derive = "2"
