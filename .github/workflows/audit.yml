@@ -1,0 +1,33 @@
+name: Audit
+
+on:
+  push:
+    branches: [master, main]
+    paths:
+      - '**/Cargo.toml'
+      - '**/Cargo.lock'
+      - 'deny.toml'
+      - '.github/workflows/audit.yml'
+  pull_request:
+    paths:
+      - '**/Cargo.toml'
+      - '**/Cargo.lock'
+      - 'deny.toml'
+  schedule:
+    - cron: '0 8 * * 1'
+
+permissions:
+  contents: read
+
+jobs:
+  cargo-deny:
+    continue-on-error: true
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        checks: [advisories, bans, licenses, sources]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          command: check ${{ matrix.checks }}
