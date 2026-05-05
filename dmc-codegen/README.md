@@ -10,9 +10,10 @@
 
 <p align="center">
   <a href="../LICENSE">MIT</a> -
+  <a href="../CHANGELOG.md">Changelog</a> -
+  <a href="../CONTRIBUTING.md">Contributing</a> -
   <a href="https://crates.io/crates/dmc-codegen">crates.io</a> -
-  <a href="https://docs.rs/dmc-codegen">docs.rs</a> -
-  <a href="../dmc-docs/dmc-codegen">guide</a>
+  <a href="https://docs.rs/dmc-codegen">docs.rs</a>
 </p>
 
 <p align="center">
@@ -23,25 +24,32 @@
 
 ---
 
-Part of [`@gentleduck/md`](../README.md). For full architecture see
-[`dmc-docs/`](../dmc-docs).
-
 ## Install
 
 ```sh
 cargo add dmc-codegen
 ```
 
+## Quick start
+
+```rust
+use dmc_codegen::{HtmlEmitter, Walker};
+
+let mut emitter = HtmlEmitter::new();
+Walker::new().walk(document, &mut emitter);
+let html = emitter.into_string();
+```
+
 ## Docs
 
-Per-crate references, internals, and examples:
-[`dmc-docs/dmc-codegen/`](../dmc-docs/dmc-codegen)
+- [crates.io](https://crates.io/crates/dmc-codegen)
+- [docs.rs](https://docs.rs/dmc-codegen)
+- Per-crate guide in the repo: see [`../README.md`](../README.md)
 
-## Benchmarks
+## Contributing
 
-Pipeline-level numbers across phases:
-[`duck-benchmarks/`](../duck-benchmarks).
+See [`../CONTRIBUTING.md`](../CONTRIBUTING.md).
 
 ## License
 
-MIT. See [`LICENSE`](../LICENSE).
+MIT. See [`../LICENSE`](../LICENSE).

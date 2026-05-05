@@ -2,7 +2,7 @@
   <img src="./public/logo-dark.svg" alt="dmc" width="120"/>
 </p>
 
-<h1 align="center">dmc</h1>
+<h1 align="center">@gentleduck/md</h1>
 
 <p align="center">
   Native Rust MDX compiler with a velite-shaped TypeScript API.
@@ -10,9 +10,16 @@
 
 <p align="center">
   <a href="./LICENSE">MIT</a> -
+  <a href="./CHANGELOG.md">Changelog</a> -
+  <a href="./CONTRIBUTING.md">Contributing</a> -
   <a href="./dmc-docs">Docs</a> -
-  <a href="./duck-benchmarks">Benchmarks</a> -
-  <a href="./docs/migrating-from-velite.md">Migrating from velite</a>
+  <a href="./duck-benchmarks">Benchmarks</a>
+</p>
+
+<p align="center">
+  <a href="https://www.npmjs.com/package/@gentleduck/md"><img src="https://img.shields.io/npm/v/@gentleduck/md.svg" alt="npm"/></a>
+  <a href="https://crates.io/crates/dmc-core"><img src="https://img.shields.io/crates/v/dmc-core.svg" alt="crates.io"/></a>
+  <a href="./LICENSE"><img src="https://img.shields.io/crates/l/dmc-core.svg" alt="MIT"/></a>
 </p>
 
 ---
@@ -23,7 +30,7 @@
 pnpm add @gentleduck/md
 ```
 
-Optional: `@gentleduck/md-sidecar` if you still need JS remark/rehype plugins.
+Optional: `@gentleduck/md-sidecar` for foreign remark/rehype plugins.
 
 ## Quick start
 
@@ -51,70 +58,56 @@ export default defineConfig({
 dmc build
 ```
 
-Outputs `.gentleduck/Post.json` + typed `index.d.ts`. Import from any framework.
-
 ## Workspace
 
 | Crate | Role |
 | --- | --- |
-| `dmc-lexer` | MDX / JSX / GFM tokenizer |
-| `dmc-parser` | Typed AST parser (block, inline, JSX, table) |
-| `dmc-highlight` | Bundled syntect grammars + themes |
-| `dmc-transform` | Native pipeline + builtin transformers |
-| `dmc-codegen` | HTML + MDX body emitters |
-| `dmc-schema` | Velite-style schema builders |
-| `dmc-diagnostic` | Shared diagnostic codes + spans |
-| `dmc-core` | Engine, CLI, watch, collections |
-| `dmc-napi` | NAPI bindings (`@gentleduck/md`) |
+| [`dmc-lexer`](dmc-lexer) | MDX / JSX / GFM tokenizer |
+| [`dmc-parser`](dmc-parser) | Typed AST parser |
+| [`dmc-highlight`](dmc-highlight) | Bundled syntect grammars + themes |
+| [`dmc-transform`](dmc-transform) | Native pipeline + builtin transformers |
+| [`dmc-codegen`](dmc-codegen) | HTML + MDX body emitters |
+| [`dmc-schema`](dmc-schema) | Velite-style schema builders |
+| [`dmc-diagnostic`](dmc-diagnostic) | Shared diagnostic codes + spans |
+| [`dmc-core`](dmc-core) | Engine, CLI, watch, collections |
+| [`dmc-napi`](dmc-napi) | NAPI bindings (`@gentleduck/md`) |
 
-JS-only: `dmc-sidecar` (`@gentleduck/md-sidecar`).
-
-## Native features
-
-Pretty code (syntect), KaTeX/MathML math, emoji, code imports, npm-command tabs, mermaid, bare URL autolinks, heading autolinks, asset copy. Each gated by a Cargo feature; unused ones compile out.
-
-JS plugins listed in config that have native equivalents (`remark-gfm`, `rehype-pretty-code`, `rehype-katex`, `rehype-slug`, etc) are stripped from the sidecar payload automatically.
+JS-only: [`dmc-sidecar`](dmc-sidecar) (`@gentleduck/md-sidecar`).
 
 ## Examples
 
 | Path | Stack |
 | --- | --- |
 | [`examples/nextjs`](examples/nextjs) | Next.js App Router, `@gentleduck/md` |
-| [`examples/nextjs-velite`](examples/nextjs-velite) | velite, same content for parity check |
+| [`examples/nextjs-velite`](examples/nextjs-velite) | velite, parity check |
 | [`examples/web`](examples/web) | Vite + React |
-| [`examples/acme-docs`](examples/acme-docs) | Docs-site template |
-
-## Docs
-
-- [`dmc-docs/`](dmc-docs) - per-crate references, architecture, integration guides
-- [`docs/`](docs) - architecture notes, benchmarks, perf write-ups
+| [`examples/acme-docs`](examples/acme-docs) | Multi-collection template |
 
 ## Build
 
 ```sh
 pnpm install
 cargo build --release
-cargo test --workspace --features pretty-code
+cargo test  --workspace --features pretty-code
 pnpm --filter @gentleduck/md run build
 ```
 
-## CLI
+## Docs
 
-```sh
-dmc build --config dmc.config.ts
-dmc dev   --config dmc.config.ts
-dmc compile path/to/file.mdx
-```
+- [`dmc-docs/`](dmc-docs) - per-crate references, architecture, integration guides
+- [`docs/`](docs) - architecture notes, perf write-ups
+- [duck-ui website](https://github.com/gentleeduck/duck-ui) - cross-linked intro + benchmarks page
 
-## Migrating from velite
+## Benchmarks
 
-```diff
-- import { defineConfig, s } from 'velite'
-+ import { defineConfig, s } from '@gentleduck/md'
-```
+Five recorded phases under [`duck-benchmarks/`](duck-benchmarks).
+Headline: **9.5x velite** at the kitchen-sink workload, **132x** on plain markdown.
 
-See [`docs/migrating-from-velite.md`](docs/migrating-from-velite.md).
+## Contributing
+
+PR checklist + style notes in [`CONTRIBUTING.md`](CONTRIBUTING.md).
+Security: [`SECURITY.md`](SECURITY.md). Behaviour: [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md).
 
 ## License
 
-MIT
+MIT. See [`LICENSE`](LICENSE).

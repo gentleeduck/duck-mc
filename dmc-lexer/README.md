@@ -10,9 +10,10 @@
 
 <p align="center">
   <a href="../LICENSE">MIT</a> -
+  <a href="../CHANGELOG.md">Changelog</a> -
+  <a href="../CONTRIBUTING.md">Contributing</a> -
   <a href="https://crates.io/crates/dmc-lexer">crates.io</a> -
-  <a href="https://docs.rs/dmc-lexer">docs.rs</a> -
-  <a href="../dmc-docs/dmc-lexer">guide</a>
+  <a href="https://docs.rs/dmc-lexer">docs.rs</a>
 </p>
 
 <p align="center">
@@ -23,25 +24,31 @@
 
 ---
 
-Part of [`@gentleduck/md`](../README.md). For full architecture see
-[`dmc-docs/`](../dmc-docs).
-
 ## Install
 
 ```sh
 cargo add dmc-lexer
 ```
 
+## Quick start
+
+```rust
+use dmc_lexer::Lexer;
+
+let mut lex = Lexer::new(source, meta, &mut diag);
+let tokens = lex.scan_tokens();
+```
+
 ## Docs
 
-Per-crate references, internals, and examples:
-[`dmc-docs/dmc-lexer/`](../dmc-docs/dmc-lexer)
+- [crates.io](https://crates.io/crates/dmc-lexer)
+- [docs.rs](https://docs.rs/dmc-lexer)
+- Per-crate guide in the repo: see [`../README.md`](../README.md)
 
-## Benchmarks
+## Contributing
 
-Pipeline-level numbers across phases:
-[`duck-benchmarks/`](../duck-benchmarks).
+See [`../CONTRIBUTING.md`](../CONTRIBUTING.md).
 
 ## License
 
-MIT. See [`LICENSE`](../LICENSE).
+MIT. See [`../LICENSE`](../LICENSE).
