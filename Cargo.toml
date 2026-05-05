@@ -43,7 +43,7 @@ assert_cmd = "2"
 predicates = "3"
 insta = { version = "1", features = ["json", "redactions"] }
 syntect = { version = "5", default-features = false, features = ["default-onig", "plist-load"] }
-criterion = "0.5"
+criterion = "0.8"
 plotters = { version = "0.3", default-features = false, features = ["svg_backend", "line_series", "bitmap_encoder"] }
 
 # Workspace crates
