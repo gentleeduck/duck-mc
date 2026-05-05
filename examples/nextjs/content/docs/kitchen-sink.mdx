@@ -1,0 +1,250 @@
+---
+title: Kitchen Sink
+description: Every native dmc transformer firing on a single page.
+tags: [demo, kitchen-sink]
+---
+
+# Kitchen Sink
+
+Every native dmc transformer firing on one page. Compare against the velite render of the same `.mdx` for parity.
+
+## Inline marks
+
+Plain, **bold**, _italic_, ~~strikethrough~~, `inline code`, ***bold italic***, **_nested mixed_**.
+
+Bold around a link: **[github](https://github.com) link**.
+
+Italic around a link: _[mdn](https://developer.mozilla.org) link_.
+
+Inline code with backticks: `let x = 1;` and `git diff --cached`.
+
+Escaped chars: \*literal-asterisks\*, \_underscores\_, \`backtick\`, \\ backslash, \$ dollar.
+
+## GFM
+
+Tables, strikethrough, autolinks, task lists.
+
+| feature | sidecar plugin | native transformer |
+| ------- | -------------- | ------------------ |
+| code highlight | `rehype-pretty-code` | `pretty-code` (syntect) |
+| math | `remark-math` + `rehype-katex` | `math` (katex via quick-js) |
+| emoji | `remark-emoji` | `emoji` (unicode lookup) |
+| slug + autolink | `rehype-slug` + `rehype-autolink-headings` | `autolink-headings` |
+
+Aligned table:
+
+| left   | center  | right |
+| :----- | :-----: | ----: |
+| a      | b       | c     |
+| **bold** | _italic_ | `code` |
+| 1      | 2       | 3     |
+
+Task list:
+
+- [x] gfm tables
+- [x] task lists
+- [ ] footnotes (next milestone)
+- [x] strikethrough
+- [x] autolink
+
+Bare URL gets autolinked: https://example.com.
+
+## Horizontal rule
+
+Three dashes:
+
+---
+
+Three asterisks:
+
+***
+
+Three underscores:
+
+___
+
+## Lists
+
+Unordered:
+
+- one
+- two
+  - two.a
+  - two.b
+    - two.b.i
+- three
+
+Ordered:
+
+1. first
+2. second
+   1. second.a
+   2. second.b
+3. third
+
+Mixed:
+
+1. ordered head
+   - bullet child
+   - another bullet
+     1. ordered grandchild
+2. ordered next
+
+Loose list (with paragraphs inside):
+
+- item one paragraph one
+
+  item one paragraph two
+
+- item two
+
+## Code
+
+Rust with title + line marks:
+
+```rust title="lib.rs" {3,5}
+fn main() {
+    let answer = 42;
+    println!("the answer is {answer}");
+    let v = vec![1, 2, 3];
+    println!("{:?}", v);
+}
+```
+
+TypeScript:
+
+```ts title="render.tsx"
+import { type ReactNode } from "react";
+
+export function Greeting({ name }: { name: string }): ReactNode {
+  return <h1>Hello, {name}!</h1>;
+}
+```
+
+JSON without title:
+
+```json
+{
+  "name": "@duck/md",
+  "version": "0.1.0",
+  "fast": true
+}
+```
+
+Bash:
+
+```bash title="install.sh"
+#!/usr/bin/env bash
+set -euo pipefail
+pnpm install
+pnpm content
+pnpm dev
+```
+
+Plain-text fallback (unknown lang stays plain):
+
+```not-a-real-lang
+plain text body - no highlighting, no errors
+```
+
+## Math
+
+Inline: $E = mc^2$, and $\sum_{i=1}^{n} i = \frac{n(n+1)}{2}$, and $\binom{n}{k} = \frac{n!}{k!(n-k)!}$.
+
+Block:
+
+$$
+\int_{-\infty}^{\infty} e^{-x^2}\,dx = \sqrt{\pi}
+$$
+
+Aligned:
+
+$$
+\begin{aligned}
+f(x) &= ax^2 + bx + c \\
+f'(x) &= 2ax + b \\
+f''(x) &= 2a
+\end{aligned}
+$$
+
+Matrix:
+
+$$
+A = \begin{pmatrix}
+a & b \\
+c & d
+\end{pmatrix}
+$$
+
+Cases:
+
+$$
+|x| = \begin{cases}
+x & \text{if } x \ge 0 \\
+-x & \text{if } x < 0
+\end{cases}
+$$
+
+## Emoji
+
+Shortcodes get expanded inline: :rocket: ship it, :sparkles: clean code, :fire: hot reload, :heart: open source, :tada: celebrate.
+
+Mixed list of :books: things :coffee: I :pizza: like :+1:.
+
+Escaped colons stay literal: ratio 1:2, time 13:45, port :3000.
+
+## Headings + autolink
+
+Each heading below gets a slug + an anchor link wrapping the text.
+
+### A Subsection With Spaces
+
+Body text under spaces heading.
+
+### Another One - With Punctuation!
+
+Body text under punctuation heading.
+
+### Code-`Snippet` In Heading
+
+Body text under code heading. Inline code stays inline-coded inside the heading slug.
+
+## Blockquote
+
+> One transformer in process is worth two in the sidecar.
+> - engineering folklore, paraphrased.
+
+Nested quotes:
+
+> outer level
+>
+> > inner level
+> >
+> > > deepest
+
+Blockquote with formatting:
+
+> A quote with **bold**, _italic_, `code`, and a [link](https://github.com).
+> Math inside a quote: $a^2 + b^2 = c^2$.
+
+## Images
+
+Plain image:
+
+![dmc logo placeholder](https://placehold.co/80x80/161b22/58a6ff?text=dmc)
+
+Image with title:
+
+![alt text](https://placehold.co/120x40/161b22/58a6ff?text=hi "image title attribute")
+
+## Links
+
+Plain: [dmc](https://github.com).
+
+Title-bearing link: [mdn](https://developer.mozilla.org "MDN home").
+
+Reference-style hint: [click](https://example.com).
+
+## Mixed paragraph
+
+This paragraph mixes `inline code`, **bold**, $a^2 + b^2 = c^2$, an emoji :sparkles:, and a [link](https://github.com) in one line - every transformer touches it.

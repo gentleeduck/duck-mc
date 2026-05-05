@@ -11,5 +11,5 @@ node_modules
 **/*.node
 **/tmp*
 **/temp*
-**/docs
+/docs
 /.claude/

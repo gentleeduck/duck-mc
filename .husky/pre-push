@@ -1,9 +1,20 @@
-echo "[husky] pre-push: running CI-equivalent checks (fmt + clippy + tests)..."
+echo "[husky] pre-push: running CI-equivalent checks..."
 
 set -e
 
+# Mirrors .github/workflows/ci.yml exactly. Anything CI runs, this runs.
+
+echo "[husky] (1/4) cargo fmt --all -- --check"
 cargo fmt --all -- --check
-cargo clippy --workspace --all-targets -- -D warnings
-cargo test --workspace
+
+echo "[husky] (2/4) cargo clippy --workspace --all-targets --all-features -- -D warnings"
+cargo clippy --workspace --all-targets --all-features -- -D warnings
+
+echo "[husky] (3/4) cargo test --workspace --features pretty-code"
+cargo test --workspace --features pretty-code
+
+echo "[husky] (4/4) cargo check feature combos (no-default + all-features)"
+cargo check --workspace --no-default-features
+cargo check --workspace --all-features
 
 echo "[husky] pre-push: all checks passed"
