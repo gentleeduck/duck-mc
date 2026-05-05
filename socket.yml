@@ -1,0 +1,43 @@
+# https://docs.socket.dev/docs/socket-yml
+version: 2
+
+projectIgnorePaths:
+  - 'target/**'
+  - 'node_modules/**'
+  - 'tmp/**'
+  - 'tmp*/**'
+  - 'temp/**'
+  - 'temp*/**'
+  - '.next/**'
+  - '.gentleduck/**'
+  - '.dmc/**'
+  - 'duck-benchmarks/**'
+  - 'dmc-highlight/assets/**'
+
+githubApp:
+  enabled: true
+  projectReportsEnabled: true
+  pullRequestAlertsEnabled: true
+  secretScanningEnabled: true
+
+issueRules:
+  malware: error
+  gptMalware: error
+  gptSecurity: warn
+  installScripts: warn
+  envVars: warn
+  unresolvedRequire: warn
+  hasNativeCode: warn
+  shellAccess: warn
+  filesystemAccess: warn
+  networkAccess: warn
+
+  # napi packages legitimately ship native code; suppress for the
+  # @gentleduck/md package itself but keep checking deps.
+  obfuscatedFile: warn
+  troll: warn
+  telemetry: warn
+
+  # Things we accept for an OSS Rust + napi project:
+  unpopularPackage: ignore
+  newAuthor: ignore
