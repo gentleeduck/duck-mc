@@ -8,6 +8,13 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [0.1.1](https://github.com/gentleeduck/duck-mc/compare/dmc-diagnostic-v0.1.0...dmc-diagnostic-v0.1.1) - 2026-05-05
+
+### Other
+
+- standardize root + per-crate README structure
+- per-crate READMEs with shared duck-ui logo
+
 ### Added
 
 - duck-benchmarks/ phase log with per-phase READMEs and cross-phase
