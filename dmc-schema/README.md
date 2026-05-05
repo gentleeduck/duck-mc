@@ -10,9 +10,10 @@
 
 <p align="center">
   <a href="../LICENSE">MIT</a> -
+  <a href="../CHANGELOG.md">Changelog</a> -
+  <a href="../CONTRIBUTING.md">Contributing</a> -
   <a href="https://crates.io/crates/dmc-schema">crates.io</a> -
-  <a href="https://docs.rs/dmc-schema">docs.rs</a> -
-  <a href="../dmc-docs/dmc-schema">guide</a>
+  <a href="https://docs.rs/dmc-schema">docs.rs</a>
 </p>
 
 <p align="center">
@@ -23,25 +24,34 @@
 
 ---
 
-Part of [`@gentleduck/md`](../README.md). For full architecture see
-[`dmc-docs/`](../dmc-docs).
-
 ## Install
 
 ```sh
 cargo add dmc-schema
 ```
 
+## Quick start
+
+```rust
+use dmc_schema::{s, Ctx};
+
+let schema = s::object(vec![
+  ("title".into(), s::string().max(99).boxed()),
+  ("draft".into(), s::default_(s::boolean().boxed(), serde_json::json!(false)).boxed()),
+]);
+let out = schema.parse(&value, &Ctx::empty())?;
+```
+
 ## Docs
 
-Per-crate references, internals, and examples:
-[`dmc-docs/dmc-schema/`](../dmc-docs/dmc-schema)
+- [crates.io](https://crates.io/crates/dmc-schema)
+- [docs.rs](https://docs.rs/dmc-schema)
+- Per-crate guide in the repo: see [`../README.md`](../README.md)
 
-## Benchmarks
+## Contributing
 
-Pipeline-level numbers across phases:
-[`duck-benchmarks/`](../duck-benchmarks).
+See [`../CONTRIBUTING.md`](../CONTRIBUTING.md).
 
 ## License
 
-MIT. See [`LICENSE`](../LICENSE).
+MIT. See [`../LICENSE`](../LICENSE).

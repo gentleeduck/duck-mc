@@ -10,9 +10,10 @@
 
 <p align="center">
   <a href="../LICENSE">MIT</a> -
+  <a href="../CHANGELOG.md">Changelog</a> -
+  <a href="../CONTRIBUTING.md">Contributing</a> -
   <a href="https://crates.io/crates/dmc-parser">crates.io</a> -
-  <a href="https://docs.rs/dmc-parser">docs.rs</a> -
-  <a href="../dmc-docs/dmc-parser">guide</a>
+  <a href="https://docs.rs/dmc-parser">docs.rs</a>
 </p>
 
 <p align="center">
@@ -23,25 +24,31 @@
 
 ---
 
-Part of [`@gentleduck/md`](../README.md). For full architecture see
-[`dmc-docs/`](../dmc-docs).
-
 ## Install
 
 ```sh
 cargo add dmc-parser
 ```
 
+## Quick start
+
+```rust
+use dmc_parser::Parser;
+
+let mut parser = Parser::new(tokens, meta, &mut diag);
+let document = parser.parse();
+```
+
 ## Docs
 
-Per-crate references, internals, and examples:
-[`dmc-docs/dmc-parser/`](../dmc-docs/dmc-parser)
+- [crates.io](https://crates.io/crates/dmc-parser)
+- [docs.rs](https://docs.rs/dmc-parser)
+- Per-crate guide in the repo: see [`../README.md`](../README.md)
 
-## Benchmarks
+## Contributing
 
-Pipeline-level numbers across phases:
-[`duck-benchmarks/`](../duck-benchmarks).
+See [`../CONTRIBUTING.md`](../CONTRIBUTING.md).
 
 ## License
 
-MIT. See [`LICENSE`](../LICENSE).
+MIT. See [`../LICENSE`](../LICENSE).

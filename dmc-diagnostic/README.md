@@ -10,9 +10,10 @@
 
 <p align="center">
   <a href="../LICENSE">MIT</a> -
+  <a href="../CHANGELOG.md">Changelog</a> -
+  <a href="../CONTRIBUTING.md">Contributing</a> -
   <a href="https://crates.io/crates/dmc-diagnostic">crates.io</a> -
-  <a href="https://docs.rs/dmc-diagnostic">docs.rs</a> -
-  <a href="../dmc-docs/dmc-diagnostic">guide</a>
+  <a href="https://docs.rs/dmc-diagnostic">docs.rs</a>
 </p>
 
 <p align="center">
@@ -23,25 +24,31 @@
 
 ---
 
-Part of [`@gentleduck/md`](../README.md). For full architecture see
-[`dmc-docs/`](../dmc-docs).
-
 ## Install
 
 ```sh
 cargo add dmc-diagnostic
 ```
 
+## Quick start
+
+```rust
+use dmc_diagnostic::Code;
+use duck_diagnostic::DiagnosticEngine;
+
+let mut engine: DiagnosticEngine<Code> = DiagnosticEngine::new();
+```
+
 ## Docs
 
-Per-crate references, internals, and examples:
-[`dmc-docs/dmc-diagnostic/`](../dmc-docs/dmc-diagnostic)
+- [crates.io](https://crates.io/crates/dmc-diagnostic)
+- [docs.rs](https://docs.rs/dmc-diagnostic)
+- Per-crate guide in the repo: see [`../README.md`](../README.md)
 
-## Benchmarks
+## Contributing
 
-Pipeline-level numbers across phases:
-[`duck-benchmarks/`](../duck-benchmarks).
+See [`../CONTRIBUTING.md`](../CONTRIBUTING.md).
 
 ## License
 
-MIT. See [`LICENSE`](../LICENSE).
+MIT. See [`../LICENSE`](../LICENSE).

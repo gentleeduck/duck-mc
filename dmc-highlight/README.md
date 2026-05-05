@@ -10,9 +10,10 @@
 
 <p align="center">
   <a href="../LICENSE">MIT</a> -
+  <a href="../CHANGELOG.md">Changelog</a> -
+  <a href="../CONTRIBUTING.md">Contributing</a> -
   <a href="https://crates.io/crates/dmc-highlight">crates.io</a> -
-  <a href="https://docs.rs/dmc-highlight">docs.rs</a> -
-  <a href="../dmc-docs/dmc-highlight">guide</a>
+  <a href="https://docs.rs/dmc-highlight">docs.rs</a>
 </p>
 
 <p align="center">
@@ -23,25 +24,31 @@
 
 ---
 
-Part of [`@gentleduck/md`](../README.md). For full architecture see
-[`dmc-docs/`](../dmc-docs).
-
 ## Install
 
 ```sh
 cargo add dmc-highlight
 ```
 
+## Quick start
+
+```rust
+use dmc_highlight::{SyntaxBundle, Theme};
+
+let bundle = SyntaxBundle::get();
+let html = bundle.highlight("fn main() {}", "rust", Theme::CatppuccinMocha);
+```
+
 ## Docs
 
-Per-crate references, internals, and examples:
-[`dmc-docs/dmc-highlight/`](../dmc-docs/dmc-highlight)
+- [crates.io](https://crates.io/crates/dmc-highlight)
+- [docs.rs](https://docs.rs/dmc-highlight)
+- Per-crate guide in the repo: see [`../README.md`](../README.md)
 
-## Benchmarks
+## Contributing
 
-Pipeline-level numbers across phases:
-[`duck-benchmarks/`](../duck-benchmarks).
+See [`../CONTRIBUTING.md`](../CONTRIBUTING.md).
 
 ## License
 
-MIT. See [`LICENSE`](../LICENSE).
+MIT. See [`../LICENSE`](../LICENSE).
