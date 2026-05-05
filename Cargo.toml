@@ -31,19 +31,19 @@ categories = ["compilers", "parser-implementations", "text-processing"]
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
 serde_yaml = "0.9"
-thiserror = "1"
+thiserror = "2"
 miette = { version = "5", features = ["fancy"] }
 slug = "0.1"
 duck-diagnostic = "0.7.1"
 globwalk = "0.9"
 tempfile = "3"
 clap = { version = "4", features = ["derive"] }
-toml = "0.8"
+toml = "1.1"
 assert_cmd = "2"
 predicates = "3"
 insta = { version = "1", features = ["json", "redactions"] }
 syntect = { version = "5", default-features = false, features = ["default-onig", "plist-load"] }
-criterion = "0.5"
+criterion = "0.8"
 plotters = { version = "0.3", default-features = false, features = ["svg_backend", "line_series", "bitmap_encoder"] }
 
 # Workspace crates
@@ -56,7 +56,7 @@ dmc-transform = { version = "0.1.0", path = "dmc-transform" }
 dmc-schema = { version = "0.1.0", path = "dmc-schema" }
 blake3 = "1"
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp", "gif"] }
-notify = "6"
+notify = "8"
 notify-debouncer-mini = "0.4"
 rayon = "1"
 base64 = "0.22"

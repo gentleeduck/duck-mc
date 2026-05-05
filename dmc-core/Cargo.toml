@@ -11,6 +11,7 @@ documentation.workspace = true
 keywords.workspace = true
 categories.workspace = true
 description = "Engine, CLI, watch mode, and collection builds for the dmc MDX compiler"
+readme = "README.md"
 
 [features]
 default = ["cli", "watch", "pretty-code", "math", "emoji"]
