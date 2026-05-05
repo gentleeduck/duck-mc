@@ -6,7 +6,7 @@ Terms specific to dmc. Order: alphabetical.
 
 Third sink in the codegen walker. Pulls frontmatter, imports, exports,
 plain text, TOC tuples off the AST. Lives in
-`dmc-core/src/engine/accumlator.rs`.
+`dmc-core/src/engine/accumulator.rs`.
 
 ## AST
 
