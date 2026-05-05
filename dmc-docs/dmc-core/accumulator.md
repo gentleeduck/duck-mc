@@ -4,7 +4,7 @@ Third sink alongside `HtmlEmitter` and `MdxBodyEmitter`. Pulls
 metadata off the AST during the same `Walker` pass: frontmatter,
 imports, exports, excerpt, word count, TOC.
 
-Path: `dmc::engine::accumlator::Accumulator`.
+Path: `dmc::engine::accumulator::Accumulator`.
 
 ## Struct
 
