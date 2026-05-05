@@ -12,7 +12,7 @@ use duck_diagnostic::DiagnosticEngine;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::engine::accumlator::Accumulator;
+use crate::engine::accumulator::Accumulator;
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 #[serde(default)]
