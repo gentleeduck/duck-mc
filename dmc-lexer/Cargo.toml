@@ -10,6 +10,7 @@ documentation.workspace = true
 keywords.workspace = true
 categories.workspace = true
 description = "MDX, JSX, and GFM tokenizer for the dmc compiler"
+readme = "README.md"
 
 [dependencies]
 duck-diagnostic.workspace = true
