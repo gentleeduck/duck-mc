@@ -10,6 +10,7 @@ documentation.workspace = true
 keywords.workspace = true
 categories.workspace = true
 description = "HTML and MDX body emitters for the dmc compiler"
+readme = "README.md"
 
 [dependencies]
 dmc-parser = { version = "0.1.0", path = "../dmc-parser" }
