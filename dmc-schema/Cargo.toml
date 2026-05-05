@@ -10,6 +10,7 @@ documentation.workspace = true
 keywords.workspace = true
 categories.workspace = true
 description = "Velite-style schema builders for dmc collection records"
+readme = "README.md"
 
 [dependencies]
 serde.workspace = true
