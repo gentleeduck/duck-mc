@@ -13,7 +13,7 @@
   },
   "dependencies": {
     "@gentleduck/md": "workspace:*",
-    "next": "^15",
+    "next": "^16",
     "react": "^19",
     "react-dom": "^19",
     "rehype-autolink-headings": "^7",
