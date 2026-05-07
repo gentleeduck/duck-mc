@@ -109,6 +109,12 @@ jobs:
             rustup default stable
             rustup update stable
             rustup target add ${{ matrix.settings.target }} || true
+            # libquickjs-sys's build.rs shells out to `patch`, which
+            # is not preinstalled on the Debian napi-rs images. Alpine
+            # already has it.
+            if command -v apt-get >/dev/null; then
+              apt-get update && apt-get install -y --no-install-recommends patch
+            fi
             pnpm install --frozen-lockfile=false
             ${{ matrix.settings.build }}
 
