@@ -88,8 +88,17 @@ pub struct BuildInput {
 }
 
 #[napi(object)]
+pub struct BuildCollectionReport {
+  pub name: String,
+  pub output_path: String,
+  pub records: u32,
+}
+
+#[napi(object)]
 pub struct BuildReport {
   pub diagnostics: Vec<String>,
+  pub collections: Vec<BuildCollectionReport>,
+  pub errors: Vec<String>,
 }
 
 fn array_or_default(v: Option<Value>) -> Vec<Value> {
@@ -146,5 +155,31 @@ pub fn build(input: BuildInput) -> Result<BuildReport> {
   let mut diag = DiagnosticEngine::<Code>::new();
   Engine::run(&cfg, None, &mut diag).map_err(|e| Error::from_reason(e.to_string()))?;
 
-  Ok(BuildReport { diagnostics: diag.iter().map(|d| format!("{:?}", d)).collect() })
+  // Surface enough collection metadata for the JS-side `build()` wrapper
+  // to do its in-process unified pipeline pass. Engine writes one JSON
+  // file per collection at `<output_dir>/<name>.json`; we count records
+  // by re-reading the file (cheap relative to the build itself).
+  let collections: Vec<BuildCollectionReport> = cfg
+    .collections
+    .iter()
+    .map(|c| {
+      let output_path = cfg.output_dir.join(format!("{}.json", c.name));
+      let records = std::fs::read_to_string(&output_path)
+        .ok()
+        .and_then(|s| serde_json::from_str::<serde_json::Value>(&s).ok())
+        .and_then(|v| match v {
+          serde_json::Value::Array(a) => Some(a.len() as u32),
+          serde_json::Value::Object(_) => Some(1),
+          _ => None,
+        })
+        .unwrap_or(0);
+      BuildCollectionReport { name: c.name.clone(), output_path: output_path.to_string_lossy().into_owned(), records }
+    })
+    .collect();
+
+  Ok(BuildReport {
+    diagnostics: diag.iter().map(|d| format!("{:?}", d)).collect(),
+    collections,
+    errors: Vec::new(),
+  })
 }
