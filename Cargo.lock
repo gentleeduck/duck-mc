@@ -599,7 +599,7 @@ dependencies = [
 
 [[package]]
 name = "dmc-codegen"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "dmc-diagnostic",
  "dmc-lexer",
@@ -612,7 +612,7 @@ dependencies = [
 
 [[package]]
 name = "dmc-core"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "assert_cmd",
  "blake3",
@@ -642,7 +642,7 @@ dependencies = [
 
 [[package]]
 name = "dmc-diagnostic"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "duck-diagnostic",
  "serde",
@@ -650,7 +650,7 @@ dependencies = [
 
 [[package]]
 name = "dmc-highlight"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "include_dir",
  "syntect",
@@ -658,7 +658,7 @@ dependencies = [
 
 [[package]]
 name = "dmc-lexer"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "dmc-diagnostic",
  "duck-diagnostic",
@@ -672,7 +672,7 @@ dependencies = [
 
 [[package]]
 name = "dmc-napi"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "dmc-core",
  "dmc-diagnostic",
@@ -687,7 +687,7 @@ dependencies = [
 
 [[package]]
 name = "dmc-parser"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "dmc-diagnostic",
  "dmc-lexer",
@@ -700,7 +700,7 @@ dependencies = [
 
 [[package]]
 name = "dmc-schema"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "base64",
  "blake3",
@@ -716,7 +716,7 @@ dependencies = [
 
 [[package]]
 name = "dmc-transform"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "blake3",
  "dmc-diagnostic",
