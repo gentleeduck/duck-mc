@@ -1,5 +1,12 @@
 # acme-docs
 
+## 0.0.3
+
+### Patch Changes
+
+- Updated dependencies [e29036e]
+  - @gentleduck/md@0.2.2
+
 ## 0.0.2
 
 ### Patch Changes
