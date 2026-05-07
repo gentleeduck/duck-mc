@@ -15,6 +15,7 @@ permissions:
 env:
   WORKDIR: dmc-napi
   PKG: '@gentleduck/md'
+  HUSKY: '0'
 
 jobs:
   build:
@@ -36,12 +37,6 @@ jobs:
           - host: windows-latest
             target: x86_64-pc-windows-msvc
             build: pnpm exec napi build --platform --release --target x86_64-pc-windows-msvc
-          - host: windows-latest
-            target: i686-pc-windows-msvc
-            build: pnpm exec napi build --platform --release --target i686-pc-windows-msvc
-          - host: windows-latest
-            target: aarch64-pc-windows-msvc
-            build: pnpm exec napi build --platform --release --target aarch64-pc-windows-msvc
 
           # ----- Linux glibc ---------------------------------------------
           - host: ubuntu-latest
@@ -52,37 +47,12 @@ jobs:
             target: aarch64-unknown-linux-gnu
             docker: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-debian-aarch64
             build: pnpm exec napi build --platform --release --target aarch64-unknown-linux-gnu
-          - host: ubuntu-latest
-            target: armv7-unknown-linux-gnueabihf
-            setup: |
-              sudo apt-get update
-              sudo apt-get install -y gcc-arm-linux-gnueabihf
-            build: pnpm exec napi build --platform --release --target armv7-unknown-linux-gnueabihf
 
           # ----- Linux musl ----------------------------------------------
           - host: ubuntu-latest
             target: x86_64-unknown-linux-musl
             docker: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-alpine
             build: pnpm exec napi build --platform --release --target x86_64-unknown-linux-musl
-          - host: ubuntu-latest
-            target: aarch64-unknown-linux-musl
-            docker: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-alpine
-            build: |
-              rustup target add aarch64-unknown-linux-musl
-              pnpm exec napi build --platform --release --target aarch64-unknown-linux-musl
-
-          # ----- Android -------------------------------------------------
-          - host: ubuntu-latest
-            target: aarch64-linux-android
-            build: pnpm exec napi build --platform --release --target aarch64-linux-android
-          - host: ubuntu-latest
-            target: armv7-linux-androideabi
-            build: pnpm exec napi build --platform --release --target armv7-linux-androideabi
-
-          # ----- FreeBSD (cross via toolchain on linux) ------------------
-          - host: ubuntu-latest
-            target: x86_64-unknown-freebsd
-            build: pnpm exec napi build --platform --release --target x86_64-unknown-freebsd
 
     steps:
       - uses: actions/checkout@v4
@@ -106,10 +76,6 @@ jobs:
         with:
           targets: ${{ matrix.settings.target }}
 
-      - name: extra setup
-        if: ${{ matrix.settings.setup && !matrix.settings.docker }}
-        run: ${{ matrix.settings.setup }}
-
       # ---- Host build ---------------------------------------------------
       - name: install deps (host)
         if: ${{ !matrix.settings.docker }}
@@ -123,16 +89,18 @@ jobs:
         run: ${{ matrix.settings.build }}
 
       # ---- Docker build (linux gnu/musl cross) -------------------------
+      # The napi-rs nodejs-rust images already ship Node + Rust + the
+      # right cross toolchain. We bypass corepack (broken signature
+      # verification on these older images) and install pnpm directly.
       - name: build (docker)
         if: ${{ matrix.settings.docker }}
         uses: addnab/docker-run-action@v3
         with:
           image: ${{ matrix.settings.docker }}
-          options: -v ${{ github.workspace }}:/build -w /build/${{ env.WORKDIR }}
+          options: -v ${{ github.workspace }}:/build -w /build/${{ env.WORKDIR }} -e HUSKY=0
           run: |
             set -e
-            corepack enable
-            corepack prepare pnpm@10 --activate
+            npm i -g pnpm@10
             pnpm install --frozen-lockfile=false
             ${{ matrix.settings.build }}
 
