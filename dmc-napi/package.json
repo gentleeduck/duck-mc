@@ -25,16 +25,17 @@
 		"katex"
 	],
 	"type": "module",
-	"main": "mod.ts",
-	"types": "mod.ts",
+	"main": "mod.js",
+	"types": "mod.d.ts",
 	"exports": {
 		".": {
-			"types": "./mod.ts",
-			"default": "./mod.ts"
+			"types": "./mod.d.ts",
+			"default": "./mod.js"
 		}
 	},
 	"files": [
-		"mod.ts",
+		"mod.js",
+		"mod.d.ts",
 		"index.js",
 		"index.d.ts",
 		"*.node",
@@ -62,6 +63,7 @@
 	"devDependencies": {
 		"@napi-rs/cli": "^2.18.4",
 		"@types/node": "^25",
-		"@types/unist": "^3"
+		"@types/unist": "^3",
+		"typescript": "^6"
 	}
 }

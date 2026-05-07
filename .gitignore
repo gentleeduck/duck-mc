@@ -9,6 +9,10 @@ node_modules
 **/.velite
 **/dist
 **/*.node
+dmc-napi/mod.js
+dmc-napi/mod.d.ts
+dmc-napi/index.js
+dmc-napi/index.d.ts
 **/tmp*
 **/temp*
 /docs
