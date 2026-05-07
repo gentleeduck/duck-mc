@@ -30,10 +30,12 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          # Use a PAT (or default token) that can push tags. Tags pushed
-          # here trigger napi-prebuilds.yml, which is what actually
-          # publishes to npm.
-          token: ${{ secrets.GITHUB_TOKEN }}
+          # Must be a PAT (or app token) — refs pushed with the default
+          # GITHUB_TOKEN do NOT trigger downstream workflows, which would
+          # leave napi-prebuilds dormant. The PAT pushes the version PR
+          # commits and the @gentleduck/md@<version> tag as a real user,
+          # which fires napi-prebuilds and ultimately npm publish.
+          token: ${{ secrets.GH_PAT }}
 
       - uses: pnpm/action-setup@v3
         with:
@@ -65,4 +67,4 @@ jobs:
           title: "chore(release): version packages"
           createGithubReleases: true
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GH_PAT }}
