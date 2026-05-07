@@ -100,7 +100,11 @@ jobs:
           options: -v ${{ github.workspace }}:/build -w /build/${{ env.WORKDIR }} -e HUSKY=0
           run: |
             set -e
-            npm i -g pnpm@10
+            # Bundled corepack on these images has a stale keyid set
+            # that rejects current pnpm signatures. Disable the shims
+            # entirely and install pnpm as a normal global npm package.
+            corepack disable || true
+            npm install -g --force pnpm@10
             pnpm install --frozen-lockfile=false
             ${{ matrix.settings.build }}
 
