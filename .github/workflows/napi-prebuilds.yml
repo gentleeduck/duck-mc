@@ -100,11 +100,15 @@ jobs:
           options: -v ${{ github.workspace }}:/build -w /build/${{ env.WORKDIR }} -e HUSKY=0
           run: |
             set -e
-            # Bundled corepack on these images has a stale keyid set
-            # that rejects current pnpm signatures. Disable the shims
-            # entirely and install pnpm as a normal global npm package.
+            # Bundled corepack has stale keyids and rejects current pnpm
+            # signatures; sidestep it and install pnpm as a normal global.
             corepack disable || true
             npm install -g --force pnpm@10
+            # Image ships Rust 1.82 but the workspace uses edition2024,
+            # which requires >=1.85. Pull a current stable toolchain.
+            rustup default stable
+            rustup update stable
+            rustup target add ${{ matrix.settings.target }} || true
             pnpm install --frozen-lockfile=false
             ${{ matrix.settings.build }}
 
