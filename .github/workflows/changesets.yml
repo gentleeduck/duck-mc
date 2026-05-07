@@ -14,6 +14,12 @@ concurrency:
   group: changesets-${{ github.ref }}
   cancel-in-progress: false
 
+env:
+  # Husky pre-commit/pre-push hooks run cargo fmt/clippy/test which needs
+  # the workspace MSRV. The CI runner here only has Node + pnpm, not the
+  # right toolchain, so we disable husky for this workflow.
+  HUSKY: '0'
+
 jobs:
   release:
     name: version PR / tag
