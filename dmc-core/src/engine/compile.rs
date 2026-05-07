@@ -122,7 +122,9 @@ impl CompileConfig {
       .iter()
       .filter(|p| {
         let Some(name) = plugin_name(p) else { return true };
-        if self.user_forces_sidecar(name) { return true; }
+        if self.user_forces_sidecar(name) {
+          return true;
+        }
         !is_native_owned_remark(p)
       })
       .cloned()
@@ -134,7 +136,9 @@ impl CompileConfig {
       .iter()
       .filter(|p| {
         let Some(name) = plugin_name(p) else { return true };
-        if self.user_forces_sidecar(name) { return true; }
+        if self.user_forces_sidecar(name) {
+          return true;
+        }
         !is_native_owned_rehype(p)
       })
       .cloned()
