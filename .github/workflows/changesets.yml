@@ -1,0 +1,62 @@
+name: Changesets
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+# Serialize so two pushes to master can't race the version PR.
+concurrency:
+  group: changesets-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: version PR / tag
+    runs-on: ubuntu-latest
+    # Skip on the auto-merged Version Packages commit itself unless it's
+    # the merge that should fire the tag — let the action figure it out.
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          # Use a PAT (or default token) that can push tags. Tags pushed
+          # here trigger napi-prebuilds.yml, which is what actually
+          # publishes to npm.
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: install deps
+        run: pnpm install --frozen-lockfile=false
+
+      - name: configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: changesets action
+        uses: changesets/action@v1
+        with:
+          # Bumps versions + writes CHANGELOG via the version PR.
+          version: pnpm changeset:version
+          # When the PR merges and no pending changesets remain, this
+          # creates per-package git tags like `@gentleduck/md@1.2.3` and
+          # pushes them. The tag push is the trigger for napi-prebuilds.
+          publish: pnpm changeset:tag
+          commit: "chore(release): version packages"
+          title: "chore(release): version packages"
+          createGithubReleases: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

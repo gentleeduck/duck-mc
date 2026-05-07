@@ -1,86 +1,202 @@
 name: napi-prebuilds
 
 on:
+  # Fires when changesets/action pushes a per-package tag like
+  # `@gentleduck/md@1.2.3` from the merged Version Packages PR.
   push:
-    tags: ['v*']
+    tags:
+      - '@gentleduck/md@*'
   workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  WORKDIR: dmc-napi
+  PKG: '@gentleduck/md'
 
 jobs:
   build:
-    name: ${{ matrix.target }}
-    runs-on: ${{ matrix.os }}
+    name: ${{ matrix.settings.target }}
+    runs-on: ${{ matrix.settings.host }}
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - os: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
-          - os: ubuntu-latest
-            target: x86_64-unknown-linux-musl
-          - os: ubuntu-latest
-            target: aarch64-unknown-linux-gnu
-          - os: macos-latest
+        settings:
+          # ----- macOS ---------------------------------------------------
+          - host: macos-latest
             target: x86_64-apple-darwin
-          - os: macos-latest
+            build: pnpm exec napi build --platform --release --target x86_64-apple-darwin
+          - host: macos-latest
             target: aarch64-apple-darwin
-          - os: windows-latest
+            build: pnpm exec napi build --platform --release --target aarch64-apple-darwin
+
+          # ----- Windows -------------------------------------------------
+          - host: windows-latest
             target: x86_64-pc-windows-msvc
-          - os: windows-latest
+            build: pnpm exec napi build --platform --release --target x86_64-pc-windows-msvc
+          - host: windows-latest
+            target: i686-pc-windows-msvc
+            build: pnpm exec napi build --platform --release --target i686-pc-windows-msvc
+          - host: windows-latest
             target: aarch64-pc-windows-msvc
+            build: pnpm exec napi build --platform --release --target aarch64-pc-windows-msvc
+
+          # ----- Linux glibc ---------------------------------------------
+          - host: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            docker: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-debian
+            build: pnpm exec napi build --platform --release --target x86_64-unknown-linux-gnu
+          - host: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
+            docker: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-debian-aarch64
+            build: pnpm exec napi build --platform --release --target aarch64-unknown-linux-gnu
+          - host: ubuntu-latest
+            target: armv7-unknown-linux-gnueabihf
+            setup: |
+              sudo apt-get update
+              sudo apt-get install -y gcc-arm-linux-gnueabihf
+            build: pnpm exec napi build --platform --release --target armv7-unknown-linux-gnueabihf
+
+          # ----- Linux musl ----------------------------------------------
+          - host: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+            docker: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-alpine
+            build: pnpm exec napi build --platform --release --target x86_64-unknown-linux-musl
+          - host: ubuntu-latest
+            target: aarch64-unknown-linux-musl
+            docker: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-alpine
+            build: |
+              rustup target add aarch64-unknown-linux-musl
+              pnpm exec napi build --platform --release --target aarch64-unknown-linux-musl
+
+          # ----- Android -------------------------------------------------
+          - host: ubuntu-latest
+            target: aarch64-linux-android
+            build: pnpm exec napi build --platform --release --target aarch64-linux-android
+          - host: ubuntu-latest
+            target: armv7-linux-androideabi
+            build: pnpm exec napi build --platform --release --target armv7-linux-androideabi
+
+          # ----- FreeBSD (cross via toolchain on linux) ------------------
+          - host: ubuntu-latest
+            target: x86_64-unknown-freebsd
+            build: pnpm exec napi build --platform --release --target x86_64-unknown-freebsd
+
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+
+      # Node + pnpm only needed on hosts (docker images already have them).
+      - name: setup node
+        if: ${{ !matrix.settings.docker }}
+        uses: actions/setup-node@v4
         with:
           node-version: 20
-      - uses: pnpm/action-setup@v3
+
+      - name: setup pnpm
+        if: ${{ !matrix.settings.docker }}
+        uses: pnpm/action-setup@v3
         with:
           version: 10
-      - uses: dtolnay/rust-toolchain@stable
+
+      - name: setup rust
+        if: ${{ !matrix.settings.docker }}
+        uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ matrix.target }}
-      - name: install deps
-        working-directory: duck-md-napi
+          targets: ${{ matrix.settings.target }}
+
+      - name: extra setup
+        if: ${{ matrix.settings.setup && !matrix.settings.docker }}
+        run: ${{ matrix.settings.setup }}
+
+      # ---- Host build ---------------------------------------------------
+      - name: install deps (host)
+        if: ${{ !matrix.settings.docker }}
+        working-directory: ${{ env.WORKDIR }}
         run: pnpm install --frozen-lockfile=false
-      - name: napi build
-        working-directory: duck-md-napi
-        run: pnpm exec napi build --platform --release --target ${{ matrix.target }}
+
+      - name: build (host)
+        if: ${{ !matrix.settings.docker }}
+        working-directory: ${{ env.WORKDIR }}
+        shell: bash
+        run: ${{ matrix.settings.build }}
+
+      # ---- Docker build (linux gnu/musl cross) -------------------------
+      - name: build (docker)
+        if: ${{ matrix.settings.docker }}
+        uses: addnab/docker-run-action@v3
+        with:
+          image: ${{ matrix.settings.docker }}
+          options: -v ${{ github.workspace }}:/build -w /build/${{ env.WORKDIR }}
+          run: |
+            set -e
+            corepack enable
+            corepack prepare pnpm@10 --activate
+            pnpm install --frozen-lockfile=false
+            ${{ matrix.settings.build }}
+
       - name: tsc
-        working-directory: duck-md-napi
+        if: ${{ !matrix.settings.docker }}
+        working-directory: ${{ env.WORKDIR }}
         run: pnpm exec tsc -p tsconfig.json
+
       - uses: actions/upload-artifact@v4
         with:
-          name: bindings-${{ matrix.target }}
-          path: duck-md-napi/*.node
+          name: bindings-${{ matrix.settings.target }}
+          path: ${{ env.WORKDIR }}/*.node
+          if-no-files-found: error
 
   publish:
+    name: publish to npm
     needs: build
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/@gentleduck/md@')
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           registry-url: 'https://registry.npmjs.org'
+
       - uses: pnpm/action-setup@v3
         with:
           version: 10
+
       - uses: actions/download-artifact@v8
         with:
-          path: duck-md-napi/artifacts
+          path: ${{ env.WORKDIR }}/artifacts
+
       - name: collect prebuilds
-        working-directory: duck-md-napi
+        working-directory: ${{ env.WORKDIR }}
         run: |
+          set -e
           mkdir -p npm
           for dir in artifacts/bindings-*; do
-            cp $dir/*.node npm/ || true
+            cp "$dir"/*.node npm/ || true
+            cp "$dir"/*.node . || true
           done
           ls -la npm/
+
       - name: install deps + tsc
-        working-directory: duck-md-napi
-        run: pnpm install --frozen-lockfile=false && pnpm exec tsc -p tsconfig.json
+        working-directory: ${{ env.WORKDIR }}
+        run: |
+          pnpm install --frozen-lockfile=false
+          pnpm exec tsc -p tsconfig.json
+
+      - name: verify tag matches package version
+        working-directory: ${{ env.WORKDIR }}
+        run: |
+          set -e
+          tag="${GITHUB_REF#refs/tags/}"
+          want="${tag#${PKG}@}"
+          have=$(node -p "require('./package.json').version")
+          echo "tag=$tag want=$want have=$have"
+          test "$want" = "$have"
+
       - name: publish
-        working-directory: duck-md-napi
+        working-directory: ${{ env.WORKDIR }}
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: pnpm publish --access public --no-git-checks
