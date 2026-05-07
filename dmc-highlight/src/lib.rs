@@ -4,11 +4,22 @@
 //! `build.rs` scans both dirs and emits the `Theme` + `Grammar` enums
 //! plus the `THEMES` / `GRAMMARS` slices included below.
 
+use std::collections::BTreeMap;
+use std::io::Cursor;
 use std::sync::OnceLock;
+
+use include_dir::{Dir, include_dir};
 use syntect::easy::HighlightLines;
 use syntect::highlighting::{HighlightState, Highlighter, RangedHighlightIterator, Style, ThemeSet};
-use syntect::parsing::{ParseState, ScopeStack, SyntaxSet};
+use syntect::parsing::{ParseState, ScopeStack, SyntaxDefinition, SyntaxSet, SyntaxSetBuilder};
 use syntect::util::LinesWithEndings;
+
+// Embed the grammar + theme assets directly into the compiled binary so
+// the resulting `.node` is self-contained and never reaches for the
+// CARGO_MANIFEST_DIR build-time path at runtime (which would panic on
+// any machine other than the one that compiled it).
+static GRAMMARS_DIR: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/assets/grammars-sublime");
+static THEMES_DIR: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/assets/themes-bat");
 
 /// Re-exports of the `syntect` types that callers (e.g. the `pretty-code`
 /// transformer) need to consume highlight output without depending on
@@ -31,16 +42,35 @@ impl SyntaxBundle {
   pub fn get() -> &'static SyntaxBundle {
     static B: OnceLock<SyntaxBundle> = OnceLock::new();
     B.get_or_init(|| {
-      // `load_from_folder` returns a `SyntaxSet` with no plain-text grammar.
-      // Re-build through the builder so `find_syntax_plain_text` (used as a
-      // fallback for unknown languages) doesn't panic.
-      let mut builder = SyntaxSet::load_from_folder(concat!(env!("CARGO_MANIFEST_DIR"), "/assets/grammars-sublime"))
-        .expect("load grammars-sublime")
-        .into_builder();
+      // Build the SyntaxSet from the in-binary `assets/grammars-sublime`
+      // bundle. `add_plain_text_syntax` registers the fallback grammar
+      // that `find_syntax_plain_text` returns for unknown languages.
+      let mut builder = SyntaxSetBuilder::new();
+      for f in GRAMMARS_DIR.files() {
+        if f.path().extension().and_then(|s| s.to_str()) != Some("sublime-syntax") {
+          continue;
+        }
+        let yaml = std::str::from_utf8(f.contents()).expect("sublime-syntax is utf8");
+        let def = SyntaxDefinition::load_from_str(yaml, true, None).expect("parse sublime-syntax");
+        builder.add(def);
+      }
       builder.add_plain_text_syntax();
-      let syntaxes = builder.build();
-      let themes =
-        ThemeSet::load_from_folder(concat!(env!("CARGO_MANIFEST_DIR"), "/assets/themes-bat")).expect("load themes-bat");
+      let syntaxes: SyntaxSet = builder.build();
+
+      // Themes ship as `.tmTheme` plist files; load each with
+      // `ThemeSet::load_from_reader` and key by file stem so the existing
+      // `name()` lookups in the generated enum keep working.
+      let mut themes_map: BTreeMap<String, syntect::highlighting::Theme> = BTreeMap::new();
+      for f in THEMES_DIR.files() {
+        if f.path().extension().and_then(|s| s.to_str()) != Some("tmTheme") {
+          continue;
+        }
+        let stem = f.path().file_stem().and_then(|s| s.to_str()).expect("theme stem").to_string();
+        let theme = ThemeSet::load_from_reader(&mut Cursor::new(f.contents())).expect("parse tmTheme");
+        themes_map.insert(stem, theme);
+      }
+      let themes = ThemeSet { themes: themes_map };
+
       SyntaxBundle { syntaxes, themes }
     })
   }
