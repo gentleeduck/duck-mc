@@ -1,6 +1,6 @@
 {
 	"name": "@gentleduck/md",
-	"version": "0.2.0",
+	"version": "0.2.1",
 	"description": "Native Rust MDX compiler with a velite-shaped TypeScript API",
 	"license": "MIT",
 	"author": "gentleduck",
