@@ -8,6 +8,12 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [0.2.1](https://github.com/gentleeduck/duck-mc/compare/dmc-highlight-v0.2.0...dmc-highlight-v0.2.1) - 2026-05-07
+
+### Fixed
+
+- *(dmc-highlight)* embed grammars + themes via include_dir
+
 ## [0.2.0](https://github.com/gentleeduck/duck-mc/compare/dmc-diagnostic-v0.1.0...dmc-diagnostic-v0.2.0) - 2026-05-07
 
 ### Other

@@ -22,9 +22,9 @@ math = ["dep:katex", "dep:pulldown-latex"]
 emoji = ["dep:emojis"]
 
 [dependencies]
-dmc-lexer = { version = "0.2.0", path = "../dmc-lexer" }
-dmc-parser = { version = "0.2.0", path = "../dmc-parser" }
-dmc-highlight = { version = "0.2.0", path = "../dmc-highlight", optional = true }
+dmc-lexer = { version = "0.2.1", path = "../dmc-lexer" }
+dmc-parser = { version = "0.2.1", path = "../dmc-parser" }
+dmc-highlight = { version = "0.2.1", path = "../dmc-highlight", optional = true }
 dmc-diagnostic = { workspace = true, features = ["parser", "transform"] }
 duck-diagnostic.workspace = true
 blake3 = { workspace = true, optional = true }
