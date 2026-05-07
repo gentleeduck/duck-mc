@@ -29,8 +29,11 @@ transformers via `.add(...)` if needed.
 ```rust
 let mut p = Pipeline::new()
     .add(CodeImport::new())
-    .add(BareUrlAutolink)
-    .add(AutolinkHeadings::new());
+    .add(BareUrlAutolink);
+
+if cfg.autolink_headings != Some(false) {
+    p = p.add(AutolinkHeadings::new());
+}
 
 if cfg.markdown_gfm == Some(false) {
     p = p.add(DisableGfm);
@@ -43,22 +46,26 @@ if cfg.markdown_gfm == Some(false) {
 { p = p.add(Mermaid::default()); }
 
 #[cfg(feature = "emoji")]
-{ p = p.add(Emoji); }
+{ if cfg.emoji != Some(false) { p = p.add(Emoji); } }
 
 #[cfg(feature = "math")]
 {
     if let Some(engine) = cfg.math_engine {
         Math::set_engine(engine);
     }
-    p = p.add(Math);
+    if cfg.math != Some(false) {
+        p = p.add(Math);
+    }
 }
 
 #[cfg(feature = "pretty-code")]
 {
-    let pc = cfg.pretty_code.as_ref()
-        .map(PrettyCode::from_options)
-        .unwrap_or_default();
-    p = p.add(pc);
+    if cfg.pretty_code_enabled != Some(false) {
+        let pc = cfg.pretty_code.as_ref()
+            .map(PrettyCode::from_options)
+            .unwrap_or_default();
+        p = p.add(pc);
+    }
 }
 
 #[cfg(feature = "assets")]
@@ -87,11 +94,28 @@ pub struct PipelineConfig {
     pub pretty_code: Option<PrettyCodeOptions>,
     pub math_engine: Option<MathEngine>,
     pub copy_linked_files: Option<CopyLinkedFilesOptions>,
+    pub emoji: Option<bool>,
+    pub autolink_headings: Option<bool>,
+    pub math: Option<bool>,
+    pub pretty_code_enabled: Option<bool>,
 }
 ```
 
 Path: `dmc_transform::PipelineConfig`. dmc-core builds this from
 `CompileConfig` via `compile_cfg.pipeline_config(path)`.
+
+The four trailing `Option<bool>` fields are explicit on/off toggles
+for native transformers, used by the plugin gate to drop the native
+when the user prefers the JS plugin via `prefer_sidecar` /
+`force_sidecar`. `None` keeps the default (transformer added when
+its Cargo feature is on); `Some(false)` drops it.
+
+| field | drops |
+| --- | --- |
+| `emoji = Some(false)` | `Emoji` |
+| `autolink_headings = Some(false)` | `AutolinkHeadings` |
+| `math = Some(false)` | `Math` |
+| `pretty_code_enabled = Some(false)` | `PrettyCode` |
 
 ## Run
 

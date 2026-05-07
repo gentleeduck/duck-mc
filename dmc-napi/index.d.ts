@@ -38,6 +38,21 @@ export interface BuildInput {
   markdownGfm?: boolean
   includeHtml?: boolean
   cacheEnabled?: boolean
+  /**
+   * Bypass the plugin gate for every plugin: every JS plugin runs
+   * in the sidecar, every native transformer is dropped.
+   */
+  forceSidecar?: boolean
+  /**
+   * Per-plugin sidecar preference. Names listed here run in the
+   * sidecar; the matching native transformer is dropped from the
+   * pipeline. Names dmc recognises:
+   *   "remark-gfm", "remark-math", "remark-emoji",
+   *   "rehype-pretty-code", "shiki",
+   *   "rehype-katex", "rehype-mathjax",
+   *   "rehype-slug", "rehype-autolink-headings"
+   */
+  preferSidecar?: Array<string>
 }
 export interface BuildReport {
   diagnostics: Array<string>

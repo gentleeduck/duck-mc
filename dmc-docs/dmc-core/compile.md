@@ -109,3 +109,54 @@ pub fn for_render(&self) -> Self {
 
 Per-file config used by `Collection::process`. Skips native HTML when
 the sidecar will render it, avoiding double work.
+
+## Plugin gate
+
+`is_native_owned_remark` and `is_native_owned_rehype` filter the
+user's plugin list before the sidecar runs. When a plugin name is
+"native-owned" (a Rust transformer already does the work) AND the
+matching Cargo feature is on, the name is stripped from the sidecar
+payload.
+
+```rust
+fn is_native_owned_rehype(plugin: &Value) -> bool {
+    let Some(name) = plugin_name(plugin) else { return false };
+    match name {
+        "rehype-pretty-code" | "shiki" => cfg!(feature = "pretty-code"),
+        "rehype-katex" | "rehype-mathjax" => cfg!(feature = "math"),
+        "rehype-slug" | "rehype-autolink-headings" => true,
+        _ => false,
+    }
+}
+```
+
+`CompileConfig::effective_*_plugins()` returns the user's list with
+native-owned names removed. `has_js_plugins()` returns `true` only
+when something foreign remains; if everything is native-owned, the
+sidecar is skipped entirely.
+
+### Override the gate
+
+Two knobs on `CompileConfig`:
+
+```rust
+pub force_sidecar: bool,            // global: bypass gate for every name
+pub prefer_sidecar: Vec<String>,    // per-name: bypass gate for these
+```
+
+When `prefer_sidecar` lists a name, two things happen:
+
+1. `is_native_owned_*` returns `false` for that name (gate does not
+   strip), so the sidecar payload keeps the plugin entry and the
+   sidecar runs it.
+2. `pipeline_config()` sets the matching `Option<...>` to `None`, so
+   `Pipeline::with_defaults_for(cfg)` does not push the native
+   transformer into the chain.
+
+Net effect: the JS plugin runs in the sidecar, the native equivalent
+does not run, no double work.
+
+When `force_sidecar = true`, every recognised name is treated as
+preferred (every plugin runs in sidecar, every native transformer is
+dropped). Useful when you want the velite-style JS-only behaviour
+without rebuilding the binary with `--no-default-features`.

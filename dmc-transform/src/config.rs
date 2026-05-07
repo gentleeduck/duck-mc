@@ -28,6 +28,21 @@ pub struct PipelineConfig {
   /// When `Some`, append the `copy-linked-files` transformer with the
   /// supplied paths.
   pub copy_linked_files: Option<CopyLinkedFilesOptions>,
+  /// When `Some(false)`, do not push the `Emoji` transformer. `None`
+  /// or `Some(true)` keeps the default behaviour (transformer added
+  /// when the `emoji` feature is on). Used by the plugin gate to drop
+  /// the native transformer when the user prefers `remark-emoji`.
+  pub emoji: Option<bool>,
+  /// Same shape for the `AutolinkHeadings` transformer. Set to
+  /// `Some(false)` when the user prefers `rehype-slug` /
+  /// `rehype-autolink-headings`.
+  pub autolink_headings: Option<bool>,
+  /// Same shape for the `Math` transformer. Set to `Some(false)` when
+  /// the user prefers `remark-math` / `rehype-katex` / `rehype-mathjax`.
+  pub math: Option<bool>,
+  /// Same shape for the `PrettyCode` transformer. Set to `Some(false)`
+  /// when the user prefers `rehype-pretty-code` / `shiki`.
+  pub pretty_code_enabled: Option<bool>,
 }
 
 /// Which engine renders `$...$` / `$$...$$` math.

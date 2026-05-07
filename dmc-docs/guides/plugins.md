@@ -58,6 +58,82 @@ every plugin owned by a native transformer. Stripped names:
 If the stripped lists are empty, the sidecar is never spawned. Big
 perf win when the user lists only those names.
 
+## Override the gate (force JS plugins)
+
+Sometimes you want the JS plugin even though dmc has a native
+equivalent: a feature the native version doesn't support yet, a
+custom theme that ships only as a shiki plugin, parity with an
+existing pipeline you can't change. Two knobs:
+
+### Per-plugin: `preferSidecar: string[]`
+
+```ts
+import { defineConfig } from "@gentleduck/md";
+
+export default defineConfig({
+  collections: { /* ... */ },
+  markdown: {
+    rehypePlugins: [
+      ["rehype-katex", { strict: false, trust: true }],
+    ],
+    preferSidecar: ["rehype-katex"],   // run katex in sidecar; drop native Math
+  },
+});
+```
+
+What happens:
+
+1. The plugin gate keeps `rehype-katex` in the sidecar payload.
+2. `pipeline_config()` sets `math_engine: None`, so the native
+   `Math` transformer is not pushed into the pipeline.
+3. KaTeX runs once, in JS, exactly as you configured it.
+
+No double work, no shadow rendering. List as many names as you want.
+
+### Global: `forceSidecar: true`
+
+```ts
+defineConfig({
+  collections: { /* ... */ },
+  markdown: {
+    rehypePlugins: [
+      ["rehype-pretty-code", { theme: "github-dark" }],
+      ["rehype-katex", {}],
+    ],
+    forceSidecar: true,   // every JS plugin in sidecar, every native dropped
+  },
+});
+```
+
+Equivalent to listing every recognised name in `preferSidecar`.
+Gets you the unified.js behaviour without rebuilding dmc.
+
+### Recognised names
+
+| name | native it replaces |
+| --- | --- |
+| `remark-gfm` | parser GFM (sets `markdown_gfm = false`) |
+| `remark-math`, `rehype-katex`, `rehype-mathjax` | `Math` |
+| `remark-emoji` | `Emoji` |
+| `rehype-pretty-code`, `shiki` | `PrettyCode` |
+| `rehype-slug`, `rehype-autolink-headings` | `AutolinkHeadings` |
+
+Names not in this table are always passed to the sidecar; the gate
+never touches them.
+
+### When to use this
+
+- you need a JS plugin's exact output (e.g. shiki transformers)
+- the native transformer has a regression you want to bypass while
+  it's being fixed
+- migrating from velite and you want the same plugin chain first,
+  then opt into native pieces one at a time
+
+When NOT to use it:
+
+- the default. native is faster and the gate exists to keep it that
+  way.
+
 ## Writing a native transformer
 
 ```rust

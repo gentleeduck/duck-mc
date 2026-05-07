@@ -52,6 +52,8 @@ pub struct CompileConfig {
     pub output_base: Option<String>,
     pub pretty_code: Option<PrettyCodeOptions>,
     pub math_engine: Option<MathEngine>,
+    pub force_sidecar: bool,
+    pub prefer_sidecar: Vec<String>,
 }
 ```
 
@@ -66,6 +68,37 @@ pub struct CompileConfig {
 | `copy_linked_files` | copy `src=`/`href=` assets to `output_assets` |
 | `pretty_code` | theme + multi-mode override; `None` uses bundled defaults |
 | `math_engine` | `Katex` (default) or `Mathml` |
+| `force_sidecar` | global plugin-gate bypass; every JS plugin runs in sidecar, every native transformer dropped from pipeline |
+| `prefer_sidecar` | per-plugin gate bypass; names listed here run in sidecar, matching native transformer dropped |
+
+### Plugin gate override
+
+The plugin gate (see [`compile.md`](compile.md#plugin-gate)) strips
+plugin names from the sidecar payload when a native transformer
+already does the work. To force the JS implementation instead:
+
+- **One specific plugin:** add its name to `prefer_sidecar`. The
+  gate keeps it in the payload AND `pipeline_config()` drops the
+  matching native transformer (no double work).
+- **Every plugin:** set `force_sidecar = true`. Equivalent to
+  `prefer_sidecar` listing every recognised name.
+
+Recognised names mapped to the native transformer they replace:
+
+| name | native transformer dropped |
+| --- | --- |
+| `remark-gfm` | parser GFM behaviour (`markdown_gfm = false`) |
+| `remark-math`, `rehype-katex`, `rehype-mathjax` | `Math` |
+| `remark-emoji` | `Emoji` |
+| `rehype-pretty-code`, `shiki` | `PrettyCode` |
+| `rehype-slug`, `rehype-autolink-headings` | `AutolinkHeadings` |
+
+Every native transformer is gated by an `Option<bool>` field on
+`PipelineConfig`: `emoji`, `autolink_headings`, `math`,
+`pretty_code_enabled`. `CompileConfig::pipeline_config()` flips
+those to `Some(false)` based on `prefer_sidecar` / `force_sidecar`
+so the matching transformer is not pushed into
+`Pipeline::with_defaults_for(cfg)`.
 
 ## TOML config
 

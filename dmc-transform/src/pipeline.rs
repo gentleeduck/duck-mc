@@ -44,8 +44,10 @@ impl Pipeline {
   /// callers don't sprinkle `cfg!(feature = ...)` of their own.
   pub fn with_defaults_for(cfg: &PipelineConfig) -> Self {
     #[allow(unused_mut)]
-    let mut p =
-      Self::new().add(crate::CodeImport::new()).add(crate::BareUrlAutolink).add(crate::AutolinkHeadings::new());
+    let mut p = Self::new().add(crate::CodeImport::new()).add(crate::BareUrlAutolink);
+    if cfg.autolink_headings != Some(false) {
+      p = p.add(crate::AutolinkHeadings::new());
+    }
 
     if cfg.markdown_gfm == Some(false) {
       p = p.add(crate::DisableGfm);
@@ -63,7 +65,9 @@ impl Pipeline {
 
     #[cfg(feature = "emoji")]
     {
-      p = p.add(crate::Emoji);
+      if cfg.emoji != Some(false) {
+        p = p.add(crate::Emoji);
+      }
     }
 
     #[cfg(feature = "math")]
@@ -71,13 +75,17 @@ impl Pipeline {
       if let Some(engine) = cfg.math_engine {
         crate::Math::set_engine(engine);
       }
-      p = p.add(crate::Math);
+      if cfg.math != Some(false) {
+        p = p.add(crate::Math);
+      }
     }
 
     #[cfg(feature = "pretty-code")]
     {
-      let pc = cfg.pretty_code.as_ref().map(crate::PrettyCode::from_options).unwrap_or_default();
-      p = p.add(pc);
+      if cfg.pretty_code_enabled != Some(false) {
+        let pc = cfg.pretty_code.as_ref().map(crate::PrettyCode::from_options).unwrap_or_default();
+        p = p.add(pc);
+      }
     }
 
     #[cfg(feature = "assets")]

@@ -37,6 +37,21 @@ pub struct CompileConfig {
   /// rehype-katex parity). `Some(MathEngine::Mathml)` = pulldown-latex
   /// MathML (fast, plainer visuals).
   pub math_engine: Option<MathEngine>,
+  /// Global override: when `true`, no plugin is treated as native-owned,
+  /// every listed JS plugin runs in the sidecar, every native transformer
+  /// is dropped from the pipeline.
+  pub force_sidecar: bool,
+  /// Per-plugin override: names in this list are *not* stripped from the
+  /// sidecar payload, and the matching native transformer is dropped from
+  /// the pipeline. Use to keep one specific JS plugin and let dmc handle
+  /// everything else natively.
+  ///
+  /// Recognised entries:
+  ///   "remark-gfm", "remark-math", "remark-emoji",
+  ///   "rehype-pretty-code", "shiki",
+  ///   "rehype-katex", "rehype-mathjax",
+  ///   "rehype-slug", "rehype-autolink-headings"
+  pub prefer_sidecar: Vec<String>,
 }
 
 impl Default for CompileConfig {
@@ -56,6 +71,8 @@ impl Default for CompileConfig {
       output_base: None,
       pretty_code: None,
       math_engine: None,
+      force_sidecar: false,
+      prefer_sidecar: vec![],
     }
   }
 }
@@ -78,27 +95,50 @@ impl CompileConfig {
   /// never duplicates work. When the matching feature is off, that
   /// plugin's name is left in the list and the sidecar runs it.
   pub fn effective_markdown_remark_plugins(&self) -> Vec<Value> {
-    Self::filter_native_owned_remark(&self.markdown_remark_plugins)
+    self.filter_native_owned_remark(&self.markdown_remark_plugins)
   }
 
   pub fn effective_mdx_remark_plugins(&self) -> Vec<Value> {
-    Self::filter_native_owned_remark(&self.mdx_remark_plugins)
+    self.filter_native_owned_remark(&self.mdx_remark_plugins)
   }
 
   pub fn effective_markdown_rehype_plugins(&self) -> Vec<Value> {
-    Self::filter_native_owned_rehype(&self.markdown_rehype_plugins)
+    self.filter_native_owned_rehype(&self.markdown_rehype_plugins)
   }
 
   pub fn effective_mdx_rehype_plugins(&self) -> Vec<Value> {
-    Self::filter_native_owned_rehype(&self.mdx_rehype_plugins)
+    self.filter_native_owned_rehype(&self.mdx_rehype_plugins)
   }
 
-  fn filter_native_owned_remark(plugins: &[Value]) -> Vec<Value> {
-    plugins.iter().filter(|p| !is_native_owned_remark(p)).cloned().collect()
+  /// `true` when the user wants the sidecar to handle this specific
+  /// plugin (either via `prefer_sidecar` per-plugin list or via the
+  /// global `force_sidecar` flag).
+  fn user_forces_sidecar(&self, name: &str) -> bool {
+    self.force_sidecar || self.prefer_sidecar.iter().any(|n| n == name)
   }
 
-  fn filter_native_owned_rehype(plugins: &[Value]) -> Vec<Value> {
-    plugins.iter().filter(|p| !is_native_owned_rehype(p)).cloned().collect()
+  fn filter_native_owned_remark(&self, plugins: &[Value]) -> Vec<Value> {
+    plugins
+      .iter()
+      .filter(|p| {
+        let Some(name) = plugin_name(p) else { return true };
+        if self.user_forces_sidecar(name) { return true; }
+        !is_native_owned_remark(p)
+      })
+      .cloned()
+      .collect()
+  }
+
+  fn filter_native_owned_rehype(&self, plugins: &[Value]) -> Vec<Value> {
+    plugins
+      .iter()
+      .filter(|p| {
+        let Some(name) = plugin_name(p) else { return true };
+        if self.user_forces_sidecar(name) { return true; }
+        !is_native_owned_rehype(p)
+      })
+      .cloned()
+      .collect()
   }
 
   /// Per-file compile config: turns off native HTML when sidecar will run.
@@ -124,11 +164,27 @@ impl CompileConfig {
     } else {
       None
     };
+    // Drop the native transformer when the user prefers the JS plugin
+    // for that role. Each `drop_*` flag flips the matching opt-out
+    // field in `PipelineConfig` so the transformer is not pushed.
+    let prefers = |needles: &[&str]| -> bool {
+      self.force_sidecar || self.prefer_sidecar.iter().any(|n| needles.contains(&n.as_str()))
+    };
+    let drop_pretty_code = prefers(&["rehype-pretty-code", "shiki"]);
+    let drop_math = prefers(&["remark-math", "rehype-katex", "rehype-mathjax"]);
+    let drop_emoji = prefers(&["remark-emoji"]);
+    let drop_autolink_headings = prefers(&["rehype-slug", "rehype-autolink-headings"]);
+    let drop_gfm = prefers(&["remark-gfm"]);
+
     PipelineConfig {
-      markdown_gfm: Some(self.markdown_gfm),
-      pretty_code: self.pretty_code.clone(),
-      math_engine: self.math_engine,
+      markdown_gfm: Some(if drop_gfm { false } else { self.markdown_gfm }),
+      pretty_code: if drop_pretty_code { None } else { self.pretty_code.clone() },
+      math_engine: if drop_math { None } else { self.math_engine },
       copy_linked_files,
+      emoji: if drop_emoji { Some(false) } else { None },
+      autolink_headings: if drop_autolink_headings { Some(false) } else { None },
+      math: if drop_math { Some(false) } else { None },
+      pretty_code_enabled: if drop_pretty_code { Some(false) } else { None },
     }
   }
 }

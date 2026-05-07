@@ -81,6 +81,42 @@ native transformers are stripped before dispatch (`remark-gfm`,
 
 If after stripping nothing remains, the sidecar is never spawned.
 
+### Force a JS plugin (override the gate)
+
+Two knobs on `markdown` / `mdx` blocks:
+
+```ts
+import rehypeKatex from "rehype-katex";
+
+defineConfig({
+  markdown: {
+    rehypePlugins: [
+      [rehypeKatex, { strict: false, trust: true }],
+    ],
+    preferSidecar: ["rehype-katex"],   // run katex in sidecar, drop native Math
+  },
+});
+```
+
+`preferSidecar` keeps the listed names in the sidecar payload AND
+drops the matching native transformer from the pipeline. No double
+work. Recognised names: `remark-gfm`, `remark-math`, `remark-emoji`,
+`rehype-pretty-code`, `shiki`, `rehype-katex`, `rehype-mathjax`,
+`rehype-slug`, `rehype-autolink-headings`.
+
+For the global hammer:
+
+```ts
+defineConfig({
+  markdown: {
+    rehypePlugins: [/* whatever */],
+    forceSidecar: true,   // every JS plugin in sidecar, all natives dropped
+  },
+});
+```
+
+Equivalent to listing every recognised name in `preferSidecar`.
+
 ## Static asset copy
 
 ```ts

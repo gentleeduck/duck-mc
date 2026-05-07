@@ -59,6 +59,24 @@ Works as-is. dmc's plugin gate strips:
 
 Plugins not in that list run via the dmc-sidecar Node child.
 
+### Want to keep one of those JS plugins anyway?
+
+Use `preferSidecar` to keep a specific plugin in the JS chain and
+drop the matching native transformer:
+
+```ts
+markdown: {
+  rehypePlugins: [
+    [rehypeKatex, { strict: false }],
+  ],
+  preferSidecar: ["rehype-katex"],   // velite-style katex, no native Math
+}
+```
+
+Or `forceSidecar: true` to mirror velite's plugin chain entirely
+(every JS plugin runs in sidecar, every native is dropped). See
+[`plugins.md`](./plugins.md#override-the-gate-force-js-plugins).
+
 ## Hooks
 
 ```ts

@@ -67,6 +67,9 @@ markdown: {
   copyLinkedFiles: false,     // copy referenced files to output.assets
   remarkPlugins: [],          // foreign plugins for the sidecar
   rehypePlugins: [],          // foreign plugins for the sidecar
+
+  forceSidecar: false,        // global: every JS plugin in sidecar, all natives dropped
+  preferSidecar: [],          // per-plugin sidecar override
 }
 
 mdx: {
@@ -74,6 +77,8 @@ mdx: {
   minify: false,
   remarkPlugins: [],
   rehypePlugins: [],
+  forceSidecar: false,
+  preferSidecar: [],
 }
 ```
 
@@ -91,6 +96,26 @@ before the sidecar is invoked. Native owners:
 - `rehype-autolink-headings`
 
 If the gate strips every plugin, the sidecar is never spawned.
+
+### Forcing a JS plugin
+
+`preferSidecar: ["rehype-katex"]` keeps the listed names in the
+sidecar payload AND drops the matching native transformer (`Math`
+in this case). The JS plugin runs once, no double work, no shadow
+native pass.
+
+```ts
+markdown: {
+  rehypePlugins: [[rehypeKatex, { strict: false }]],
+  preferSidecar: ["rehype-katex"],
+}
+```
+
+`forceSidecar: true` is the global hammer: equivalent to listing
+every recognised name in `preferSidecar`. Use it when you want the
+unified.js behaviour without rebuilding dmc with
+`--no-default-features`. See [`plugins.md`](./plugins.md#override-the-gate-force-js-plugins)
+for which native gets dropped per name.
 
 ## `prettyCode`
 

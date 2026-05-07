@@ -135,13 +135,29 @@ interface MarkdownOptions {
   copyLinkedFiles?: boolean;
   remarkPlugins?: Pluggable[];   // unified plugin tuples
   rehypePlugins?: Pluggable[];
+
+  // Plugin gate overrides:
+  forceSidecar?: boolean;        // every JS plugin in sidecar, all natives dropped
+  preferSidecar?: string[];      // per-plugin sidecar override (see list below)
 }
 
 interface MdxOptions extends MarkdownOptions {
   outputFormat?: "function-body" | "module";
   minify?: boolean;
 }
+```
 
+`preferSidecar` recognises the same names the gate strips:
+
+| name | native dropped |
+| --- | --- |
+| `remark-gfm` | parser GFM (sets `markdownGfm = false`) |
+| `remark-math`, `rehype-katex`, `rehype-mathjax` | `Math` |
+| `remark-emoji` | `Emoji` |
+| `rehype-pretty-code`, `shiki` | `PrettyCode` |
+| `rehype-slug`, `rehype-autolink-headings` | `AutolinkHeadings` |
+
+```ts
 interface CollectionInput {
   name: string;
   pattern: string;

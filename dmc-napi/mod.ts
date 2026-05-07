@@ -151,6 +151,21 @@ export interface MarkdownOptions {
 	copyLinkedFiles?: boolean;
 	remarkPlugins?: Pluggable[];
 	rehypePlugins?: Pluggable[];
+	/**
+	 * Bypass the plugin gate for every plugin: every JS plugin runs in
+	 * the sidecar, every native transformer is dropped.
+	 */
+	forceSidecar?: boolean;
+	/**
+	 * Per-plugin sidecar preference. Names listed here run in the
+	 * sidecar; the matching native transformer is dropped from the
+	 * pipeline. Recognised names:
+	 *   "remark-gfm", "remark-math", "remark-emoji",
+	 *   "rehype-pretty-code", "shiki",
+	 *   "rehype-katex", "rehype-mathjax",
+	 *   "rehype-slug", "rehype-autolink-headings"
+	 */
+	preferSidecar?: string[];
 }
 
 export interface MdxOptions extends MarkdownOptions {
@@ -219,6 +234,8 @@ interface NativeBuildInput {
 	mdxMinify?: boolean;
 	markdownGfm?: boolean;
 	includeHtml?: boolean;
+	forceSidecar?: boolean;
+	preferSidecar?: string[];
 }
 
 const cbRegistry = new Map<number, (v: unknown) => unknown>();
@@ -579,6 +596,8 @@ function adaptToBuildInput(
 		mdxMinify: cfg.mdx?.minify,
 		markdownGfm: cfg.markdown?.gfm,
 		includeHtml: (cfg.output as { html?: boolean } | undefined)?.html,
+		forceSidecar: cfg.markdown?.forceSidecar ?? cfg.mdx?.forceSidecar,
+		preferSidecar: cfg.markdown?.preferSidecar ?? cfg.mdx?.preferSidecar,
 	};
 }
 

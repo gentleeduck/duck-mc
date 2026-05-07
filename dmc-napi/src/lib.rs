@@ -74,6 +74,17 @@ pub struct BuildInput {
   pub markdown_gfm: Option<bool>,
   pub include_html: Option<bool>,
   pub cache_enabled: Option<bool>,
+  /// Bypass the plugin gate for every plugin: every JS plugin runs
+  /// in the sidecar, every native transformer is dropped.
+  pub force_sidecar: Option<bool>,
+  /// Per-plugin sidecar preference. Names listed here run in the
+  /// sidecar; the matching native transformer is dropped from the
+  /// pipeline. Names dmc recognises:
+  ///   "remark-gfm", "remark-math", "remark-emoji",
+  ///   "rehype-pretty-code", "shiki",
+  ///   "rehype-katex", "rehype-mathjax",
+  ///   "rehype-slug", "rehype-autolink-headings"
+  pub prefer_sidecar: Option<Vec<String>>,
 }
 
 #[napi(object)]
@@ -105,6 +116,8 @@ pub fn build(input: BuildInput) -> Result<BuildReport> {
     output_base: input.output_base,
     pretty_code: None,
     math_engine: None,
+    force_sidecar: input.force_sidecar.unwrap_or(false),
+    prefer_sidecar: input.prefer_sidecar.unwrap_or_default(),
   };
 
   let cfg = EngineConfig {
