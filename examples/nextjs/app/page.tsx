@@ -3,6 +3,8 @@ import Link from "next/link";
 
 type Doc = { permalink: string; title?: string; description?: string };
 
+const stripDir = (p: string) => p.replace(/^docs\//, "");
+
 export default function Home() {
   const list = docs as Doc[];
   return (
@@ -18,7 +20,7 @@ export default function Home() {
       <ul>
         {list.map((d) => (
           <li key={d.permalink}>
-            <Link href={`/docs/${d.permalink}`}>{d.title ?? d.permalink}</Link>
+            <Link href={`/docs/${stripDir(d.permalink)}`}>{d.title ?? d.permalink}</Link>
             {d.description && (
               <span style={{ color: "var(--muted)", marginLeft: "0.5rem" }}>
                 - {d.description}
