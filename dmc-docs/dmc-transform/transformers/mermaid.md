@@ -1,119 +1,124 @@
-# Mermaid
+# `mermaid`
 
-Renders `code lang=mermaid` blocks to inline SVG via the external
-`mmdc` CLI (`@mermaid-js/mermaid-cli`).
+Pre-renders mermaid diagrams to inline SVG via the external `mmdc` CLI
+(`@mermaid-js/mermaid-cli`). The browser never runs mermaid; the
+consumer just picks an attr based on the active theme.
 
-## Feature flag
+- **Source:** `dmc-transform/src/builtin/mermaid.rs`
+- **Feature flag:** `mermaid`
+- **Config struct:** [`MermaidOptions`](../src/config.rs)
+- **TS slot:** `markdown.mermaid` / `mdx.mermaid`
 
-`mermaid` (default on). Requires `mmdc` on PATH at runtime.
+## Inputs handled
 
-## Input
-
-Any `Node::CodeBlock { lang: Some("mermaid"), value, .. }`.
-
-## Output
-
-```html
-<MermaidSvg svg="<svg ...>...</svg>"/>
+```text
+```mermaid
+graph TD
+    A[Accordion] --> B[AccordionItem]
+```
 ```
 
-JSX self-closing element with the SVG verbatim in the `svg` attribute.
-The `HtmlEmitter` recognises `MermaidSvg` and pastes the attribute
-value raw.
+…and existing JSX:
 
-## Cache
-
-Two-level:
-
-- L1: in-memory `Mutex<HashMap<u64, String>>` keyed by
-  `default_hasher(source)`
-- L2: optional disk cache when `Mermaid::with_output(p)` is set; one
-  `<key>.svg` file per render
-
-```rust
-pub struct Mermaid {
-    pub output_dir: Option<PathBuf>,
-    cache: Mutex<HashMap<u64, String>>,
-}
-
-impl Mermaid {
-    pub fn new() -> Self;                          // Default
-    pub fn with_output(p: impl Into<PathBuf>) -> Self;
-    pub fn render_cached(&self, source: &str) -> Result<String, String>;
-}
+```mdx
+<MermaidDiagram chart={`graph TD ...`} />
 ```
 
-Path: `dmc_transform::Mermaid`.
+## Output JSX
 
-## CLI invocation
+Default theme (`Multi({ light: "default", dark: "dark" })`):
 
-```bash
-mmdc --input - --output - --outputFormat svg
+```jsx
+<MermaidDiagram
+  chart="graph TD\n    A[Accordion] --> B[AccordionItem]"
+  lightSvg="<svg…>"
+  darkSvg="<svg…>"
+/>
 ```
 
-Source on stdin; SVG on stdout. Errors captured from stderr.
+Single-theme (`theme: "dark"`) emits one `chartSvg` attr instead.
+Multi-theme with arbitrary keys (e.g. `{ day, night, dim }`) emits one
+`${key}Svg` attr per entry.
 
-## Availability check
+## Full configuration
 
-```rust
-fn mmdc_available() -> bool {
-    *MMDC_AVAILABLE.get_or_init(|| {
-        Command::new("mmdc")
-            .arg("--version")
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .status()
-            .map(|s| s.success())
-            .unwrap_or(false)
-    })
-}
+```ts
+import { defineConfig } from '@gentleduck/md/config'
+
+export default defineConfig({
+  markdown: {
+    mermaid: {
+      // 1) THEME — pick one form
+      theme: 'dark',                                // single → <MermaidDiagram chart chartSvg />
+      // theme: { light: 'default', dark: 'dark' }, // default; lightSvg + darkSvg
+      // theme: { day: 'forest', night: 'neutral', dim: 'dark' }, // any keys → daySvg/nightSvg/dimSvg
+
+      // 2) RAW MERMAID CONFIG — anything mermaid.initialize() accepts.
+      //    Forwarded verbatim to mmdc --configFile after a shallow
+      //    merge over dmc defaults (htmlLabels:false + flowchart spacing).
+      config: {
+        fontFamily: 'Geist, system-ui, sans-serif',
+        securityLevel: 'loose',
+        look: 'handDrawn',                  // 'classic' | 'neo' | 'handDrawn'
+        layout: 'elk',                      // 'dagre' | 'elk'
+        themeVariables: {
+          primaryColor: '#1e1e2e',
+          primaryTextColor: '#cdd6f4',
+          primaryBorderColor: '#89b4fa',
+          lineColor: '#a6adc8',
+          fontSize: '14px',
+        },
+        flowchart:    { curve: 'basis', diagramPadding: 12, nodeSpacing: 80, rankSpacing: 80 },
+        sequence:     { actorMargin: 50, mirrorActors: false },
+        gantt:        { barHeight: 20, fontSize: 12 },
+        er:           { fontSize: 14 },
+        gitGraph:     { showCommitLabel: true },
+        pie:          { textPosition: 0.75 },
+        class:        { defaultRenderer: 'dagre-wrapper' },
+        state:        { defaultRenderer: 'dagre-wrapper' },
+      },
+
+      // 3) RENDER FLAGS
+      backgroundColor: '#0b0b14',           // mmdc --backgroundColor; default 'transparent'
+      htmlLabels: false,                    // default false; true = HTML-in-foreignObject node labels
+      responsiveSvg: true,                  // default true; rewrites root width to 100%
+      centerLabels: true,                   // default true; injects text-anchor=middle when htmlLabels:false
+
+      // 4) CACHE + PUPPETEER
+      outputDir: '.dmc-cache/mermaid',          // disk SVG cache, hash-keyed
+      puppeteerConfigFile: './puppeteer.json',  // mmdc --puppeteerConfigFile
+    },
+  },
+})
 ```
 
-Probed once per process. If missing, the transformer no-ops with a
-single `TW001 MmdcUnavailable` warning per build (so users know to
-install).
+## Knob reference
+
+| Knob | Default | Effect |
+|---|---|---|
+| `theme` | `{ light: "default", dark: "dark" }` | Single string OR `{ mode: theme }` map. Drives JSX attr names (`chartSvg` vs `${mode}Svg`). |
+| `config` | `{}` | Free-form `mermaid.initialize` config. Shallow-merged on top of dmc defaults. |
+| `backgroundColor` | `"transparent"` | `mmdc --backgroundColor`. |
+| `htmlLabels` | `false` | When `true`, flowchart node labels render as HTML-in-`<foreignObject>`. Off by default — HTML labels mismeasure on the headless browser, clipping text. |
+| `responsiveSvg` | `true` | Rewrites the first root-`<svg>` `width="…"` to `width="100%"` so the diagram scales to its container. |
+| `centerLabels` | `true` | Injects `text-anchor="middle"` on label `<text>` / `<tspan>` so flowchart labels center inside their `<rect>` when `htmlLabels:false`. |
+| `outputDir` | unset | Disk-backed SVG cache. Files hashed on `(theme, source)`. Persists across runs. |
+| `puppeteerConfigFile` | unset | Forwarded to `mmdc --puppeteerConfigFile`. |
+
+## Caching
+
+In-memory cache (per `Mermaid` instance) dedupes identical
+`(theme, source)` pairs across one compile run. Setting `outputDir`
+adds a disk-backed cache that persists across runs.
 
 ## Failure modes
 
-| failure | code | severity |
-|---------|------|----------|
-| `mmdc` not on PATH | `TW001 MmdcUnavailable` | warning |
-| `mmdc` exit non-zero | `T009 MermaidRenderFailed` | error (per block) |
-| stdin/stdout pipe error | `T009 MermaidRenderFailed` | error |
+- `mmdc` not on `PATH` → whole transformer no-ops with
+  `Code::MmdcUnavailable`; mermaid blocks left as fenced code.
+- Per-block render error → `Code::MermaidRenderFailed` diagnostic;
+  source block preserved.
 
-Per-block failures leave the original code block intact; build
-continues.
+## Sidecar opt-out
 
-## Example
-
-Input:
-
-````md
-```mermaid
-graph TD
-  A --> B
-```
-````
-
-After Mermaid pass + render:
-
-```html
-<svg xmlns="http://www.w3.org/2000/svg" ...>
-  <!-- mermaid-rendered graph -->
-</svg>
-```
-
-## Install
-
-```bash
-npm i -g @mermaid-js/mermaid-cli
-```
-
-mmdc bundles puppeteer + a headless browser for rendering. Heavy
-install (~150 MB) but the SVG output is high quality.
-
-## Why a sidecar process
-
-Mermaid is a JS library plus a browser-based layout engine. Porting
-to Rust is impractical. Cache mitigates the cost (most builds reuse
-identical diagrams).
+Add any of `"mermaid"`, `"rehype-mermaid"`, `"remark-mermaid"` to
+`markdown.preferSidecar` to drop the native transformer.

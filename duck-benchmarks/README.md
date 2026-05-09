@@ -19,11 +19,18 @@ host (32 CPU, x86_64, linux).
 | [3 native-syntect](phase-3-native-syntect)  | 47.42 | 507.41 | 492.93 |  885.74 | 6785.13 | 1446.52 |
 | [4 confirm-run](phase-4-confirm-run)        | 44.69 | 462.33 | 466.37 | 1187.90 | 5910.21 | 1368.20 |
 | [5 plugin-gate](phase-5-plugin-gate)        | 44.73 |  46.01 |  44.94 |  144.77 | 5934.00 | 1381.46 |
+| [6 correctness-cache](phase-6-correctness-cache) | 55.19 |  51.97 |  50.65 |  168.93 | 6110.71 | 1427.16 |
 
 `native` jumps phase 2 -> 3 because the syntect highlighter moved
 in-process (more native work, less sidecar work). `sidecar+*` collapse
 phase 4 -> 5 because the plugin gate stops shipping native-owned plugins
-to the sidecar.
+to the sidecar. Phase 6 is a deliberate ~10-19% trade: correctness
+work (CommonMark §4.5/§6.1 fence + inline rules, lowercase-JSX depth,
+real span file paths, structured `BuildReport.diagnostics`) plus a
+two-layer cache (preMdx mirror manifest + native compile cache that
+now survives `clean: true`). The cold bench above doesn't see the
+caches; the warm-build delta is **34 s → 3.3 s** end-to-end on a 370-
+mdx consumer corpus (see phase-6 README).
 
 ## Speedups vs velite at 1000 files (phase 5)
 

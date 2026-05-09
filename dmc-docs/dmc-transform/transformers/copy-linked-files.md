@@ -1,106 +1,46 @@
-# CopyLinkedFiles
+# `copy-linked-files`
 
-Copies local files referenced via `src=` (images) or `href=` (links)
-to an output asset directory. Rewrites the rendered URL to a public
-prefix.
+Copies relative `src=` / `href=` assets referenced from MDX content into
+a public output directory, rewriting the URL in-place so the build
+output is self-contained.
 
-## Feature flag
-
-`assets` (default on). Pulls `blake3` for content hashing.
-
-## Input
-
-`Node::Image { src, ... }` and `Node::Link { href, ... }` whose URL
-is a relative path (not `http://`, `https://`, `data:`, `mailto:`,
-nor an absolute path starting with `/`).
-
-## Behaviour
-
-1. Resolve URL relative to the source file's parent dir.
-2. Hash the file contents (blake3).
-3. Copy to `<assets_dir>/<base>-<hash:6>.<ext>`.
-4. Rewrite the node's `src` / `href` to `<public_base>/<base>-<hash>.<ext>`.
+- **Source:** `dmc-transform/src/builtin/copy_linked_files.rs`
+- **Feature flag:** `assets`
+- **Config struct:** [`CopyLinkedFilesOptions`](../src/config.rs)
+- **TS slot:** `markdown.copyLinkedFiles` + `output.assets` + `output.base`
 
 ## Configuration
 
-```rust
-pub struct CopyLinkedFilesOptions {
-    pub source_dir: PathBuf,
-    pub assets_dir: PathBuf,
-    pub public_base: String,
-}
-
-pub struct CopyLinkedFiles { /* private */ }
-
-impl CopyLinkedFiles {
-    pub fn new(source_dir: PathBuf, assets_dir: PathBuf, public_base: String) -> Self;
-}
-```
-
-Path: `dmc_transform::CopyLinkedFiles`. Configured via the
-`PipelineConfig::copy_linked_files` field; dmc-core wires it from
-`CompileConfig::output_assets` + `CompileConfig::output_base`.
-
-## Failure modes
-
-| failure | code | severity |
-|---------|------|----------|
-| write failed mid-publish | `T008 AssetCopyFailed` | error |
-| referenced asset missing | `TW003 AssetSourceMissing` | warning |
-
-## Config surface (TS)
-
 ```ts
-defineConfig({
+import { defineConfig } from '@gentleduck/md/config'
+
+export default defineConfig({
   output: {
-    assets: "public/assets",
-    base: "/assets/",
-    name: "[name]-[hash:6].[ext]",
+    assets: 'public/assets',          // copies land here
+    base:   '/assets',                // URL prefix written into MDX
   },
   markdown: {
-    copyLinkedFiles: true,
+    copyLinkedFiles: true,            // toggle the transformer
   },
-});
+})
 ```
 
-## Example
+## Behavior
 
-Source MDX:
+For an MDX node like `<img src="./diagram.png" />` next to a source
+file at `content/post.mdx`:
 
-```mdx
-![logo](./logo.png)
+1. Resolves `./diagram.png` relative to the source dir.
+2. Copies the file to `<assets_dir>/<hash>.png`.
+3. Rewrites the JSX/Markdown URL to `<public_base>/<hash>.png`.
 
-[whitepaper](./paper.pdf)
-```
+Hashing keeps duplicate filenames from colliding and lets caches
+cache-bust on content change.
 
-After pass:
+## Knob reference
 
-```mdx
-![logo](/assets/logo-7a8b3f.png)
-
-[whitepaper](/assets/paper-2c4e91.pdf)
-```
-
-Files copied to `public/assets/`.
-
-## Hashing
-
-```rust
-let hash = blake3::hash(content_bytes);
-let name = format!("{stem}-{hex:6}.{ext}", hex = hash.to_hex());
-```
-
-Hash truncated to 6 hex chars (configurable via `name` template).
-Collisions extremely unlikely at this length for typical asset
-counts; bump if your repo has tens of thousands of assets.
-
-## Idempotence
-
-The hash key means the same source file always produces the same
-output filename. Subsequent builds reuse the existing copy.
-
-## Skipping
-
-URLs starting with these schemes / patterns are not copied:
-`http://`, `https://`, `data:`, `mailto:`, `javascript:`, `#anchor`,
-`/absolute-path`.
+| Knob (Rust) | TS | Effect |
+|---|---|---|
+| `source_dir` | (auto) | Source `.mdx` parent dir. |
+| `assets_dir` | `output.assets` | Where copied files land. |
+| `public_base` | `output.base` | URL prefix written into rewritten links. |

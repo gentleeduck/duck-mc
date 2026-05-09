@@ -1,171 +1,117 @@
-# PrettyCode
+# `pretty-code`
 
-Replaces `Node::CodeBlock` with a syntect-highlighted `<figure>`
-subtree. Replaces the JS chain `rehype-pretty-code` + `shiki`.
+Pre-rendered syntax highlighter. Replaces fenced ``` ``` ``` blocks with
+a velite-shaped `<pre><code>…</code></pre>` tree: each token becomes a
+`<span style="color:#xxxxxx">`, each line gets `<span class="line">`,
+and lines listed in `{1,3-5}` meta receive a configurable highlight
+attribute.
 
-## Feature flag
+- **Source:** `dmc-transform/src/builtin/pretty_code.rs`
+- **Feature flag:** `pretty-code`
+- **Config struct:** [`PrettyCodeOptions`](../src/config.rs)
+- **TS slot:** `markdown.prettyCode` / `mdx.prettyCode`
 
-`pretty-code` (default on). Pulls the `dmc-highlight` leaf crate.
+## Output JSX
 
-## Input
-
-Any `Node::CodeBlock { lang, meta, value }`. Skips blocks with
-`lang == "mermaid"` (handled by the `Mermaid` pass).
-
-## Output
-
-```
-<figure data-dmc-figure>
-  [<figcaption data-dmc-title data-language="rust">lib.rs</figcaption>  // when title set
-  ]
-  <pre style="background-color:#1e1e2e;--dmc-light-bg:#eff1f5"
-       data-language="rust"
-       data-theme="dark:Catppuccin Mocha light:Catppuccin Latte">
-    <code>
-      <span data-line>
-        <span style="color:#cba6f7;--dmc-light:#8839ef">fn</span>
-        <span style="color:#cdd6f4;--dmc-light:#4c4f69"> </span>
-        ...
+```text
+<div data-rehype-pretty-code-fragment="">
+  <figcaption data-rehype-pretty-code-title data-language="…">filename</figcaption>
+  <pre __rawString__="…" data-language="…" data-theme="<mode>">
+    <code data-language="…" data-theme="<mode>">
+      <span class="line">
+        <span style="color:#XXX">token</span>
+        …
       </span>
-      <span data-line data-highlighted-line>
-        ...
-      </span>
+      <span class="line" data-highlighted-line="">…</span>
     </code>
   </pre>
-</figure>
+  <pre data-theme="<other>">…</pre>   <!-- one per theme -->
+</div>
 ```
 
-`<figure>` always wraps. `<figcaption>` only present when `title=`
-is set in meta.
+Single-theme: one `<pre>` (`data-theme=""`). Multi-theme: one
+`<pre data-theme="<mode>">` per entry; consumer CSS shows the active
+mode by toggling visibility.
 
-## Config
-
-```rust
-pub struct PrettyCodeOptions {
-    pub theme: PrettyCodeTheme,
-    pub default_mode: Option<String>,
-}
-
-pub enum PrettyCodeTheme {
-    Single(String),
-    Multi(BTreeMap<String, String>),
-}
-```
-
-Default = Multi `{ light: "Catppuccin Latte", dark: "Catppuccin Mocha" }`,
-`default_mode = "dark"`.
+## Full configuration
 
 ```ts
-prettyCode: {
-  theme: { light: "Catppuccin Latte", dark: "Nord" },
-  defaultMode: "dark",
-}
+import { defineConfig } from '@gentleduck/md/config'
 
-// or:
-prettyCode: { theme: "Catppuccin Mocha" }
+export default defineConfig({
+  markdown: {
+    prettyCode: {
+      // 1) THEME — pick one form
+      theme: 'Catppuccin Mocha',                              // single
+      // theme: { light: 'Catppuccin Latte', dark: 'Catppuccin Mocha' }, // multi
+      defaultMode: 'dark',                                    // unprefixed color/bg source
+
+      // 2) DOM SHAPE
+      fragmentWrapper: true,                                  // <div data-rehype-pretty-code-fragment="">
+      keepRawString: true,                                    // <pre __rawString__="…"> for Copy button
+      lineClass: 'line',                                      // class on per-line span
+      highlightedLineAttr: 'data-highlighted-line',           // attr on `{1,3-5}` lines
+      renderTitle: true,                                      // <figcaption> from title="…" meta
+      includeDataLanguage: true,                              // data-language on <pre>+<code>
+
+      // 3) LANGUAGE BEHAVIOR
+      defaultLanguage: 'plaintext',                           // fences without lang
+      fallbackToPlaintext: true,                              // unknown langs → plaintext
+      skipLanguages: ['mermaid', 'math', 'd2'],               // pass these through unchanged
+
+      // 4) WHITESPACE
+      tabSize: 2,                                             // expand tabs before highlighting
+    },
+  },
+})
 ```
 
-`PrettyCodeTheme` is `#[serde(untagged)]`, so a string is parsed as
-`Single` and an object as `Multi`.
+## Knob reference
 
-## Multi-mode CSS variables
+| Knob | Default | Effect |
+|---|---|---|
+| `theme` | `{ light: "Catppuccin Latte", dark: "Catppuccin Mocha" }` | Single bundled theme name, OR `{ mode: theme }` map for multi-mode. |
+| `defaultMode` | `"dark"` if present, else first key | Mode whose colors fill unprefixed `color` / `background-color`. |
+| `keepRawString` | `true` | Sets `__rawString__` on each `<pre>` so consumer's `<PreBlock>` can render a Copy button. |
+| `fragmentWrapper` | `true` | Wraps panes in `<div data-rehype-pretty-code-fragment="">`. Off → bare `<div>` (still single-rooted). |
+| `lineClass` | `"line"` | Class on the per-line `<span>`. |
+| `highlightedLineAttr` | `"data-highlighted-line"` | Attribute set on lines listed in `{1,3-5}` meta. |
+| `defaultLanguage` | `"plaintext"` | Used when fence has no language. |
+| `fallbackToPlaintext` | `true` | Unknown langs → plaintext. Off → block left as raw `CodeBlock`. |
+| `renderTitle` | `true` | Emit `<figcaption data-rehype-pretty-code-title>` from `title="…"` meta. |
+| `includeDataLanguage` | `true` | Include `data-language` attr on `<pre>` and `<code>`. |
+| `skipLanguages` | `[]` | Languages to pass through unchanged. `mermaid` is always skipped (owned by the mermaid transformer). |
+| `tabSize` | unset | Expand tab characters to N spaces before highlighting. |
 
-For each non-primary mode, every token style includes a CSS variable:
+## Meta syntax
 
-```html
-<span style="color:#cba6f7;--dmc-light:#8839ef">fn</span>
-```
+Fence info string accepts:
 
-Plus on `<pre>`:
+- `title="path/to/file.rs"` → `<figcaption>`
+- `{1,3-5}` → highlighted lines (range and comma-separated)
 
-```html
-<pre style="background-color:#1e1e2e;--dmc-light-bg:#eff1f5">
-```
+Example:
 
-Consumer CSS swaps modes:
-
-```css
-html.light pre,
-html.light pre code,
-html.light pre code span {
-  color: var(--dmc-light);
-}
-html.light pre {
-  background-color: var(--dmc-light-bg);
-}
-```
-
-## Meta directives
-
-Code-block meta string supports:
-
-- `title="hello.rs"` -> `<figcaption>` with text.
-- `{1,3-5}` -> add `data-highlighted-line` on lines 1, 3, 4, 5.
-
-Both can co-occur:
-
-````md
-```rust title="lib.rs" {3,5}
+````text
+```rust title="hello.rs" {2,4-6}
 fn main() {
+    println!("hi");
     let x = 1;
     let y = 2;
-    println!("{}", x);
     let z = 3;
+    let sum = x + y + z;
 }
 ```
 ````
 
-## Single-tokenize multi-color
+## Themes
 
-Calls `dmc_highlight::highlight_code_multi(code, lang, &theme_names)`.
-One parse + scope walk; each theme contributes only color resolution.
-Adjacent same-style tokens merged across all themes (matches shiki
-coalescing).
+Themes come from the bundled syntect theme set
+(`dmc-highlight::SyntaxBundle`). Common bundled names: `Catppuccin Latte`,
+`Catppuccin Mocha`, `Nord`, `One Dark`, `Solarized Light`, `Solarized Dark`,
+`InspiredGitHub`, `base16-ocean.dark`, `base16-eighties.dark`.
 
-## Example
+## Sidecar opt-out
 
-Input:
-
-````md
-```rust title="lib.rs"
-fn main() {}
-```
-````
-
-After PrettyCode pass + `HtmlEmitter`:
-
-```html
-<figure data-dmc-figure>
-  <figcaption data-dmc-title data-language="rust">lib.rs</figcaption>
-  <pre data-language="rust" data-theme="dark:Catppuccin Mocha light:Catppuccin Latte"
-       style="background-color:#1e1e2e;--dmc-light-bg:#eff1f5">
-    <code>
-      <span data-line>
-        <span style="color:#cba6f7;--dmc-light:#8839ef">fn</span>
-        <span style="color:#cdd6f4;--dmc-light:#4c4f69"> </span>
-        <span style="color:#89b4fa;--dmc-light:#1e66f5">main</span>
-        <span style="color:#9399b2;--dmc-light:#7c7f93">()</span>
-        <span style="color:#cdd6f4;--dmc-light:#4c4f69"> </span>
-        <span style="color:#9399b2;--dmc-light:#7c7f93">{}</span>
-      </span>
-    </code>
-  </pre>
-</figure>
-```
-
-## Plugin gate
-
-When `pretty-code` feature is on, `rehype-pretty-code` and `shiki`
-are stripped from the sidecar payload. So a config that lists only
-those native-handles them at no cost.
-
-## Trade-off vs shiki
-
-| | dmc PrettyCode | rehype-pretty-code |
-|-|----------------|--------------------|
-| engine | syntect (Rust) | shiki (JS) |
-| speed | ~150 us per block | ~500 us - 2 ms per block |
-| theme coverage | ~25 bundled (bat themes) | shipped shiki themes |
-| grammar coverage | ~250 bundled | shipped shiki grammars |
-| visual parity | very close | reference |
-| span count | usually +5-10% (cosmetic) | reference |
+Add `"rehype-pretty-code"` or `"shiki"` to `markdown.preferSidecar` to
+drop the native highlighter and route through the JS sidecar.

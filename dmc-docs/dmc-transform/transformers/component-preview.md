@@ -1,80 +1,40 @@
-# ComponentPreview
+# `component-preview`
 
-Looks up a component by name in a registry index JSON file and inlines
-its source as a code block.
+Resolves `<ComponentPreview name="…" />` JSX nodes against a registry of
+preview components, attaching source + metadata attributes so the
+consumer's `<ComponentPreview>` runtime can render the example without
+re-reading the registry at render time.
 
-## Feature flag
-
-Always on.
+- **Source:** `dmc-transform/src/builtin/component_preview.rs`
+- **Feature flag:** none
+- **Config:** registry path / mapping (consumer-driven)
 
 ## Input
 
-JSX elements like:
+```mdx
+<ComponentPreview
+  name="accordion-1"
+  description="A simple accordion."
+/>
+```
+
+## Output
+
+The original JSX node is preserved; the transformer attaches resolved
+attributes:
 
 ```mdx
-<ComponentPreview name="button" />
+<ComponentPreview
+  name="accordion-1"
+  description="A simple accordion."
+  source="<file content>"
+  files={[…]}
+/>
 ```
 
-`Node::JsxSelfClosing` or `Node::JsxElement` with `name="..."` attr.
-
-## Behaviour
-
-1. Read `registry_index` JSON (path configured on the transformer).
-2. Find entry by `name`.
-3. Read the entry's first source file.
-4. Replace the JSX node with a code block containing the file contents.
-
-## Failure modes
-
-| failure | code | severity |
-|---------|------|----------|
-| index unreadable | `T003 RegistryIndexUnreadable` | error |
-| index not JSON | `T004 RegistryIndexMalformed` | error |
-| name not in index | `T005 RegistryEntryNotFound` | error |
-| source file unreadable | `T006 RegistrySourceUnreadable` | error |
-| missing `name` attr | `TW002 MissingComponentAttr` | warning |
-
-## API
-
-```rust
-pub struct ComponentPreview {
-    pub registry_index: Option<PathBuf>,
-}
-
-impl ComponentPreview {
-    pub fn new() -> Self;
-    pub fn with_index(p: impl Into<PathBuf>) -> Self;
-}
-```
-
-Path: `dmc_transform::ComponentPreview`.
-
-## Example registry index
-
-```json
-{
-  "button": {
-    "files": ["registry/button/button.tsx"]
-  }
-}
-```
-
-Source MDX:
-
-```mdx
-<ComponentPreview name="button" />
-```
-
-After pass:
-
-````md
-```tsx
-// contents of registry/button/button.tsx
-```
-````
+The exact attr set depends on what the registry exposes for that name.
 
 ## Use case
 
-Doc sites that display the same component code in multiple pages can
-keep one source-of-truth file and reference it by name. Edits to the
-component show up everywhere on next build.
+Powers component galleries / docs sites where every example lives in a
+real registry directory and the doc just references it by name.

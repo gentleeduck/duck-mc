@@ -1,92 +1,50 @@
-# NpmCommand
+# `npm-command`
 
-Generates package-manager-tabbed JSX from a single `npm` command. So
-authors write `npm i react` once and get a tab UI showing the
-equivalent for `pnpm`, `yarn`, `bun`.
+Detects fenced code blocks whose first line is `npm install …`,
+`npx create-…`, or `npx <bin>` and rewrites them as a
+`<PackageManagerTabs>` JSX node carrying per-PM equivalents (npm, yarn,
+pnpm, bun) as plain string attributes.
 
-## Feature flag
+- **Source:** `dmc-transform/src/builtin/npm_command.rs`
+- **Feature flag:** `npm-command`
+- **Config:** none
 
-`npm-command` (default on).
+## Detection
 
-## Input
+Triggers on these first-line shapes:
 
-Code blocks tagged `lang=npm`:
+| Source | npm | yarn | pnpm | bun |
+|---|---|---|---|---|
+| `npm install pkg` | `npm install pkg` | `yarn add pkg` | `pnpm add pkg` | `bun add pkg` |
+| `npx create-foo` | `npx create-foo` | `yarn create foo` | `pnpm create foo` | `bunx --bun create-foo` |
+| `npx tool` | `npx tool` | `yarn dlx tool` | `pnpm dlx tool` | `bunx --bun tool` |
 
-````md
-```npm
-i react react-dom
-```
-````
+## Output JSX
 
-`Node::CodeBlock { lang: Some("npm"), value, .. }`.
-
-## Output
-
-A `<PackageManagerTabs>` JSX element with one tab per package manager:
-
-```html
-<PackageManagerTabs>
-  <Tab name="npm"><pre><code>npm i react react-dom</code></pre></Tab>
-  <Tab name="pnpm"><pre><code>pnpm add react react-dom</code></pre></Tab>
-  <Tab name="yarn"><pre><code>yarn add react react-dom</code></pre></Tab>
-  <Tab name="bun"><pre><code>bun add react react-dom</code></pre></Tab>
-</PackageManagerTabs>
-```
-
-The element name `PackageManagerTabs` matches a recognised raw-HTML
-emit pattern in `HtmlEmitter` (renders the tab UI).
-
-## Translation rules
-
-| npm | pnpm | yarn | bun |
-|-----|------|------|-----|
-| `i pkg` / `install pkg` | `add pkg` | `add pkg` | `add pkg` |
-| `i -D pkg` | `add -D pkg` | `add -D pkg` | `add -D pkg` |
-| `i -g pkg` | `add -g pkg` | `global add pkg` | `add -g pkg` |
-| `run script` | `run script` | `run script` | `run script` |
-| `npx X` | `pnpm dlx X` | `yarn dlx X` | `bunx X` |
-| `npm create X` | `pnpm create X` | `yarn create X` | `bun create X` |
-
-Multiline commands are translated line by line.
-
-## API
-
-```rust
-pub struct NpmCommand;
-
-impl Transformer for NpmCommand {
-    fn name(&self) -> &str { "npm-command" }
-}
+```jsx
+<div data-rehype-pretty-code-fragment="">
+  <div data-theme="dark">
+    <PackageManagerTabs npm="npm install pkg" yarn="yarn add pkg" pnpm="pnpm add pkg" bun="bun add pkg" />
+  </div>
+  <div data-theme="light">
+    <PackageManagerTabs npm="npm install pkg" yarn="yarn add pkg" pnpm="pnpm add pkg" bun="bun add pkg" />
+  </div>
+</div>
 ```
 
-Path: `dmc_transform::NpmCommand`.
+The duplicate per-theme wrappers match velite's `rehype-pretty-code`
+fragment shape so consumers' theme-toggle CSS targets both blocks
+uniformly.
 
-## Example
+## Consumer contract
 
-Source:
+The consumer must register a `PackageManagerTabs` MDX component that
+reads the four string props and renders a tabbed UI. dmc does no UI
+rendering itself.
 
-````md
-```npm
-i react
+## Why string attrs?
 
-run dev
-```
-````
-
-Renders as a tabbed UI; the `pnpm` tab shows:
-
-```
-pnpm add react
-
-pnpm run dev
-```
-
-## Why a transformer
-
-Doc sites previously needed manual tab markup per command. This pass
-keeps the source single-line; the tab UI is generated.
-
-## Composing
-
-Runs before `PrettyCode` so the inner `<pre><code>` blocks inside
-each tab still get syntax-highlighted.
+Highlighted JSX subtrees would force the consumer's `<PackageManagerTabs>`
+to interpret pre-tokenised content. Plain strings let the consumer
+decide its own rendering (plain `<pre>`, syntax-coloured, terminal-styled,
+etc).
