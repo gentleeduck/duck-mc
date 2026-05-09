@@ -2,3 +2,4 @@ packages:
   - 'dmc-napi'
   - 'dmc-sidecar'
   - 'examples/*'
+  - '**/tmp'
