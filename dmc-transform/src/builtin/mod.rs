@@ -1,3 +1,4 @@
+mod assign_heading_ids;
 mod autolink_headings;
 mod bare_url;
 mod code_import;
@@ -17,6 +18,7 @@ mod npm_command;
 #[cfg(feature = "pretty-code")]
 mod pretty_code;
 
+pub use assign_heading_ids::AssignHeadingIds;
 pub use autolink_headings::AutolinkHeadings;
 pub use bare_url::BareUrlAutolink;
 pub use code_import::CodeImport;

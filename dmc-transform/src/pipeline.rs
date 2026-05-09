@@ -44,7 +44,13 @@ impl Pipeline {
   /// callers don't sprinkle `cfg!(feature = ...)` of their own.
   pub fn with_defaults_for(cfg: &PipelineConfig) -> Self {
     #[allow(unused_mut)]
-    let mut p = Self::new().add(crate::CodeImport::new()).add(crate::BareUrlAutolink);
+    let mut p = Self::new()
+      // Heading ids first: dedupe-aware github-slugger pass populates
+      // `Heading.id` so every downstream consumer (autolink, MDX/HTML
+      // emitters, TOC) sees the same value.
+      .add(crate::AssignHeadingIds::new())
+      .add(crate::CodeImport::new())
+      .add(crate::BareUrlAutolink);
     if cfg.autolink_headings != Some(false) {
       p = p.add(crate::AutolinkHeadings::new());
     }
@@ -55,12 +61,15 @@ impl Pipeline {
 
     #[cfg(feature = "npm-command")]
     {
-      p = p.add(crate::NpmCommand);
+      p = p.add(crate::NpmCommand::new());
     }
 
     #[cfg(feature = "mermaid")]
     {
-      p = p.add(crate::Mermaid::default());
+      if cfg.mermaid_enabled != Some(false) {
+        let m = cfg.mermaid.clone().map(crate::Mermaid::from_options).unwrap_or_default();
+        p = p.add(m);
+      }
     }
 
     #[cfg(feature = "emoji")]

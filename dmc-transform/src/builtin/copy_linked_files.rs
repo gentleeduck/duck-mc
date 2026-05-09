@@ -1,9 +1,12 @@
+//! Asset copy + URL rewrite. See `transformers/copy-linked-files.md`
+//! for full docs.
+
 use crate::pipeline::Transformer;
 use crate::visit::{NodeAction, Visitor, walk_root};
 use dmc_diagnostic::Code;
 use dmc_diagnostic::metadata::SourceMeta;
 use dmc_parser::ast::*;
-use duck_diagnostic::{Diagnostic, Label, Span};
+use duck_diagnostic::{Diagnostic, Label, Span, diag};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
@@ -69,18 +72,18 @@ impl<'a> Apply<'a> {
       Outcome::Published(url) => *raw_slot = url,
       Outcome::SourceMissing(path, err) => {
         self.pending.push(
-          Diagnostic::new(
+          diag!(
             Code::AssetSourceMissing,
-            format!("copy-linked-files: cannot read {} source {} ({})", kind, path.display(), err),
+            format!("copy-linked-files: cannot read {} source {} ({})", kind, path.display(), err)
           )
           .with_label(Label::primary(span, Some(format!("from this {}", kind)))),
         );
       },
       Outcome::CopyFailed(path, err) => {
         self.pending.push(
-          Diagnostic::new(
+          diag!(
             Code::AssetCopyFailed,
-            format!("copy-linked-files: failed to write asset {} ({})", path.display(), err),
+            format!("copy-linked-files: failed to write asset {} ({})", path.display(), err)
           )
           .with_label(Label::primary(span, Some(format!("for this {}", kind)))),
         );

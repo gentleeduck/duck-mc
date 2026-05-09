@@ -1,9 +1,4 @@
-//! Replace `:shortcode:` patterns in text with the matching Unicode emoji.
-//! Mirrors `remark-emoji` in the JS chain. Unknown shortcodes are left
-//! untouched so doc text containing colons (`:foo:bar:`) survives intact.
-//!
-//! Only `Text` nodes are visited - code blocks, inline code, JSX, and
-//! attribute values are left alone, matching the JS plugin's scope.
+//! Emoji shortcodes → unicode. See `transformers/emoji.md` for full docs.
 
 use crate::pipeline::Transformer;
 use crate::visit::{NodeAction, Visitor, walk_root};

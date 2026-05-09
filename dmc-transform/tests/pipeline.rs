@@ -1,35 +1,44 @@
 use dmc_parser::ast::*;
 use dmc_parser::parse;
-use dmc_transform::{AutolinkHeadings, CodeImport, Pipeline};
+use dmc_transform::{AssignHeadingIds, AutolinkHeadings, CodeImport, Pipeline};
+
+fn anchor_href(node: &Node) -> Option<String> {
+  match node {
+    Node::JsxElement(e) if e.name == "a" => e.attrs.iter().find_map(|a| match (&a.name[..], &a.value) {
+      ("href", JsxAttrValue::String(s)) => Some(s.clone()),
+      _ => None,
+    }),
+    _ => None,
+  }
+}
 
 #[test]
 fn pipeline_runs_autolink() {
   let mut d = parse("# Hello");
-  Pipeline::new().add(AutolinkHeadings::new()).run_silent(&mut d);
+  Pipeline::new().add(AssignHeadingIds::new()).add(AutolinkHeadings::new()).run_silent(&mut d);
   let h = match &d.children[0] {
     Node::Heading(h) => h,
     n => panic!("expected heading, got {:?}", n),
   };
-  assert_eq!(h.children.len(), 1);
-  match &h.children[0] {
-    Node::Link(l) => {
-      assert_eq!(l.href, "#hello");
-      assert_eq!(l.title.as_deref(), Some("Link to section"));
-    },
-    n => panic!("expected Link wrap, got {:?}", n),
-  }
+  // Prepend mode: anchor is the FIRST child, original text follows.
+  assert!(h.children.len() >= 2, "expected anchor + text, got {:?}", h.children);
+  assert_eq!(anchor_href(&h.children[0]).as_deref(), Some("#hello"));
 }
 
 #[test]
 fn idempotent() {
   let mut d = parse("# Hello");
-  Pipeline::new().add(AutolinkHeadings::new()).run_silent(&mut d);
-  Pipeline::new().add(AutolinkHeadings::new()).run_silent(&mut d);
+  Pipeline::new().add(AssignHeadingIds::new()).add(AutolinkHeadings::new()).run_silent(&mut d);
+  let first_pass_len = match &d.children[0] {
+    Node::Heading(h) => h.children.len(),
+    _ => unreachable!(),
+  };
+  Pipeline::new().add(AssignHeadingIds::new()).add(AutolinkHeadings::new()).run_silent(&mut d);
   let h = match &d.children[0] {
     Node::Heading(h) => h,
-    n => panic!("expected heading, got {:?}", n),
+    _ => unreachable!(),
   };
-  assert_eq!(h.children.len(), 1, "autolink should not double-wrap");
+  assert_eq!(h.children.len(), first_pass_len, "autolink should not double-prepend");
 }
 
 #[test]
@@ -40,7 +49,33 @@ fn defaults_pipeline_includes_autolink() {
     Node::Heading(h) => h,
     n => panic!("expected heading, got {:?}", n),
   };
-  assert!(matches!(h.children.first(), Some(Node::Link(_))));
+  assert_eq!(anchor_href(h.children.first().unwrap()).as_deref(), Some("#foo-bar"));
+}
+
+#[test]
+fn dedupe_assigns_unique_ids() {
+  let mut d = parse("## Patch Changes\n\n## Patch Changes\n\n## Patch Changes\n");
+  Pipeline::new().add(AssignHeadingIds::new()).run_silent(&mut d);
+  let ids: Vec<_> = d
+    .children
+    .iter()
+    .filter_map(|n| match n {
+      Node::Heading(h) => h.id.clone(),
+      _ => None,
+    })
+    .collect();
+  assert_eq!(ids, vec!["patch-changes", "patch-changes-1", "patch-changes-2"]);
+}
+
+#[test]
+fn slug_strips_dots() {
+  let mut d = parse("## 0.4.3\n");
+  Pipeline::new().add(AssignHeadingIds::new()).run_silent(&mut d);
+  let h = match &d.children[0] {
+    Node::Heading(h) => h,
+    _ => unreachable!(),
+  };
+  assert_eq!(h.id.as_deref(), Some("043"));
 }
 
 // #[test]

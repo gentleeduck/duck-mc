@@ -1,3 +1,5 @@
+//! Bare-URL autolinker. See `transformers/bare-url.md` for full docs.
+
 use crate::pipeline::Transformer;
 use crate::visit::{NodeAction, Visitor, walk_root};
 use dmc_diagnostic::Code;
@@ -72,11 +74,29 @@ impl Apply {
         continue;
       }
       let url_end = after.find(|c: char| c.is_whitespace() || c == ')' || c == '<' || c == '>').unwrap_or(after.len());
-      let url = &after[..url_end];
+      let mut url = &after[..url_end];
+      // GFM autolink: trailing punctuation (`.,;:!?`) and an unmatched
+      // closing `)` are *not* part of the URL — they're sentence
+      // punctuation that follows it. Trim them off so the autolink stops
+      // at the URL proper, with the punctuation surfacing as text.
+      let mut trail_len = 0;
+      while let Some(last) = url.chars().last() {
+        match last {
+          '.' | ',' | ';' | ':' | '!' | '?' => {
+            trail_len += last.len_utf8();
+            url = &url[..url.len() - last.len_utf8()];
+          },
+          _ => break,
+        }
+      }
       if !before.is_empty() {
         out.push(Piece::Text(before.to_string()));
       }
       out.push(Piece::Url(url.to_string()));
+      let trailing = &after[url_end - trail_len..url_end];
+      if !trailing.is_empty() {
+        out.push(Piece::Text(trailing.to_string()));
+      }
       rest = &after[url_end..];
     }
     if !rest.is_empty() {

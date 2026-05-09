@@ -43,7 +43,7 @@ pipeline.transform(&mut document, &meta, &mut diag);
 
 - [crates.io](https://crates.io/crates/dmc-transform)
 - [docs.rs](https://docs.rs/dmc-transform)
-- Per-crate guide in the repo: see [`../README.md`](../README.md)
+- Full docs in the [dmc-docs/](../dmc-docs/dmc-transform/) folder (per-source-file walkthrough)
 
 ## Contributing
 

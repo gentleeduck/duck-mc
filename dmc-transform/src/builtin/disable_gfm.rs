@@ -1,3 +1,5 @@
+//! GFM stripper. See `transformers/disable-gfm.md` for full docs.
+
 use crate::pipeline::Transformer;
 use dmc_diagnostic::{Code, metadata::SourceMeta};
 use dmc_parser::ast::*;

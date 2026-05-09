@@ -1,20 +1,11 @@
-//! Render LaTeX in `$...$` (inline) and `$$...$$` (block) to KaTeX HTML
-//! via the embedded KaTeX engine (`katex` crate, quick-js backend).
-//! Output is byte-equivalent to the JS chain `remark-math` +
-//! `rehype-katex`. Consumers must ship `katex.min.css` for glyphs.
-//!
-//! Block-level math (a paragraph whose entire content is `$$...$$`)
-//! replaces the wrapping `<p>` so the rendered HTML lands at block level.
-//!
-//! Escaped delimiters (`\$`) pass through as literal `$`. Parse failures
-//! emit `<span class="math-error">` wrapping the original LaTeX.
+//! LaTeX → KaTeX/MathML. See `transformers/math.md` for full docs.
 
 use crate::pipeline::Transformer;
 use crate::visit::{NodeAction, Visitor, walk_root};
-use dmc_diagnostic::Code;
 use dmc_diagnostic::metadata::SourceMeta;
+use dmc_diagnostic::{Code, DiagResult};
 use dmc_parser::ast::*;
-use duck_diagnostic::DiagnosticEngine;
+use duck_diagnostic::{DiagnosticEngine, diag};
 use std::collections::HashMap;
 use std::sync::{Mutex, OnceLock};
 
@@ -108,7 +99,17 @@ impl Math {
   }
 
   fn render_katex(latex: &str, display: bool) -> String {
-    let opts = if display { Self::display_opts() } else { Self::inline_opts() };
+    let opts_result = if display { Self::display_opts() } else { Self::inline_opts() };
+    let opts = match opts_result {
+      Ok(o) => o,
+      // KaTeX builder failure → fall back to the error placeholder
+      // so the build still completes. The diagnostic itself is
+      // discarded here because `render_katex` has no
+      // `&mut DiagnosticEngine` handle; callers that need to capture
+      // it should invoke `inline_opts()` / `display_opts()` directly
+      // and propagate the `Diagnostic<Code>`.
+      Err(_) => return Self::error_span(latex, display),
+    };
     match katex::render_with_opts(latex, opts) {
       Ok(html) => html,
       Err(_) => Self::error_span(latex, display),
@@ -163,53 +164,78 @@ impl Math {
     C.get_or_init(|| Mutex::new(HashMap::new()))
   }
 
-  /// Load a previously persisted math cache from `path`. Silently ignores
-  /// missing/corrupt files. Idempotent: existing in-memory entries are
-  /// kept (cache wins are additive).
-  pub fn load_cache(path: &std::path::Path) {
-    let Ok(s) = std::fs::read_to_string(path) else { return };
-    let Ok(rows) = serde_json::from_str::<Vec<(String, bool, u8, String)>>(&s) else { return };
-    let mut cache = Self::cache().lock().expect("math cache lock");
+  /// Load a previously persisted math cache from `path`. Missing or
+  /// corrupt files yield `Ok(())` (empty cache). Other IO errors
+  /// propagate as `IoRead`.
+  pub fn load_cache(path: &std::path::Path) -> DiagResult {
+    let s = match std::fs::read_to_string(path) {
+      Ok(s) => s,
+      Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+      Err(e) => return Err(diag!(Code::IoRead, format!("math cache read at {}: {}", path.display(), e))),
+    };
+
+    let rows = match serde_json::from_str::<Vec<(String, bool, u8, String)>>(&s) {
+      Ok(r) => r,
+      Err(_) => return Ok(()),
+    };
+
+    let mut cache = Self::cache().lock().map_err(|e| diag!(Code::LockPoisoned, format!("math cache lock: {}", e)))?;
+
     for (latex, display, eng, html) in rows {
       cache.entry((latex, display, u8_to_engine(eng))).or_insert(html);
     }
+    Ok(())
   }
 
   /// Persist the in-memory math cache to `path`. Best effort; errors
   /// are swallowed.
-  pub fn save_cache(path: &std::path::Path) {
+  pub fn save_cache(path: &std::path::Path) -> DiagResult {
     let cache = Self::cache().lock().expect("math cache lock");
     let rows: Vec<(String, bool, u8, String)> = cache
       .iter()
       .map(|((latex, display, eng), html)| (latex.clone(), *display, engine_to_u8(*eng), html.clone()))
       .collect();
-    let Ok(json) = serde_json::to_string(&rows) else { return };
+
+    let json =
+      serde_json::to_string(&rows).map_err(|e| diag!(Code::JsonSerialize, format!("math cache serialise: {}", e)))?;
+
     if let Some(parent) = path.parent() {
-      let _ = std::fs::create_dir_all(parent);
+      std::fs::create_dir_all(parent)
+        .map_err(|e| diag!(Code::IoCreateDir, format!("math cache dir at {}: {}", parent.display(), e)))?;
     }
-    let _ = std::fs::write(path, json);
+
+    std::fs::write(path, json)
+      .map_err(|e| diag!(Code::IoWrite, format!("math cache write at {}: {}", path.display(), e)))?;
+    Ok(())
   }
 
-  fn display_opts() -> &'static katex::Opts {
-    static O: OnceLock<katex::Opts> = OnceLock::new();
-    O.get_or_init(|| {
+  fn display_opts() -> DiagResult<&'static katex::Opts> {
+    static O: OnceLock<Result<katex::Opts, String>> = OnceLock::new();
+    let cached = O.get_or_init(|| {
       katex::Opts::builder()
         .display_mode(true)
         .output_type(katex::OutputType::HtmlAndMathml)
         .build()
-        .expect("katex opts")
-    })
+        .map_err(|e| e.to_string())
+    });
+    cached.as_ref().map_err(|e| diag!(Code::KatexOpts, format!("katex opts: {}", e)))
   }
 
-  fn inline_opts() -> &'static katex::Opts {
-    static O: OnceLock<katex::Opts> = OnceLock::new();
-    O.get_or_init(|| {
+  /// Build the KaTeX renderer once and cache. Inputs are all
+  /// hard-coded constants, so any builder failure here is a packaging
+  /// bug (e.g. a busted katex feature combo) — we surface it as
+  /// `Code::KatexOpts` (warning, not fatal) and let the caller decide
+  /// what to do with the unrenderable span.
+  fn inline_opts() -> DiagResult<&'static katex::Opts> {
+    static O: OnceLock<Result<katex::Opts, String>> = OnceLock::new();
+    let cached = O.get_or_init(|| {
       katex::Opts::builder()
         .display_mode(false)
         .output_type(katex::OutputType::HtmlAndMathml)
         .build()
-        .expect("katex opts")
-    })
+        .map_err(|e| e.to_string())
+    });
+    cached.as_ref().map_err(|e| diag!(Code::KatexOpts, format!("katex opts: {}", e)))
   }
 
   /// Render LaTeX as a self-closing `<MathMl/>` JsxSelfClosing node.
@@ -222,7 +248,7 @@ impl Math {
     })
   }
 
-  // ---------------------------------------------------------------- helpers
+  // helpers
 
   fn skip_fenced_code(source: &str, bytes: &[u8], i: usize) -> Option<usize> {
     if bytes[i] != b'`' || bytes.get(i + 1) != Some(&b'`') || bytes.get(i + 2) != Some(&b'`') {

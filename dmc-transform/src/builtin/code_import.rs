@@ -1,9 +1,11 @@
+//! `<CodeImport>` resolver. See `transformers/code-import.md` for full docs.
+
 use crate::pipeline::Transformer;
 use crate::visit::{NodeAction, Visitor, walk_root};
 use dmc_diagnostic::Code;
 use dmc_diagnostic::metadata::{Origin, SourceMeta};
 use dmc_parser::ast::*;
-use duck_diagnostic::{Diagnostic, Label};
+use duck_diagnostic::{Diagnostic, Label, diag};
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -108,12 +110,12 @@ impl Transformer for CodeImport {
 
     // Walk continues even on warning so absolute `file=` paths still resolve.
     if base_dir.is_none() {
-      diag_engine.emit(Diagnostic::new(
+      diag_engine.emit(diag!(
         Code::BaseDirNotFound,
         format!(
           "code-import: source has no on-disk parent (origin = {:?}); relative `file=` paths cannot be resolved",
           meta.origin
-        ),
+        )
       ));
     }
 
@@ -140,10 +142,9 @@ impl Visitor for Apply {
       if let Some(rs) = &ranges
         && rs.is_empty()
       {
-        self.pending.push(Diagnostic::new(
-          Code::InvalidLineRange,
-          format!("code-import: line range in `{}` is empty / malformed", meta),
-        ));
+        self
+          .pending
+          .push(diag!(Code::InvalidLineRange, format!("code-import: line range in `{}` is empty / malformed", meta)));
         return NodeAction::Keep;
       }
 
@@ -160,7 +161,7 @@ impl Visitor for Apply {
         },
         Err(e) => {
           self.pending.push(
-            Diagnostic::new(Code::ImportFileNotFound, format!("code-import: cannot read {} ({})", path.display(), e))
+            diag!(Code::ImportFileNotFound, format!("code-import: cannot read {} ({})", path.display(), e))
               .with_label(Label::primary(cb.span.clone(), Some(format!("imported from {}", self.meta_path)))),
           );
         },

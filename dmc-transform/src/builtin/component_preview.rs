@@ -1,9 +1,12 @@
+//! `<ComponentPreview>` resolver. See `transformers/component-preview.md`
+//! for full docs.
+
 use crate::pipeline::Transformer;
 use crate::visit::{NodeAction, Visitor, walk_root};
 use dmc_diagnostic::Code;
 use dmc_diagnostic::metadata::SourceMeta;
 use dmc_parser::ast::*;
-use duck_diagnostic::{Diagnostic, Label};
+use duck_diagnostic::{Diagnostic, Label, diag};
 use std::path::PathBuf;
 
 /// Replace `<ComponentPreview name="X" />` with a `CodeBlock` carrying the
@@ -57,9 +60,9 @@ impl Transformer for ComponentPreview {
     let raw = match std::fs::read_to_string(idx) {
       Ok(r) => r,
       Err(e) => {
-        diag_engine.emit(Diagnostic::new(
+        diag_engine.emit(diag!(
           Code::RegistryIndexUnreadable,
-          format!("component-preview: cannot read registry index {} ({})", idx.display(), e),
+          format!("component-preview: cannot read registry index {} ({})", idx.display(), e)
         ));
         return;
       },
@@ -67,9 +70,9 @@ impl Transformer for ComponentPreview {
     let index: serde_json::Value = match serde_json::from_str(&raw) {
       Ok(v) => v,
       Err(e) => {
-        diag_engine.emit(Diagnostic::new(
+        diag_engine.emit(diag!(
           Code::RegistryIndexMalformed,
-          format!("component-preview: registry index {} is not valid JSON ({})", idx.display(), e),
+          format!("component-preview: registry index {} is not valid JSON ({})", idx.display(), e)
         ));
         return;
       },
@@ -101,33 +104,29 @@ impl Visitor for Apply {
     };
     let Some(name) = name_opt else {
       self.pending.push(
-        Diagnostic::new(Code::MissingComponentAttr, "component-preview: missing required `name` attribute".to_string())
+        diag!(Code::MissingComponentAttr, "component-preview: missing required `name` attribute".to_string())
           .with_label(Label::primary(span, Some("on this <ComponentPreview>".into()))),
       );
       return NodeAction::Keep;
     };
     let Some(entry) = ComponentPreview::lookup_entry(&self.index, &name) else {
       self.pending.push(
-        Diagnostic::new(
-          Code::RegistryEntryNotFound,
-          format!("component-preview: registry has no entry for `{}`", name),
-        )
-        .with_label(Label::primary(span, Some("not found".into()))),
+        diag!(Code::RegistryEntryNotFound, format!("component-preview: registry has no entry for `{}`", name))
+          .with_label(Label::primary(span, Some("not found".into()))),
       );
       return NodeAction::Keep;
     };
     let files = entry.get("files").and_then(|v| v.as_array());
     let Some(files) = files else {
-      self.pending.push(Diagnostic::new(
-        Code::RegistryEntryNotFound,
-        format!("component-preview: entry `{}` has no `files` array", name),
-      ));
+      self
+        .pending
+        .push(diag!(Code::RegistryEntryNotFound, format!("component-preview: entry `{}` has no `files` array", name)));
       return NodeAction::Keep;
     };
     let Some(first) = files.first() else {
-      self.pending.push(Diagnostic::new(
+      self.pending.push(diag!(
         Code::RegistryEntryNotFound,
-        format!("component-preview: entry `{}` has empty `files` array", name),
+        format!("component-preview: entry `{}` has empty `files` array", name)
       ));
       return NodeAction::Keep;
     };
@@ -141,11 +140,8 @@ impl Visitor for Apply {
       },
       Err(e) => {
         self.pending.push(
-          Diagnostic::new(
-            Code::RegistrySourceUnreadable,
-            format!("component-preview: cannot read {} ({})", abs.display(), e),
-          )
-          .with_label(Label::primary(span, Some(format!("for `{}`", name)))),
+          diag!(Code::RegistrySourceUnreadable, format!("component-preview: cannot read {} ({})", abs.display(), e))
+            .with_label(Label::primary(span, Some(format!("for `{}`", name)))),
         );
         NodeAction::Keep
       },
