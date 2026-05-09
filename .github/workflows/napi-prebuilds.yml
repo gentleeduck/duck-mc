@@ -129,6 +129,18 @@ jobs:
           path: ${{ env.WORKDIR }}/*.node
           if-no-files-found: error
 
+      # The napi-rs CLI also writes a deterministic index.js / index.d.ts
+      # shim alongside the .node files. Upload it from one matrix entry
+      # so the publish job has exactly one copy to ship.
+      - uses: actions/upload-artifact@v4
+        if: matrix.settings.target == 'x86_64-unknown-linux-gnu'
+        with:
+          name: napi-shim
+          path: |
+            ${{ env.WORKDIR }}/index.js
+            ${{ env.WORKDIR }}/index.d.ts
+          if-no-files-found: error
+
   publish:
     name: publish to npm
     needs: build
