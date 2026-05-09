@@ -46,7 +46,7 @@ let out = schema.parse(&value, &Ctx::empty())?;
 
 - [crates.io](https://crates.io/crates/dmc-schema)
 - [docs.rs](https://docs.rs/dmc-schema)
-- Per-crate guide in the repo: see [`../README.md`](../README.md)
+- Full docs in the [dmc-docs/](../dmc-docs/dmc-schema/) folder (per-source-file walkthrough)
 
 ## Contributing
 

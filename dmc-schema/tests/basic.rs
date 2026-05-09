@@ -132,6 +132,9 @@ fn unique_dedupes() {
 fn metadata_and_excerpt_use_ctx() {
   use dmc_schema::Ctx;
   let mut c = Ctx::empty();
+  // `metadata` now reads `ctx.body` (raw post-frontmatter source) to
+  // match velite's `s.metadata()`; `excerpt` keeps using `plain_text`.
+  c.body = "alpha beta gamma delta epsilon zeta".repeat(20);
   c.plain_text = Some("alpha beta gamma delta epsilon zeta".repeat(20));
 
   let m = s::metadata().parse(&json!(null), &c).unwrap();

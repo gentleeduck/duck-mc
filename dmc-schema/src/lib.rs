@@ -1,3 +1,6 @@
+//! User-facing walkthrough: ../../dmc-docs/dmc-schema/
+//! Run `cargo doc --open -p dmc-schema` for the inline rustdoc.
+
 //! Schema builder. `s::*`
 //!
 //! ```
