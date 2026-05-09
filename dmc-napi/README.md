@@ -78,7 +78,7 @@ Repo: [github.com/gentleeduck/duck-mc](https://github.com/gentleeduck/duck-mc)
 - duck-ui website cross-link:
   [github.com/gentleeduck/duck-ui](https://github.com/gentleeduck/duck-ui)
 - Migration from velite:
-  [`docs/migrating-from-velite.md`](https://github.com/gentleeduck/duck-mc/blob/master/docs/migrating-from-velite.md)
+  [`dmc-docs/guides/migrating-from-velite.md`](https://github.com/gentleeduck/duck-mc/blob/master/dmc-docs/guides/migrating-from-velite.md)
 
 ## Benchmarks
 

@@ -1,4 +1,8 @@
 #!/usr/bin/env node
+// User-facing walkthrough: ../dmc-docs/dmc-sidecar/
+// Node helper that runs foreign remark/rehype plugins on dmc
+// output. Protocol + plugin recipes live in the docs folder.
+
 import { unified } from "unified";
 import remarkParse from "remark-parse";
 import remarkRehype from "remark-rehype";

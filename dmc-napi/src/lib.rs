@@ -83,8 +83,35 @@ pub struct BuildInput {
   ///   "remark-gfm", "remark-math", "remark-emoji",
   ///   "rehype-pretty-code", "shiki",
   ///   "rehype-katex", "rehype-mathjax",
-  ///   "rehype-slug", "rehype-autolink-headings"
+  ///   "rehype-slug", "rehype-autolink-headings",
+  ///   "mermaid", "rehype-mermaid", "remark-mermaid"
   pub prefer_sidecar: Option<Vec<String>>,
+  /// Mermaid render config. Free-form JSON deserialised into
+  /// `MermaidOptions`:
+  ///   theme:               string | { [mode: string]: string }
+  ///   config:              any (forwarded to mmdc --configFile)
+  ///   backgroundColor:     string ("transparent" by default)
+  ///   htmlLabels:          boolean (default false)
+  ///   responsiveSvg:       boolean (default true)
+  ///   centerLabels:        boolean (default true)
+  ///   outputDir:           string (disk SVG cache)
+  ///   puppeteerConfigFile: string
+  pub mermaid: Option<Value>,
+  /// Pretty-code config. Free-form JSON deserialised into
+  /// `PrettyCodeOptions`:
+  ///   theme:               string | { [mode: string]: string }
+  ///   defaultMode:         string
+  ///   keepRawString:       boolean (default true)
+  ///   fragmentWrapper:     boolean (default true)
+  ///   lineClass:           string ("line" by default)
+  ///   highlightedLineAttr: string ("data-dmc-line-highlighted" by default)
+  ///   defaultLanguage:     string ("plaintext" by default)
+  ///   fallbackToPlaintext: boolean (default true)
+  ///   renderTitle:         boolean (default true)
+  ///   includeDataLanguage: boolean (default true)
+  ///   skipLanguages:       string[]
+  ///   tabSize:             number
+  pub pretty_code: Option<Value>,
 }
 
 #[napi(object)]
@@ -95,8 +122,27 @@ pub struct BuildCollectionReport {
 }
 
 #[napi(object)]
+pub struct DiagnosticReport {
+  /// Stable error code, e.g. `T007`, `TW005`, `E001`.
+  pub code: String,
+  /// One of `bug | error | warning | help | note`.
+  pub severity: String,
+  /// Human-readable summary line.
+  pub message: String,
+  /// Optional follow-up help text (e.g. `bundled themes: …`).
+  pub help: Option<String>,
+  /// First label's source-file path (when present). Lets the
+  /// JS-side formatter prefix `path:line:col` like rustc does.
+  pub file: Option<String>,
+  /// First label's 1-based line.
+  pub line: Option<u32>,
+  /// First label's 1-based column.
+  pub column: Option<u32>,
+}
+
+#[napi(object)]
 pub struct BuildReport {
-  pub diagnostics: Vec<String>,
+  pub diagnostics: Vec<DiagnosticReport>,
   pub collections: Vec<BuildCollectionReport>,
   pub errors: Vec<String>,
 }
@@ -123,7 +169,22 @@ pub fn build(input: BuildInput) -> Result<BuildReport> {
     copy_linked_files: input.copy_linked_files.unwrap_or(false),
     output_assets: input.output_assets,
     output_base: input.output_base,
-    pretty_code: None,
+    pretty_code: input
+      .pretty_code
+      .as_ref()
+      .map(|v| {
+        serde_json::from_value::<dmc::PrettyCodeOptions>(v.clone())
+          .map_err(|e| Error::from_reason(format!("invalid prettyCode config: {e}")))
+      })
+      .transpose()?,
+    mermaid: input
+      .mermaid
+      .as_ref()
+      .map(|v| {
+        serde_json::from_value::<dmc::MermaidOptions>(v.clone())
+          .map_err(|e| Error::from_reason(format!("invalid mermaid config: {e}")))
+      })
+      .transpose()?,
     math_engine: None,
     force_sidecar: input.force_sidecar.unwrap_or(false),
     prefer_sidecar: input.prefer_sidecar.unwrap_or_default(),
@@ -153,7 +214,16 @@ pub fn build(input: BuildInput) -> Result<BuildReport> {
   };
 
   let mut diag = DiagnosticEngine::<Code>::new();
-  Engine::run(&cfg, None, &mut diag).map_err(|e| Error::from_reason(e.to_string()))?;
+  // `Engine::run` now returns `DiagResult`. The
+  // diagnostic carries `code` + `message`; we lose `help` / labels at
+  // the napi boundary because napi-rs needs a `String` error. The
+  // structured detail still ships back to JS via
+  // `BuildReport.diagnostics`, so the message-only conversion here is
+  // fine for the abort path.
+  if let Err(d) = Engine::run(&cfg, None, &mut diag) {
+    use duck_diagnostic::DiagnosticCode;
+    return Err(Error::from_reason(format!("{}: {}", d.code.code(), d.message)));
+  }
 
   // Surface enough collection metadata for the JS-side `build()` wrapper
   // to do its in-process unified pipeline pass. Engine writes one JSON
@@ -177,9 +247,34 @@ pub fn build(input: BuildInput) -> Result<BuildReport> {
     })
     .collect();
 
-  Ok(BuildReport {
-    diagnostics: diag.iter().map(|d| format!("{:?}", d)).collect(),
-    collections,
-    errors: Vec::new(),
-  })
+  let diagnostics: Vec<DiagnosticReport> = diag
+    .iter()
+    .map(|d| {
+      use duck_diagnostic::DiagnosticCode;
+      let first_label = d.labels.first();
+      DiagnosticReport {
+        code: d.code.code().to_string(),
+        severity: severity_label(d.severity),
+        message: d.message.clone(),
+        help: d.help.clone(),
+        file: first_label.map(|l| l.span.file.to_string()),
+        line: first_label.map(|l| l.span.line as u32),
+        column: first_label.map(|l| l.span.column as u32),
+      }
+    })
+    .collect();
+
+  Ok(BuildReport { diagnostics, collections, errors: Vec::new() })
+}
+
+fn severity_label(s: duck_diagnostic::Severity) -> String {
+  use duck_diagnostic::Severity;
+  match s {
+    Severity::Bug => "bug",
+    Severity::Error => "error",
+    Severity::Warning => "warning",
+    Severity::Help => "help",
+    Severity::Note => "note",
+  }
+  .to_string()
 }

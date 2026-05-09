@@ -1,6 +1,6 @@
 {
 	"name": "@gentleduck/md",
-	"version": "0.2.2",
+	"version": "0.2.3",
 	"description": "Native Rust MDX compiler with a velite-shaped TypeScript API",
 	"license": "MIT",
 	"author": "gentleduck",
@@ -56,6 +56,9 @@
 	"dependencies": {
 		"unified": "^11",
 		"remark-parse": "^11",
+		"remark-mdx": "^3",
+		"remark-frontmatter": "^5",
+		"remark-stringify": "^11",
 		"remark-rehype": "^11",
 		"rehype-raw": "^7",
 		"rehype-stringify": "^10"
