@@ -806,7 +806,7 @@ fn run_per_file_sweep() -> Vec<PerFileEntry> {
 }
 
 fn run_scale_variants(variants: &mut Vec<Variant>, skipped: &mut Vec<SkipNote>) {
-  // 1. Native ---------------------------------------------------------------
+  // 1. Native
   println!("\n[native, no plugins]  {} iters after {} warmup, cold rebuild", SCALE_ITERS, SCALE_WARMUP);
   let mut native_points = Vec::new();
   for &n in SCALES {
@@ -818,7 +818,7 @@ fn run_scale_variants(variants: &mut Vec<Variant>, skipped: &mut Vec<SkipNote>) 
   }
   variants.push(Variant { label: "native".into(), points: native_points });
 
-  // 2-7. JS-side scenarios require sidecar + bench-deps. ---------------------
+  // 2-7. JS-side scenarios require sidecar + bench-deps.
   let path = match check_sidecar_ready() {
     Ok(p) => p,
     Err(reason) => {
@@ -854,7 +854,7 @@ fn run_scale_variants(variants: &mut Vec<Variant>, skipped: &mut Vec<SkipNote>) 
     },
   };
 
-  // 2. Sidecar + remark-gfm ------------------------------------------------
+  // 2. Sidecar + remark-gfm
   println!("\n[sidecar + remark-gfm]  medium fixture, pool reset between scales");
   let mut points = Vec::new();
   for &n in SCALES {
@@ -866,7 +866,7 @@ fn run_scale_variants(variants: &mut Vec<Variant>, skipped: &mut Vec<SkipNote>) 
   }
   variants.push(Variant { label: "sidecar+remark-gfm".into(), points });
 
-  // 3. Sidecar + pretty-code ------------------------------------------------
+  // 3. Sidecar + pretty-code
   println!("\n[sidecar + remark-gfm + rehype-pretty-code (shiki)]  medium fixture");
   let mut points = Vec::new();
   for &n in SCALES {
@@ -884,7 +884,7 @@ fn run_scale_variants(variants: &mut Vec<Variant>, skipped: &mut Vec<SkipNote>) 
   }
   variants.push(Variant { label: "sidecar+pretty-code".into(), points });
 
-  // 4. Sidecar + kitchen-sink ----------------------------------------------
+  // 4. Sidecar + kitchen-sink
   println!("\n[sidecar + kitchen-sink: gfm + math + katex + emoji + shiki + slug + autolink]  heavy fixture");
   let mut points = Vec::new();
   for &n in SCALES {
@@ -896,7 +896,7 @@ fn run_scale_variants(variants: &mut Vec<Variant>, skipped: &mut Vec<SkipNote>) 
   }
   variants.push(Variant { label: "sidecar+kitchen-sink".into(), points });
 
-  // 5. Velite light --------------------------------------------------------
+  // 5. Velite light
   println!("\n[velite + remark-gfm]  reference, medium fixture");
   let mut points = Vec::new();
   let mut light_fail: Option<String> = None;
@@ -922,7 +922,7 @@ fn run_scale_variants(variants: &mut Vec<Variant>, skipped: &mut Vec<SkipNote>) 
     skipped.push(SkipNote { variant: "velite+remark-gfm".into(), reason: r });
   }
 
-  // 6. Velite kitchen-sink -------------------------------------------------
+  // 6. Velite kitchen-sink
   println!("\n[velite + kitchen-sink]  reference, heavy fixture");
   let mut points = Vec::new();
   let mut heavy_fail: Option<String> = None;

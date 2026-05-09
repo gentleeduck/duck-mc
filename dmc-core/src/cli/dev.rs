@@ -2,8 +2,8 @@ use std::path::PathBuf;
 use std::sync::mpsc::channel;
 use std::time::{Duration, Instant};
 
-use dmc_diagnostic::Code;
-use duck_diagnostic::{DiagnosticEngine, print_all_smart};
+use dmc_diagnostic::{Code, DiagResult};
+use duck_diagnostic::{Diagnostic, DiagnosticEngine, diag, print_all_smart};
 use notify_debouncer_mini::{new_debouncer, notify::RecursiveMode};
 
 use crate::{Engine, engine::config::EngineConfig};
@@ -24,7 +24,7 @@ pub struct DevCmd {
 }
 
 impl DevCmd {
-  pub fn run(self) -> std::io::Result<()> {
+  pub fn run(self) -> DiagResult<Diagnostic<Code>> {
     let mut cfg = EngineConfig::load(&self.config)?;
     if self.strict {
       cfg.strict = true;
@@ -33,17 +33,27 @@ impl DevCmd {
       cfg.clean = true;
     }
 
-    rebuild(&cfg, &self.config, "initial");
+    rebuild(&cfg, &self.config, "initial")?;
 
     let (tx, rx) = channel();
-    let mut deb =
-      new_debouncer(Duration::from_millis(self.debounce), tx).map_err(|e| std::io::Error::other(e.to_string()))?;
+    let mut deb = new_debouncer(Duration::from_millis(self.debounce), tx).map_err(|e| {
+      diag!(
+        Code::Custom { code: String::from("N001"), severity: duck_diagnostic::Severity::Note },
+        format!("watch error: {}", e.to_string())
+      )
+    })?;
 
     let mut roots: Vec<PathBuf> = cfg.collections.iter().map(|c| c.base_dir.clone()).collect();
     roots.push(self.config.clone());
+
     for r in &roots {
       if r.exists() {
-        deb.watcher().watch(r, RecursiveMode::Recursive).map_err(|e| std::io::Error::other(e.to_string()))?;
+        deb.watcher().watch(r, RecursiveMode::Recursive).map_err(|e| {
+          diag!(
+            Code::Custom { code: String::from("N001"), severity: duck_diagnostic::Severity::Note },
+            format!("watch error: {}", e.to_string())
+          )
+        })?;
       }
     }
 
@@ -56,38 +66,39 @@ impl DevCmd {
       let config_changed = touched.iter().any(|p| p.canonicalize().ok() == cfg_canon);
 
       if config_changed {
-        match EngineConfig::load(&self.config) {
-          Ok(mut next) => {
-            if self.strict {
-              next.strict = true;
-            }
-            if self.clean {
-              next.clean = true;
-            }
-            cfg = next;
-          },
-          Err(e) => {
-            eprintln!("config reload failed: {e}");
-            continue;
-          },
+        let mut next = EngineConfig::load(&self.config)?;
+
+        if self.strict {
+          next.strict = true;
         }
+        if self.clean {
+          next.clean = true;
+        }
+
+        cfg = next;
       }
 
-      rebuild(&cfg, &self.config, if config_changed { "config" } else { "files" });
+      rebuild(&cfg, &self.config, if config_changed { "config" } else { "files" })?;
     }
 
-    Ok(())
+    Ok(diag!(
+      Code::Custom { code: String::from("N001"), severity: duck_diagnostic::Severity::Note },
+      format!("watching {} root(s) - Ctrl-C to stop", roots.len())
+    ))
   }
 }
 
-fn rebuild(cfg: &EngineConfig, config_path: &std::path::Path, trigger: &str) {
+fn rebuild(cfg: &EngineConfig, config_path: &std::path::Path, _trigger: &str) -> DiagResult {
   let mut diag_engine = DiagnosticEngine::<Code>::new();
   let started = Instant::now();
-  let result = Engine::run(cfg, Some(config_path), &mut diag_engine);
+  Engine::run(cfg, Some(config_path), &mut diag_engine)?;
   let elapsed = started.elapsed();
   print_all_smart(&diag_engine, None);
-  match result {
-    Ok(()) => println!("rebuilt ({trigger}) in {:?}", elapsed),
-    Err(e) => eprintln!("build error ({trigger}): {e}"),
-  }
+
+  diag_engine.emit(diag!(
+    Code::Custom { code: String::from("N001"), severity: duck_diagnostic::Severity::Note },
+    format!("built in {:<.3?}", elapsed)
+  ));
+
+  Ok(())
 }

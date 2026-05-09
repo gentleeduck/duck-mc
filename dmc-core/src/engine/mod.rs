@@ -1,7 +1,8 @@
 use std::path::Path;
 
-use dmc_diagnostic::Code;
-use duck_diagnostic::DiagnosticEngine;
+use dmc_diagnostic::{Code, DiagResult};
+use duck_diagnostic::{DiagnosticEngine, diag};
+use rayon::prelude::*;
 
 use crate::engine::config::EngineConfig;
 
@@ -22,22 +23,38 @@ impl Engine {
   /// collection in parallel via rayon, then emit `index.js` + `index.d.ts`
   /// re-exporting each `<name>.json`. With a TS/JS `config_path`, the
   /// generated `index.d.ts` infers record types via `typeof import(...)`.
-  pub fn run(
-    cfg: &EngineConfig,
-    config_path: Option<&Path>,
-    diag_engine: &mut DiagnosticEngine<Code>,
-  ) -> std::io::Result<()> {
+  pub fn run(cfg: &EngineConfig, config_path: Option<&Path>, diag_engine: &mut DiagnosticEngine<Code>) -> DiagResult {
     if cfg.clean && cfg.output_dir.exists() {
-      std::fs::remove_dir_all(&cfg.output_dir)?;
-    }
-    std::fs::create_dir_all(&cfg.output_dir)?;
+      let paths: Vec<_> = ["index.js", "index.d.ts", "index.cjs"]
+        .iter()
+        .map(|n| cfg.output_dir.join(n))
+        .chain(cfg.collections.iter().map(|c| cfg.output_dir.join(format!("{}.json", c.name))))
+        .collect();
 
-    // Warm the math (KaTeX/MathML) cache from disk so previously-rendered
-    // expressions skip the JS engine entirely on this build.
+      let errors: Vec<_> = paths
+        .par_iter()
+        .filter_map(|p| match std::fs::remove_file(p) {
+          Err(e) if e.kind() != std::io::ErrorKind::NotFound => Some(e),
+          _ => None,
+        })
+        .collect();
+
+      for e in errors {
+        diag_engine.emit(diag!(Code::IoWrite, format!("clean: remove failed: {e}")));
+      }
+    }
+
+    std::fs::create_dir_all(&cfg.output_dir).map_err(|e| {
+      diag!(
+        Code::Custom { code: String::from("N001"), severity: duck_diagnostic::Severity::Note },
+        format!("output_dir error: {}", e.to_string())
+      )
+    })?;
+
     let math_cache_path = cfg.output_dir.join(".cache").join("math.json");
     #[cfg(feature = "math")]
     if cfg.cache_enabled {
-      dmc_transform::Math::load_cache(&math_cache_path);
+      dmc_transform::Math::load_cache(&math_cache_path)?;
     }
 
     for c in &cfg.collections {
@@ -47,7 +64,7 @@ impl Engine {
     // Flush math cache so the next build starts warm.
     #[cfg(feature = "math")]
     if cfg.cache_enabled {
-      dmc_transform::Math::save_cache(&math_cache_path);
+      dmc_transform::Math::save_cache(&math_cache_path)?;
     }
     let _ = math_cache_path;
 

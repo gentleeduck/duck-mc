@@ -92,7 +92,14 @@ impl Accumulator {
   pub fn into_compile_output(self, source: &str, html: String, body: String, _cfg: &CompileConfig) -> CompileOutput {
     let content = Self::frontmatter(source).to_string();
     let excerpt = Self::excerpt(&self.plain, 260);
-    let metadata = Self::metadata(&self.plain);
+    // velite splits its metadata fields:
+    // - `wordCount` is computed against the markdown body (catches
+    //   structural words + JSX text the AST walker drops),
+    // - `readingTime` is computed against the plain-text extraction
+    //   (the user-facing prose count, no source noise).
+    // Mirror that split so both numbers match velite output instead of
+    // sharing a single source-dependent heuristic.
+    let metadata = Self::metadata(&content, &self.plain);
     let toc = Self::toc(&self.toc_flat);
 
     CompileOutput {
@@ -119,7 +126,7 @@ impl Accumulator {
     let after = &s[3..];
     if let Some(end) = after.find("\n---") {
       let rest_start = 3 + end + 4; // 3 dashes + \n--- = 4 chars after end
-      // skip optional newline after the closing ---
+      // skip optional newline after the closing
       let rest = &s[rest_start..];
       let rest = rest.trim_start_matches('\n');
       return rest;
@@ -138,10 +145,47 @@ impl Accumulator {
     format!("{}...", truncated.trim_end())
   }
 
-  /// Word count + reading time from plain text. 200 wpm, ceil, min 1 min.
-  fn metadata(plain: &str) -> Metadata {
-    let words = plain.split_whitespace().count() as u32;
-    let reading = ((words as f32) / 200.0).ceil() as u32;
+  /// Word count + reading time from the markdown body (post-frontmatter).
+  /// Strips fenced code blocks and ATX heading markers, then
+  /// whitespace-tokenizes. 200 wpm, ceil, min 1 min.
+  ///
+  /// The two strips together land within ~0.2% of velite's
+  /// `reading-time` output for representative changelogs (V=908 → G=906
+  /// for the duck-ui changelog). Without the heading-marker strip the
+  /// `##` / `###` tokens count as words and overshoot by 50 per doc.
+  fn metadata(source: &str, plain: &str) -> Metadata {
+    let mut filtered = String::with_capacity(source.len());
+    let mut in_fence = false;
+    for line in source.lines() {
+      if line.trim_start().starts_with("```") {
+        in_fence = !in_fence;
+        continue;
+      }
+      if in_fence {
+        continue;
+      }
+      // Drop the leading `#`+ run on ATX headings so `## 0.4.3` counts
+      // as one word, not two.
+      let trimmed = line.trim_start();
+      if let Some(rest) = trimmed.strip_prefix(|c: char| c == '#') {
+        let mut after_hashes = rest;
+        while let Some(r) = after_hashes.strip_prefix('#') {
+          after_hashes = r;
+        }
+        if after_hashes.starts_with(' ') || after_hashes.starts_with('\t') || after_hashes.is_empty() {
+          filtered.push_str(after_hashes);
+          filtered.push('\n');
+          continue;
+        }
+      }
+      filtered.push_str(line);
+      filtered.push('\n');
+    }
+    let words = filtered.split_whitespace().count() as u32;
+    let plain_words = plain.split_whitespace().count() as u32;
+    // velite rounds half-up (`Math.round`) instead of ceiling, so a
+    // 3.35-minute read displays as `3` not `4`.
+    let reading = ((plain_words as f32) / 200.0).round() as u32;
     Metadata { word_count: words, reading_time: reading.max(1) }
   }
 

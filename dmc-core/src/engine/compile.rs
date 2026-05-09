@@ -7,7 +7,7 @@ use dmc_diagnostic::{
 };
 use dmc_lexer::Lexer;
 use dmc_parser::{Parser, ast::Document};
-use dmc_transform::{CopyLinkedFilesOptions, MathEngine, PipelineConfig, PrettyCodeOptions};
+use dmc_transform::{CopyLinkedFilesOptions, MathEngine, MermaidOptions, PipelineConfig, PrettyCodeOptions};
 use duck_diagnostic::DiagnosticEngine;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -33,6 +33,11 @@ pub struct CompileConfig {
   /// (Catppuccin Latte/Mocha pair, dark primary, multi-mode CSS-vars
   /// output). `Some` = explicit theme spec.
   pub pretty_code: Option<PrettyCodeOptions>,
+  /// Mermaid render config. `None` = bundled defaults (light + dark
+  /// theme pair, `htmlLabels:false`, responsive SVG, centered labels).
+  /// `Some(MermaidOptions)` overrides theme set, mermaid initialize
+  /// config, post-process flags, etc.
+  pub mermaid: Option<MermaidOptions>,
   /// LaTeX engine for `$...$` / `$$...$$`. `None` = KaTeX (slow, exact
   /// rehype-katex parity). `Some(MathEngine::Mathml)` = pulldown-latex
   /// MathML (fast, plainer visuals).
@@ -70,6 +75,7 @@ impl Default for CompileConfig {
       output_assets: None,
       output_base: None,
       pretty_code: None,
+      mermaid: None,
       math_engine: None,
       force_sidecar: false,
       prefer_sidecar: vec![],
@@ -179,6 +185,7 @@ impl CompileConfig {
     let drop_emoji = prefers(&["remark-emoji"]);
     let drop_autolink_headings = prefers(&["rehype-slug", "rehype-autolink-headings"]);
     let drop_gfm = prefers(&["remark-gfm"]);
+    let drop_mermaid = prefers(&["mermaid", "rehype-mermaid", "remark-mermaid"]);
 
     PipelineConfig {
       markdown_gfm: Some(if drop_gfm { false } else { self.markdown_gfm }),
@@ -189,6 +196,8 @@ impl CompileConfig {
       autolink_headings: if drop_autolink_headings { Some(false) } else { None },
       math: if drop_math { Some(false) } else { None },
       pretty_code_enabled: if drop_pretty_code { Some(false) } else { None },
+      mermaid: if drop_mermaid { None } else { self.mermaid.clone() },
+      mermaid_enabled: if drop_mermaid { Some(false) } else { None },
     }
   }
 }

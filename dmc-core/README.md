@@ -43,7 +43,7 @@ Engine::run(&cfg, None, &mut diag)?;
 
 - [crates.io](https://crates.io/crates/dmc-core)
 - [docs.rs](https://docs.rs/dmc-core)
-- Per-crate guide in the repo: see [`../README.md`](../README.md)
+- Full docs in the [dmc-docs/](../dmc-docs/dmc-core/) folder (per-source-file walkthrough)
 
 ## Contributing
 

@@ -1,9 +1,8 @@
 use std::path::PathBuf;
 
 use crate::{Engine, engine::config::EngineConfig};
-use dmc_diagnostic::Code;
-use duck_diagnostic::{DiagnosticEngine, print_all_smart};
-
+use dmc_diagnostic::{Code, DiagResult};
+use duck_diagnostic::{Diagnostic, DiagnosticEngine, diag};
 /// `dmc build`: load config, run the engine once, print the report.
 #[derive(clap::Args)]
 pub struct BuildCmd {
@@ -18,10 +17,12 @@ pub struct BuildCmd {
 impl BuildCmd {
   /// Load config, run the engine once, print the report. `strict` aborts
   /// on the first validation failure; `clean` wipes `output_dir` first.
-  pub fn run(self) -> std::io::Result<()> {
+  pub fn run(self) -> DiagResult<Diagnostic<Code>> {
     let mut diag_engine = DiagnosticEngine::<Code>::new();
+    let started = std::time::Instant::now();
 
     let mut engine_cfg = EngineConfig::load(&self.config)?;
+
     if self.strict {
       engine_cfg.strict = true;
     }
@@ -31,10 +32,9 @@ impl BuildCmd {
 
     Engine::run(&engine_cfg, Some(&self.config), &mut diag_engine)?;
 
-    // With-source rendering when the primary label points at a readable
-    // file; compact otherwise (glob/config/IO errors with no source).
-    print_all_smart(&diag_engine, None);
-
-    Ok(())
+    Ok(diag!(
+      Code::Custom { code: String::from("N001"), severity: duck_diagnostic::Severity::Note },
+      format!("built successfully in {:<.3?}", started.elapsed())
+    ))
   }
 }

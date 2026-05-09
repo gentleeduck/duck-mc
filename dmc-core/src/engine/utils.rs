@@ -116,13 +116,18 @@ pub fn wrap_mdx_module(body: &str, imports: &[String]) -> String {
       stripped = stripped.replacen(trimmed, "", 1);
     }
   }
-  // Strip the trailing factory invocation; we'll re-call it ourselves.
-  let stripped = stripped
-    .trim_end_matches('\n')
-    .trim_end_matches("return _createMdxContent(arguments[0]);")
-    .trim_end_matches("return _createMdxContent(arguments[0])")
-    .trim_end()
-    .to_string();
+  // Strip the trailing default-export literal; the module shell re-emits
+  // its own. Falls back to the legacy direct-invoke return form.
+  let mut stripped = stripped.trim_end_matches('\n').to_string();
+  if let Some(idx) = stripped.rfind("return { default:") {
+    stripped.truncate(idx);
+  } else {
+    stripped = stripped
+      .trim_end_matches("return _createMdxContent(arguments[0]);")
+      .trim_end_matches("return _createMdxContent(arguments[0])")
+      .to_string();
+  }
+  let stripped = stripped.trim_end().to_string();
   // Replace `arguments[0]` references inside the function body with the
   // module-scoped __runtime constant.
   let stripped = stripped.replace("arguments[0]", "__runtime");
@@ -141,9 +146,9 @@ pub fn wrap_mdx_module(body: &str, imports: &[String]) -> String {
   out
 }
 
-/// Best-effort JS minifier: strips comments, collapses whitespace, drops
-/// blank lines. Not a full parser; corner cases (regex literals,
-/// multi-line strings) are skipped over.
+/// Best-effort JS minifier: strips comments and collapses whitespace runs
+/// into a single space. Not a full parser; regex literals, multi-line
+/// strings, and JSX edge cases are not handled.
 pub fn minify_js(src: &str) -> String {
   #[derive(Clone, Copy, PartialEq)]
   enum St {

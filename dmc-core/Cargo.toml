@@ -33,7 +33,7 @@ required-features = ["cli", "watch"]
 [dependencies]
 blake3.workspace = true
 dmc-lexer.workspace = true
-dmc-diagnostic = { workspace = true, features = ["lexer", "parser", "transform", "codegen"] }
+dmc-diagnostic = { workspace = true, features = ["lexer", "parser", "transform", "codegen", "core"] }
 duck-diagnostic.workspace = true
 dmc-parser = { version = "0.2.2", path = "../dmc-parser" }
 dmc-codegen = { version = "0.2.2", path = "../dmc-codegen" }
@@ -58,6 +58,11 @@ predicates.workspace = true
 insta.workspace = true
 criterion.workspace = true
 plotters.workspace = true
+# `pprof` runs in-process via `setitimer(ITIMER_PROF)` — no kernel
+# `perf_event_open` access needed, which is what `samply` / `cargo
+# flamegraph` require but `perf_event_paranoid=2` blocks. Lets the
+# `flamegraph` example produce a real folded-stack SVG without sudo.
+pprof = { version = "0.14", features = ["flamegraph"] }
 
 [[bench]]
 name = "compile"
@@ -66,3 +71,15 @@ harness = false
 [[example]]
 name = "bench"
 path = "examples/bench.rs"
+
+[[example]]
+name = "profile"
+path = "examples/profile.rs"
+
+[[example]]
+name = "flamegraph"
+path = "examples/flamegraph.rs"
+
+[[example]]
+name = "flamegraph_consumer"
+path = "examples/flamegraph_consumer.rs"

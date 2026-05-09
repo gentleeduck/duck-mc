@@ -1,5 +1,7 @@
 use std::path::PathBuf;
 
+use dmc_diagnostic::{Code, DiagResult};
+use duck_diagnostic::{Diagnostic, diag};
 #[derive(clap::Args)]
 pub struct InitCmd {
   #[arg(long, default_value = "dmc.toml")]
@@ -8,14 +10,22 @@ pub struct InitCmd {
 
 impl InitCmd {
   /// Scaffold an annotated `dmc.toml` at `path`. Refuses to overwrite.
-  pub fn run(self) -> std::io::Result<()> {
+  pub fn run(self) -> DiagResult<Diagnostic<Code>> {
     if self.path.exists() {
-      eprintln!("refusing to overwrite existing {}", self.path.display());
-      std::process::exit(2);
+      return Err(diag!(Code::ConfigExists, format!("refusing to overwrite existing {}", self.path.display())));
     }
-    std::fs::write(&self.path, DEFAULT_CONFIG)?;
-    println!("wrote {}", self.path.display());
-    Ok(())
+
+    std::fs::write(&self.path, DEFAULT_CONFIG).map_err(|e| {
+      diag!(
+        Code::Custom { code: String::from("N001"), severity: duck_diagnostic::Severity::Note },
+        format!("write error: {}", e.to_string())
+      )
+    })?;
+
+    Ok(diag!(
+      Code::Custom { code: String::from("N001"), severity: duck_diagnostic::Severity::Note },
+      format!("wrote {}", self.path.display())
+    ))
   }
 }
 
