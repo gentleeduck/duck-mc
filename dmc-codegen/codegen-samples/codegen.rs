@@ -182,7 +182,7 @@ fn build_pipeline_from_names(csv: &str) -> Pipeline {
       "component-preview" => p.add(ComponentPreview::default()),
       "disable-gfm" => p.add(DisableGfm),
       "mermaid" => p.add(Mermaid::default()),
-      "npm-command" => p.add(NpmCommand),
+      "npm-command" => p.add(NpmCommand::new()),
       other => {
         eprintln!("warning: unknown transformer {:?} (skipped)", other);
         p

@@ -17,6 +17,7 @@ fn h1_with_id() {
       level: 1,
       children: vec![Node::Text(Text { value: "Hello".into(), span: dmc_parser::ast::default_span() })],
       span: dmc_parser::ast::default_span(),
+      id: None,
     })],
   };
   let html = dmc_codegen::render_html(&doc);
@@ -93,7 +94,9 @@ fn ordered_list_with_start_renders() {
 #[test]
 fn thematic_break_html() {
   let h = dmc_codegen::render_html(&dmc_parser::parse("---\n"));
-  assert!(h.contains("<hr />"), "got {}", h);
+  // HTML5 closes void elements implicitly; remark/rehype don't write the
+  // XHTML self-closing slash on `<hr>`, so we don't either.
+  assert!(h.contains("<hr>"), "got {}", h);
 }
 
 #[test]

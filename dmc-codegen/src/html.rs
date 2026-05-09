@@ -4,8 +4,7 @@ use crate::{
 };
 use dmc_diagnostic::Code;
 use dmc_parser::ast::*;
-use duck_diagnostic::{Diagnostic, DiagnosticEngine};
-
+use duck_diagnostic::{DiagnosticEngine, diag};
 /// Emits static HTML by reacting to walker enter/leave events. Container
 /// nodes split into `open_tag` / `close_tag` halves; leaves write their
 /// markup once on enter. Tables are rendered up-front in `enter Table`
@@ -34,12 +33,21 @@ impl NodeSink for HtmlEmitter {
       },
       Node::CodeBlock(cb) => self.code_block(cb),
       Node::Image(i) => self.image(i),
-      Node::HorizontalRule(_) => self.out.push_str("<hr />"),
+      Node::HorizontalRule(_) => self.out.push_str("<hr>"),
       Node::HardBreak(_) => self.out.push_str("<br/>"),
       Node::SoftBreak(_) => self.out.push('\n'),
       Node::JsxSelfClosing(s) => self.jsx_self_closing(s),
       Node::JsxExpression(e) => {
-        self.diag(Code::HtmlExpressionDropped, format!("html: raw `{{...}}` expression dropped: {}", e.value.trim()));
+        // Trivial string-literal expressions (`{' '}`, `{"x"}`, `` {`y`} ``)
+        // are idiomatic MDX for inline whitespace / inserted text. They
+        // need no JS runtime, so render them as escaped text instead of
+        // dropping + warning. Only genuinely dynamic expressions
+        // (`{count}`, `{foo()}`) hit the GW002 path.
+        if let Some(text) = string_literal_expression(&e.value) {
+          self.out.push_str(&escape_text(&text));
+        } else {
+          self.diag(Code::HtmlExpressionDropped, format!("html: raw `{{...}}` expression dropped: {}", e.value.trim()));
+        }
       },
       Node::Table(t) => {
         self.in_table_depth += 1;
@@ -93,10 +101,10 @@ impl HtmlEmitter {
   }
 
   fn diag(&mut self, code: Code, message: impl Into<String>) {
-    self.diag_engine.emit(Diagnostic::new(code, message.into()));
+    self.diag_engine.emit(diag!(code, message.into()));
   }
 
-  // --- container open / close (walker fills the children in between) ----
+  // container open / close (walker fills the children in between)
 
   /// Write the opening tag for a container node.
   fn open_tag(&mut self, node: &Node) {
@@ -111,6 +119,11 @@ impl HtmlEmitter {
         let tag = if l.ordered { "ol" } else { "ul" };
         self.out.push('<');
         self.out.push_str(tag);
+        // remark-gfm tags any list with a `TaskListItem` child as
+        // `class="contains-task-list"` on the parent `<ul>` / `<ol>`.
+        if l.children.iter().any(|c| matches!(c, Node::TaskListItem(_))) {
+          self.out.push_str(" class=\"contains-task-list\"");
+        }
         if l.ordered
           && let Some(s) = l.start
           && s != 1
@@ -121,13 +134,19 @@ impl HtmlEmitter {
       },
       Node::ListItem(_) => self.out.push_str("<li>"),
       Node::TaskListItem(t) => {
+        // HTML5 self-closes void elements implicitly — match remark-gfm's
+        // emitted markup which writes `<input type="checkbox" ...>` (no `/>`)
+        // and follows it with a literal space before the item content.
         let checked = if t.checked { " checked" } else { "" };
-        self.out.push_str(&format!("<li class=\"task-list-item\"><input type=\"checkbox\" disabled{} />", checked));
+        self.out.push_str(&format!("<li class=\"task-list-item\"><input type=\"checkbox\"{} disabled> ", checked));
       },
       Node::Link(l) => {
         self.out.push_str(&format!("<a href=\"{}\"", escape_attr(&l.href)));
-        if let Some(title) = &l.title {
-          self.out.push_str(&format!(" title=\"{}\"", escape_attr(title)));
+        // The autolink-headings transformer surfaces its tooltip via the
+        // `aria_label` field. Emit it as `aria-label`, not `title`, so the
+        // attribute matches what rehype-autolink-headings would emit.
+        if let Some(label) = &l.title {
+          self.out.push_str(&format!(" aria-label=\"{}\"", escape_attr(label)));
         }
         self.out.push('>');
       },
@@ -171,7 +190,7 @@ impl HtmlEmitter {
     }
   }
 
-  // --- leaf-shaped emitters --------------------------------------------
+  // leaf-shaped emitters
 
   fn code_block(&mut self, cb: &CodeBlock) {
     self.out.push_str("<pre><code");
@@ -188,7 +207,10 @@ impl HtmlEmitter {
     if let Some(title) = &i.title {
       self.out.push_str(&format!(" title=\"{}\"", escape_attr(title)));
     }
-    self.out.push_str(" />");
+    // HTML5 closes void elements implicitly; remark/rehype don't write the
+    // XHTML self-closing slash. Match that to keep diffs against velite
+    // output minimal.
+    self.out.push('>');
   }
 
   fn jsx_self_closing(&mut self, s: &JsxSelfClosing) {
@@ -244,13 +266,17 @@ impl HtmlEmitter {
     self.out.push(' ');
     self.out.push_str(&a.name);
     match &a.value {
-      JsxAttrValue::Boolean => {},
+      // Match the rehype/shiki HTML output: boolean JSX attrs serialize
+      // as empty-string attributes (`data-rehype-pretty-code-figure=""`).
+      // It is semantically identical for the browser and keeps consumer
+      // selectors that key off `[attr=""]` working.
+      JsxAttrValue::Boolean => self.out.push_str("=\"\""),
       JsxAttrValue::String(s) => self.out.push_str(&format!("=\"{}\"", escape_attr(s))),
       JsxAttrValue::Expression(e) => self.out.push_str(&format!("={{{}}}", e)),
     }
   }
 
-  // --- table inline path (walker can't surface row/cell events) --------
+  // table inline path (walker can't surface row/cell events)
 
   /// Render the entire `<table>...</table>` up-front. Cell content uses
   /// `inline_node` recursion since the walker is suppressed inside.
@@ -314,8 +340,8 @@ impl HtmlEmitter {
       },
       Node::Link(l) => {
         self.out.push_str(&format!("<a href=\"{}\"", escape_attr(&l.href)));
-        if let Some(title) = &l.title {
-          self.out.push_str(&format!(" title=\"{}\"", escape_attr(title)));
+        if let Some(label) = &l.title {
+          self.out.push_str(&format!(" aria-label=\"{}\"", escape_attr(label)));
         }
         self.out.push('>');
         for c in &l.children {
@@ -355,4 +381,96 @@ pub fn render_html(doc: &Document) -> String {
   let mut e = HtmlEmitter::new();
   Walker::new(doc).walk(&mut [&mut e]);
   e.into_string()
+}
+
+/// Recognise a JSX expression whose entire body is a single string
+/// literal (single-quoted, double-quoted, or backtick template with no
+/// `${…}` interpolation). MDX authors use these as inline whitespace /
+/// inserted text (`{' '}`, `{"x"}`, `` {`y`} ``); they need no JS
+/// runtime, so the HTML emitter can lower them to plain text instead
+/// of dropping + warning. Genuinely dynamic expressions (`{count}`,
+/// `{foo()}`) return `None` and still trip GW002.
+fn string_literal_expression(raw: &str) -> Option<String> {
+  let s = raw.trim();
+  if s.len() < 2 {
+    return None;
+  }
+  let bytes = s.as_bytes();
+  let q = bytes[0];
+  if !matches!(q, b'\'' | b'"' | b'`') || bytes[bytes.len() - 1] != q {
+    return None;
+  }
+  let inner = &s[1..s.len() - 1];
+  // Reject template literals with interpolation — those need JS to
+  // evaluate. `${` must be escaped (`\${`) or absent for the literal
+  // to be safe to lower to plain text.
+  if q == b'`' {
+    let mut prev_backslash = false;
+    let bs = inner.as_bytes();
+    let mut i = 0;
+    while i + 1 < bs.len() {
+      if !prev_backslash && bs[i] == b'$' && bs[i + 1] == b'{' {
+        return None;
+      }
+      prev_backslash = bs[i] == b'\\' && !prev_backslash;
+      i += 1;
+    }
+  }
+  // Decode the common JS escapes we expect to see in MDX prose:
+  // `\n`, `\t`, `\r`, `\\`, `\'`, `\"`, `` \` ``. Anything else is
+  // passed through verbatim — no need for full ECMA-262 escape
+  // semantics here, the result is going straight into HTML text.
+  let mut out = String::with_capacity(inner.len());
+  let mut chars = inner.chars();
+  while let Some(c) = chars.next() {
+    if c != '\\' {
+      out.push(c);
+      continue;
+    }
+    match chars.next() {
+      Some('n') => out.push('\n'),
+      Some('t') => out.push('\t'),
+      Some('r') => out.push('\r'),
+      Some('\\') => out.push('\\'),
+      Some('\'') => out.push('\''),
+      Some('"') => out.push('"'),
+      Some('`') => out.push('`'),
+      Some(other) => {
+        out.push('\\');
+        out.push(other);
+      },
+      None => out.push('\\'),
+    }
+  }
+  Some(out)
+}
+
+#[cfg(test)]
+mod tests {
+  use super::string_literal_expression;
+
+  #[test]
+  fn recognises_simple_quoted_strings() {
+    assert_eq!(string_literal_expression("' '"), Some(" ".into()));
+    assert_eq!(string_literal_expression("\"x\""), Some("x".into()));
+    assert_eq!(string_literal_expression("`y`"), Some("y".into()));
+  }
+
+  #[test]
+  fn rejects_template_with_interpolation() {
+    assert!(string_literal_expression("`hi ${name}`").is_none());
+  }
+
+  #[test]
+  fn rejects_dynamic_expression() {
+    assert!(string_literal_expression("count").is_none());
+    assert!(string_literal_expression("foo()").is_none());
+    assert!(string_literal_expression("a + b").is_none());
+  }
+
+  #[test]
+  fn decodes_common_escapes() {
+    assert_eq!(string_literal_expression("'\\n'"), Some("\n".into()));
+    assert_eq!(string_literal_expression("'\\\\'"), Some("\\".into()));
+  }
 }

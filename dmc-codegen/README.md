@@ -44,7 +44,7 @@ let html = emitter.into_string();
 
 - [crates.io](https://crates.io/crates/dmc-codegen)
 - [docs.rs](https://docs.rs/dmc-codegen)
-- Per-crate guide in the repo: see [`../README.md`](../README.md)
+- Full docs in the [dmc-docs/](../dmc-docs/dmc-codegen/) folder (per-source-file walkthrough)
 
 ## Contributing
 

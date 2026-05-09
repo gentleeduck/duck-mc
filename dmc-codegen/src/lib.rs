@@ -1,3 +1,6 @@
+//! User-facing walkthrough: ../../dmc-docs/dmc-codegen/
+//! Run `cargo doc --open -p dmc-codegen` for the inline rustdoc.
+
 //! Codegen layer: turn a parsed `Document` into renderable output.
 //!
 //! Two emitters live here:
