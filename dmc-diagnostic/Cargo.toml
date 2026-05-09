@@ -17,11 +17,12 @@ readme = "README.md"
 # Cargo unifies features across a workspace build, so a top-level crate that
 # enables `lexer + parser + transform` ends up with the full enum.
 [features]
-default = []
+default = ['lexer', 'parser', 'transform', 'codegen', 'core']
 lexer = []
 parser = []
 transform = []
 codegen = []
+core = []
 
 [dependencies]
 duck-diagnostic.workspace = true

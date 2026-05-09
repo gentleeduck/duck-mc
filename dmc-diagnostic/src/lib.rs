@@ -1,3 +1,6 @@
+//! User-facing walkthrough: ../../dmc-docs/dmc-diagnostic/
+//! Run `cargo doc --open -p dmc-diagnostic` for the inline rustdoc.
+
 //! Unified diagnostic codes for the dmc pipeline.
 //!
 //! Every layer (lexer, parser, transform, codegen) emits into one shared
@@ -12,10 +15,35 @@
 //!
 //! A normal full build (e.g. via `dmc-core`) enables all features.
 
-use duck_diagnostic::{DiagnosticCode, Severity};
+use duck_diagnostic::{Diagnostic, DiagnosticCode, Severity};
 use serde::{Deserialize, Serialize};
 
 pub mod metadata;
+
+/// Canonical fallible-return type across the dmc pipeline.
+///
+/// `DiagResult<T>` = `Result<T, Diagnostic<Code>>`. Replaces the
+/// `Result<_, std::io::Error>` / `Result<_, String>` / `Result<(), ()>`
+/// patterns scattered across the workspace so every error path lands
+/// in the same shape: a typed `Code`, a human message, optional
+/// labels / help. Callers handle errors uniformly via `?`,
+/// `engine.emit(d)`, or both.
+///
+/// Default `T = ()` for the common "did this side-effect succeed?"
+/// signature.
+///
+/// Cost: type alias only. Zero runtime overhead vs. a hand-written
+/// `Result<T, Diagnostic<Code>>`. Identical layout in monomorphised
+/// code (same machine code, same drop semantics).
+///
+/// Convention to avoid double-emit:
+/// - functions that PRODUCE a diagnostic and want the caller to
+///   decide its fate return `DiagResult<T>`.
+/// - functions that handle errors locally + emit into a passed-in
+///   `&mut DiagnosticEngine<Code>` return plain `Result<T, ()>`
+///   (or no result at all).
+/// Mix the two and you get the same diagnostic in the engine twice.
+pub type DiagResult<T = ()> = Result<T, Diagnostic<Code>>;
 
 /// Stable, machine-readable diagnostic identifiers spanning the whole
 /// pipeline. Codes use disjoint string namespaces per layer:
@@ -28,6 +56,10 @@ pub mod metadata;
 /// - `TW***` - transform warnings (feature `transform`)
 /// - `G***`  - codegen errors  (feature `codegen`)
 /// - `GW***` - codegen warnings (feature `codegen`)
+/// - `C***`  - core / engine errors  (feature `core`)
+/// - `CW***` - core / engine warnings (feature `core`)
+/// - `S***`  - shared cross-cutting errors (IO, JSON, locks; always available)
+/// - `SW***` - shared cross-cutting warnings (always available)
 ///
 /// `Custom { code, severity }` is the escape hatch for third-party
 /// transformers that want to emit through the same engine without forking
@@ -177,6 +209,18 @@ pub enum Code {
   #[cfg(feature = "transform")]
   BaseDirNotFound,
 
+  /// TW006 - `Math` (KaTeX): `katex::Opts::builder().build()` failed; the
+  /// resulting renderer falls back to a no-op rendering for the affected
+  /// span. Almost always a sign of a broken build (the args are constants).
+  #[cfg(feature = "transform")]
+  KatexOpts,
+  /// TW005 - `PrettyCode`: a configured theme name is not present in the
+  /// bundled syntect themes. Highlight falls back to the first bundled theme,
+  /// so the missing mode silently produces wrong colors. The diagnostic
+  /// lists every bundled theme so consumers can pick a valid one.
+  #[cfg(feature = "transform")]
+  ThemeNotBundled,
+
   // ===================================================================
   // Codegen - feature = "codegen"
   // ===================================================================
@@ -192,6 +236,70 @@ pub enum Code {
   /// use the MDX body emitter for full JSX support.
   #[cfg(feature = "codegen")]
   HtmlExpressionDropped,
+
+  // ===================================================================
+  // Core - feature = "core"
+  //
+  // Engine-level codes use the `C***` / `CW***` namespace so they
+  // never collide with the lexer's `E***` / `W***` strings (Cargo
+  // unifies features across the workspace; defaults enable every
+  // layer at once, so namespaces have to be globally unique).
+  // ===================================================================
+  /// C001 - No root dir configured.
+  #[cfg(feature = "core")]
+  NoRootDir,
+  /// C002 - No config file found.
+  #[cfg(feature = "core")]
+  NoConfig,
+  /// C003 - No collections configured.
+  #[cfg(feature = "core")]
+  NoCollections,
+  /// C004 - Collection not found.
+  #[cfg(feature = "core")]
+  CollectionNotFound,
+  /// C005 - Collection pattern not found.
+  #[cfg(feature = "core")]
+  CollectionPatternNotFound,
+  /// C006 - Collection schema not found.
+  #[cfg(feature = "core")]
+  CollectionSchemaNotFound,
+  /// C007 - Invalid config.
+  #[cfg(feature = "core")]
+  InvalidConfig,
+  /// C008 - Invalid config path.
+  #[cfg(feature = "core")]
+  InvalidConfigPath,
+  /// CW001 - Config file already exists at the target path.
+  #[cfg(feature = "core")]
+  ConfigExists,
+
+  // ===================================================================
+  // Shared (no feature gate)
+  //
+  // Cross-cutting concerns every layer hits: filesystem IO, JSON
+  // round-trip, mutex poisoning. NOT gated behind a per-layer feature
+  // because any crate may produce these (math cache load/save, sidecar
+  // dispatch, engine output write, registry-index parse, ...). Using
+  // them avoids leaking layer-specific codes (e.g. `EmptyFrontMatter`)
+  // into IO failures unrelated to frontmatter.
+  //
+  // Namespace: `S***` for errors, `SW***` for warnings.
+  // ===================================================================
+  /// S001 - `std::fs::read*` / `read_to_string` failed at the named path.
+  IoRead,
+  /// S002 - `std::fs::write` failed at the named path.
+  IoWrite,
+  /// S003 - `std::fs::create_dir_all` failed for the named path.
+  IoCreateDir,
+  /// S004 - `serde_json` (or other deserializer) failed to parse the input.
+  JsonDeserialize,
+  /// S005 - `serde_json` (or other serializer) failed to encode the value.
+  JsonSerialize,
+  /// S006 - A `Mutex` / `RwLock` was poisoned by a panic in another thread.
+  LockPoisoned,
+  /// SW001 - Best-effort recoverable IO miss (e.g. cache load fell through).
+  /// Build continues without the cached state.
+  IoRecoverable,
 
   // ===================================================================
   // User-defined escape hatch - always available
@@ -294,6 +402,10 @@ impl DiagnosticCode for Code {
       Self::AssetSourceMissing => "TW003",
       #[cfg(feature = "transform")]
       Self::BaseDirNotFound => "TW004",
+      #[cfg(feature = "transform")]
+      Self::ThemeNotBundled => "TW005",
+      #[cfg(feature = "transform")]
+      Self::KatexOpts => "TW006",
 
       #[cfg(feature = "codegen")]
       Self::MalformedJsxTagName => "G001",
@@ -301,6 +413,35 @@ impl DiagnosticCode for Code {
       Self::MdxTableUnsupported => "GW001",
       #[cfg(feature = "codegen")]
       Self::HtmlExpressionDropped => "GW002",
+
+      // Core
+      #[cfg(feature = "core")]
+      Self::NoRootDir => "C001",
+      #[cfg(feature = "core")]
+      Self::NoConfig => "C002",
+      #[cfg(feature = "core")]
+      Self::NoCollections => "C003",
+      #[cfg(feature = "core")]
+      Self::CollectionNotFound => "C004",
+      #[cfg(feature = "core")]
+      Self::CollectionPatternNotFound => "C005",
+      #[cfg(feature = "core")]
+      Self::CollectionSchemaNotFound => "C006",
+      #[cfg(feature = "core")]
+      Self::InvalidConfig => "C007",
+      #[cfg(feature = "core")]
+      Self::InvalidConfigPath => "C008",
+      #[cfg(feature = "core")]
+      Self::ConfigExists => "CW001",
+
+      // Shared
+      Self::IoRead => "S001",
+      Self::IoWrite => "S002",
+      Self::IoCreateDir => "S003",
+      Self::JsonDeserialize => "S004",
+      Self::JsonSerialize => "S005",
+      Self::LockPoisoned => "S006",
+      Self::IoRecoverable => "SW001",
 
       Self::Custom { code, .. } => code.as_str(),
     }
@@ -357,14 +498,39 @@ impl DiagnosticCode for Code {
       | Self::AssetCopyFailed
       | Self::MermaidRenderFailed => Severity::Error,
       #[cfg(feature = "transform")]
-      Self::MmdcUnavailable | Self::MissingComponentAttr | Self::AssetSourceMissing | Self::BaseDirNotFound => {
-        Severity::Warning
-      },
+      Self::MmdcUnavailable
+      | Self::MissingComponentAttr
+      | Self::AssetSourceMissing
+      | Self::BaseDirNotFound
+      | Self::ThemeNotBundled
+      | Self::KatexOpts => Severity::Warning,
 
       #[cfg(feature = "codegen")]
       Self::MalformedJsxTagName => Severity::Error,
       #[cfg(feature = "codegen")]
       Self::MdxTableUnsupported | Self::HtmlExpressionDropped => Severity::Warning,
+
+      // Core errors / warnings
+      #[cfg(feature = "core")]
+      Self::NoRootDir
+      | Self::NoConfig
+      | Self::NoCollections
+      | Self::CollectionNotFound
+      | Self::CollectionPatternNotFound
+      | Self::CollectionSchemaNotFound
+      | Self::InvalidConfig
+      | Self::InvalidConfigPath => Severity::Error,
+      #[cfg(feature = "core")]
+      Self::ConfigExists => Severity::Warning,
+
+      // Shared
+      Self::IoRead
+      | Self::IoWrite
+      | Self::IoCreateDir
+      | Self::JsonDeserialize
+      | Self::JsonSerialize
+      | Self::LockPoisoned => Severity::Error,
+      Self::IoRecoverable => Severity::Warning,
 
       Self::Custom { severity, .. } => *severity,
     }

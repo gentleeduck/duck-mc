@@ -43,7 +43,7 @@ let mut engine: DiagnosticEngine<Code> = DiagnosticEngine::new();
 
 - [crates.io](https://crates.io/crates/dmc-diagnostic)
 - [docs.rs](https://docs.rs/dmc-diagnostic)
-- Per-crate guide in the repo: see [`../README.md`](../README.md)
+- Full docs in the [dmc-docs/](../dmc-docs/dmc-diagnostic/) folder (per-source-file walkthrough)
 
 ## Contributing
 
