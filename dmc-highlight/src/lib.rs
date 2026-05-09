@@ -1,3 +1,6 @@
+//! User-facing walkthrough: ../../dmc-docs/dmc-highlight/
+//! Run `cargo doc --open -p dmc-highlight` for the inline rustdoc.
+
 //! Bundled `syntect` syntax + theme registry. Loaded once per process,
 //! shared across every code-block render. Sources live in
 //! `assets/themes-bat/` (themes) and `assets/grammars-sublime/` (grammars).
@@ -24,7 +27,7 @@ static THEMES_DIR: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/assets/themes-bat
 /// Re-exports of the `syntect` types that callers (e.g. the `pretty-code`
 /// transformer) need to consume highlight output without depending on
 /// `syntect` themselves.
-pub use syntect::highlighting::{Color, Style as HlStyle};
+pub use syntect::highlighting::{Color, FontStyle as HlFontStyle, Style as HlStyle};
 
 include!(concat!(env!("OUT_DIR"), "/assets_gen.rs"));
 
@@ -74,6 +77,25 @@ impl SyntaxBundle {
       SyntaxBundle { syntaxes, themes }
     })
   }
+
+  /// Sorted list of every bundled theme name. Stable across calls because
+  /// the bundle's `BTreeMap` iterates in sorted order. Used by upstream
+  /// consumers (e.g. PrettyCode) to validate user-configured theme names
+  /// at startup and surface a "did you mean" hint when one is missing.
+  pub fn bundled_theme_names(&self) -> Vec<&str> {
+    self.themes.themes.keys().map(String::as_str).collect()
+  }
+}
+
+/// Free-function alias around `SyntaxBundle::get().bundled_theme_names()`.
+/// Kept separate so callers can probe theme availability without holding
+/// onto the bundle reference.
+pub fn list_bundled_themes() -> Vec<&'static str> {
+  SyntaxBundle::get().bundled_theme_names()
+}
+
+impl SyntaxBundle {
+  // (continued below — split to keep the helper next to its method)
 
   /// Highlight `code` with the given grammar + theme. Returns one
   /// `Vec<(Style, &str)>` per source line. Falls back to plain-text

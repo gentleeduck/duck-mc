@@ -62,7 +62,7 @@ const GRAMMARS_OUT = join(ASSETS, "grammars");
 mkdirSync(THEMES_OUT, { recursive: true });
 mkdirSync(GRAMMARS_OUT, { recursive: true });
 
-// -------------------------------------------------------------------- themes
+// themes
 
 /** VS Code editor color keys -> TextMate global setting keys. */
 const COLOR_MAP = {
@@ -142,7 +142,7 @@ for (const file of readdirSync(THEMES_IN)) {
 }
 console.log(`themes:    ${themesOk} ok, ${themesFail} failed`);
 
-// ------------------------------------------------------------------ grammars
+// grammars
 
 /**
  * .tmLanguage.json and TextMate plist .tmLanguage carry the same
@@ -200,7 +200,7 @@ for (const file of readdirSync(GRAMMARS_IN)) {
 }
 console.log(`grammars:  ${grammarsOk} ok, ${grammarsFail} failed`);
 
-// --------------------------------------------------------------------- recap
+// recap
 
 console.log(`
 themes  -> ${THEMES_OUT}

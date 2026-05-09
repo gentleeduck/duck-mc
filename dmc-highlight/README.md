@@ -43,7 +43,7 @@ let html = bundle.highlight("fn main() {}", "rust", Theme::CatppuccinMocha);
 
 - [crates.io](https://crates.io/crates/dmc-highlight)
 - [docs.rs](https://docs.rs/dmc-highlight)
-- Per-crate guide in the repo: see [`../README.md`](../README.md)
+- Full docs in the [dmc-docs/](../dmc-docs/dmc-highlight/) folder (per-source-file walkthrough)
 
 ## Contributing
 
