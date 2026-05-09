@@ -43,7 +43,7 @@ let tokens = lex.scan_tokens();
 
 - [crates.io](https://crates.io/crates/dmc-lexer)
 - [docs.rs](https://docs.rs/dmc-lexer)
-- Per-crate guide in the repo: see [`../README.md`](../README.md)
+- Full docs in the [dmc-docs/](../dmc-docs/dmc-lexer/) folder (per-source-file walkthrough)
 
 ## Contributing
 

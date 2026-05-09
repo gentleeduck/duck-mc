@@ -1,7 +1,6 @@
-use dmc_lexer::token::TokenKind;
-
 mod common;
 use common::lex_kinds;
+use dmc_lexer::token::TokenKind;
 
 #[test]
 fn lex_https_autolink() {

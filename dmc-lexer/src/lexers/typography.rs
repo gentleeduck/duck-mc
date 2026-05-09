@@ -1,7 +1,4 @@
-use duck_diagnostic::{Diagnostic, Label, Span};
-
 use crate::{Lexer, token::TokenKind};
-use dmc_diagnostic::Code;
 
 impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
   /// Lex an ATX heading marker (`#` x 1-6 followed by space). Falls through
@@ -116,39 +113,20 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
   }
 
   /// Lex a markdown link `[text](href)`. The `[text]` part runs first; the
-  /// optional `(href)` is consumed if present. Diagnoses either side going
-  /// unterminated.
+  /// optional `(href)` is consumed if present.
   pub(crate) fn lex_link(&mut self) {
-    // caller consumed '['; record opener column (one back).
-    let open_line = self.line;
-    let open_col = self.column.saturating_sub(1);
     self.emit(TokenKind::Bracket);
     self.skip_until_any2(b']', b'\n');
     self.emit(TokenKind::Text);
 
     if self.current_char() != Some(']') {
-      self.diag(
-        Diagnostic::new(Code::UnterminatedExpression, "unterminated link")
-          .with_label(Label::primary(
-            Span::from_zero_based("", open_line, open_col, 1),
-            Some("link opens here".to_string()),
-          ))
-          .with_label(Label::secondary(
-            Span::from_zero_based("", self.line, self.column, 1),
-            Some("expected `]` before end of line".to_string()),
-          ))
-          .with_help("close the link with `]`"),
-      );
       return;
     }
 
     self.advance();
     self.emit(TokenKind::Bracket);
 
-    // optional `(href)`
     if self.current_char() == Some('(') {
-      let paren_line = self.line;
-      let paren_col = self.column;
       self.advance();
       self.emit(TokenKind::ParenOpen);
       self.skip_until_any2(b')', b'\n');
@@ -156,19 +134,6 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
       if self.current_char() == Some(')') {
         self.advance();
         self.emit(TokenKind::ParenClose);
-      } else {
-        self.diag(
-          Diagnostic::new(Code::UnterminatedExpression, "unterminated link target")
-            .with_label(Label::primary(
-              Span::from_zero_based("", paren_line, paren_col, 1),
-              Some("link target opens here".to_string()),
-            ))
-            .with_label(Label::secondary(
-              Span::from_zero_based("", self.line, self.column, 1),
-              Some("expected `)` before end of line".to_string()),
-            ))
-            .with_help("close the target with `)`"),
-        );
       }
     }
   }

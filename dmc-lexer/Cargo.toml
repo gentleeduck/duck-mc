@@ -26,4 +26,5 @@ pretty_assertions.workspace = true
 
 [[bin]]
 name = "lexer"
-path = "./lexer-samples/lexer.rs"
+# path = "./lexer-samples/lexer.rs"
+path = "./lexer-samples/lex.rs"

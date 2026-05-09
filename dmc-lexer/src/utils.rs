@@ -13,7 +13,13 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
       '!' if self.peek() == Some('[') => self.lex_image(),
       '`' => self.lex_code(),
       '-' if self.peek() == Some(' ') => self.lex_unordered_list_item(),
-      '0'..='9' if self.peek() == Some('.') => self.lex_ordered_list_item(),
+      // Ordered list markers (`1.`, `12.`) only at line start. Without
+      // the column guard `0.4.3` inside a heading or paragraph gets
+      // chopped at the digit run and the rest leaks into a separate
+      // text token (split as `0` + `.4.3`). column == 1 means the digit
+      // is the first byte after a fresh line start (column resets to 0
+      // on newline, then the just-consumed digit advanced it to 1).
+      '0'..='9' if self.peek() == Some('.') && self.column == 1 => self.lex_ordered_list_item(),
       '-' if self.peek() == Some('-') && self.peek_next() == Some('-') => self.lex_frontmatter(),
       '#' => self.lex_heading(),
       '*' => self.lex_bold(),
@@ -207,7 +213,7 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
     }
   }
 
-  // ---------- byte-level fast scanners ----------
+  // byte-level fast scanners
 
   /// Bulk-skip `n` bytes from `current`. Updates `line` + `column` by counting
   /// newlines + chars after the last newline. The `current..current+n` slice

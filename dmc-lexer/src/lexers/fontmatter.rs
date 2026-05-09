@@ -19,10 +19,10 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
       return;
     }
 
-    // emit the opening ---
+    // emit the opening
     self.emit(TokenKind::FrontmatterStart);
 
-    // skip newline after opening ---
+    // skip newline after opening
     if self.peek() == Some('\n') {
       self.advance();
       self.line += 1;
@@ -38,7 +38,7 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
         break;
       }
 
-      // at the start of a line, check for closing ---
+      // at the start of a line, check for closing
       if self.column == 0 && self.peek() == Some('-') && self.peek_next() == Some('-') {
         let content_end = self.current;
         self.skip_while_byte(b'-');

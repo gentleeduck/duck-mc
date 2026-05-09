@@ -1,7 +1,10 @@
+//! User-facing walkthrough: ../../dmc-docs/dmc-lexer/
+//! Run `cargo doc --open -p dmc-lexer` for the inline rustdoc.
+
 use std::sync::Arc;
 
 use dmc_diagnostic::{Code, metadata::SourceMeta};
-use duck_diagnostic::{Diagnostic, DiagnosticEngine, Span};
+use duck_diagnostic::{DiagnosticEngine, Span};
 
 use crate::token::{Token, TokenKind};
 
@@ -53,11 +56,6 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
 
     self.emit(TokenKind::Eof);
     Ok(())
-  }
-
-  /// Forward a diagnostic to the engine.
-  pub(crate) fn diag(&mut self, diagnostic: Diagnostic<Code>) {
-    self.diag_engine.emit(diagnostic);
   }
 
   /// Emit a token spanning `[self.start, self.current)`. Inline whitespace
