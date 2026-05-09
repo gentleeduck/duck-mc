@@ -100,18 +100,28 @@ pub struct Heading {
   pub level: u8,
   pub children: Vec<Node>,
   pub span: Span,
+  /// Pre-computed anchor id, populated by the `AssignHeadingIds` transform
+  /// (github-slugger algorithm with document-wide dedupe). When `None`,
+  /// `slug()` falls back to a fresh per-heading computation, so headings
+  /// emitted before the transform pass still have a usable anchor.
+  #[serde(default)]
+  pub id: Option<String>,
 }
 
 impl Heading {
-  /// URL-anchor slug from the heading's plain-text content. Recomputed each
-  /// call; the heading owns no derived state.
+  /// URL-anchor slug. Returns the pre-computed `id` when available
+  /// (preferred — only the document-scoped pass can dedupe duplicates),
+  /// else a one-shot github-slugger computation from the heading text.
   pub fn slug(&self) -> String {
-    slug::slugify(Self::plain_text(&self.children))
+    if let Some(id) = &self.id {
+      return id.clone();
+    }
+    crate::slugger::github_slugify(&Self::plain_text(&self.children))
   }
 
   /// Flatten inline nodes to bare text. Recurses through emphasis and link
   /// wrappers but skips JSX and images.
-  fn plain_text(nodes: &[Node]) -> String {
+  pub fn plain_text(nodes: &[Node]) -> String {
     let mut s = String::new();
     for n in nodes {
       match n {

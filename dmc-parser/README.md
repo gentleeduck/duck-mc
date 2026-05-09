@@ -43,7 +43,7 @@ let document = parser.parse();
 
 - [crates.io](https://crates.io/crates/dmc-parser)
 - [docs.rs](https://docs.rs/dmc-parser)
-- Per-crate guide in the repo: see [`../README.md`](../README.md)
+- Full docs in the [dmc-docs/](../dmc-docs/dmc-parser/) folder (per-source-file walkthrough)
 
 ## Contributing
 

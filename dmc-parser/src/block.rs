@@ -179,11 +179,62 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
             // inline body as a `Paragraph` (so CommonMark-style loose
             // formatting applies), collect the new inline run as another
             // `Paragraph`, and append.
+            //
+            // CommonMark: contiguous indented lines (no blank line between
+            // them) belong to the SAME paragraph with the soft break kept
+            // as a literal newline inside the text. Continue eating soft
+            // breaks + properly-indented continuation lines until a blank
+            // line, block-starter, or de-indented line stops the run.
             let span = self.current_span();
-            let inline = self.collect_inline_until_break();
+            let mut inline = self.collect_inline_until_break();
             if inline.is_empty() {
               self.pos = saved;
               break;
+            }
+            loop {
+              if !matches!(self.peek_kind(), Some(TokenKind::SoftBreak)) {
+                break;
+              }
+              let sb_saved = self.pos;
+              self.advance();
+              let aligned_indent = match self.peek() {
+                Some(t) if matches!(t.kind, TokenKind::Whitespace) => {
+                  let n = t.raw.chars().count();
+                  if n >= child_indent { Some(()) } else { None }
+                },
+                _ => None,
+              };
+              if aligned_indent.is_none() {
+                self.pos = sb_saved;
+                break;
+              }
+              let after = self.tokens.get(self.pos + 1).map(|t| t.kind.clone());
+              let next_is_block = matches!(
+                after,
+                Some(TokenKind::UnorderedListItem)
+                  | Some(TokenKind::OrderedListItem)
+                  | Some(TokenKind::Heading(_))
+                  | Some(TokenKind::BlockQuote)
+                  | Some(TokenKind::CodeStart(_))
+                  | Some(TokenKind::ThematicBreak)
+                  | Some(TokenKind::SoftBreak)
+                  | Some(TokenKind::HardBreak)
+                  | None
+              );
+              if next_is_block {
+                self.pos = sb_saved;
+                break;
+              }
+              self.advance(); // consume the indent whitespace
+              let break_span = self.current_span();
+              inline.push(Node::SoftBreak(BreakNode { span: break_span }));
+              let more = self.collect_inline_until_break();
+              if more.is_empty() {
+                inline.pop();
+                self.pos = sb_saved;
+                break;
+              }
+              inline.extend(more);
             }
             Self::ensure_loose_item(&mut item, &span);
             Self::append_to_item(&mut item, Node::Paragraph(Paragraph { children: inline, span }));
@@ -237,28 +288,44 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     }
   }
 
-  /// If `item`'s body is still raw inline content, wrap it in a `Paragraph`
-  /// so loose-list formatting (`<li><p>...</p><p>...</p></li>`) applies
-  /// once a continuation paragraph appears.
+  /// Wrap any LEADING raw inline content of `item` in a `Paragraph` so
+  /// loose-list formatting (`<li><p>...</p><p>...</p></li>`) applies
+  /// once a continuation paragraph or nested block appears.
+  ///
+  /// Only contiguous inline-typed children at the front of the list are
+  /// promoted; existing block children (Paragraph, List, Blockquote,
+  /// CodeBlock, ...) are left in place. Otherwise a `[Text, List]` item
+  /// would collapse into a single paragraph that swallows the list.
   fn ensure_loose_item(item: &mut Node, span: &duck_diagnostic::Span) {
-    let take_kids = |kids: &mut Vec<Node>| {
-      if kids.iter().any(|n| matches!(n, Node::Paragraph(_))) {
-        return None;
+    fn is_block_node(n: &Node) -> bool {
+      matches!(
+        n,
+        Node::Paragraph(_)
+          | Node::List(_)
+          | Node::Blockquote(_)
+          | Node::CodeBlock(_)
+          | Node::Heading(_)
+          | Node::HorizontalRule(_)
+          | Node::Table(_)
+      )
+    }
+    let promote = |kids: &mut Vec<Node>, span: &duck_diagnostic::Span| {
+      // Already loose? Bail.
+      if kids.first().is_some_and(|n| matches!(n, Node::Paragraph(_))) {
+        return;
       }
-      let inline = std::mem::take(kids);
-      Some(inline)
+      let split = kids.iter().position(is_block_node).unwrap_or(kids.len());
+      if split == 0 {
+        return;
+      }
+      let trailing: Vec<Node> = kids.drain(split..).collect();
+      let leading: Vec<Node> = std::mem::take(kids);
+      kids.push(Node::Paragraph(Paragraph { children: leading, span: span.clone() }));
+      kids.extend(trailing);
     };
     match item {
-      Node::ListItem(li) => {
-        if let Some(inline) = take_kids(&mut li.children) {
-          li.children.push(Node::Paragraph(Paragraph { children: inline, span: span.clone() }));
-        }
-      },
-      Node::TaskListItem(t) => {
-        if let Some(inline) = take_kids(&mut t.children) {
-          t.children.push(Node::Paragraph(Paragraph { children: inline, span: span.clone() }));
-        }
-      },
+      Node::ListItem(li) => promote(&mut li.children, span),
+      Node::TaskListItem(t) => promote(&mut t.children, span),
       _ => {},
     }
   }
@@ -523,8 +590,27 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       _ => 1,
     };
     self.advance();
-    let children = self.collect_inline_until_break();
-    Node::Heading(Heading { level, children, span })
+    let mut children = self.collect_inline_until_break();
+    // The lexer leaves the post-`#` space in the inline stream as a Text /
+    // Whitespace node, so the first heading-text node ends up with a leading
+    // space ("` Inline marks`"). Strip it to match velite / rehype output.
+    if let Some(Node::Text(t)) = children.first_mut() {
+      let trimmed = t.value.trim_start_matches([' ', '\t']).to_string();
+      if trimmed.is_empty() {
+        children.remove(0);
+      } else {
+        t.value = trimmed;
+      }
+    }
+    if let Some(Node::Text(t)) = children.last_mut() {
+      let trimmed = t.value.trim_end_matches([' ', '\t']).to_string();
+      if trimmed.is_empty() {
+        children.pop();
+      } else {
+        t.value = trimmed;
+      }
+    }
+    Node::Heading(Heading { level, children, span, id: None })
   }
 
   /// 4-space indented code block. Strips the leading 4 spaces from each line
@@ -578,17 +664,65 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
   /// Default fallback block. Also handles setext headings: a trailing soft
   /// break followed by a run of `=` or `-` rewrites the paragraph as a
   /// level-1 / level-2 `Heading`.
+  ///
+  /// CommonMark: a soft break inside a paragraph stays inside the
+  /// paragraph (becomes a literal newline in the text). Only a blank
+  /// line or a block-starter token closes the paragraph.
   fn parse_paragraph(&mut self) -> Node {
     let span = self.current_span();
-    let children = self.collect_inline_until_break();
-    if matches!(self.peek_kind(), Some(TokenKind::SoftBreak)) {
+    let mut children = self.collect_inline_until_break();
+    loop {
+      if !matches!(self.peek_kind(), Some(TokenKind::SoftBreak)) {
+        break;
+      }
       let saved = self.pos;
-      self.advance();
+      self.advance(); // consume the SoftBreak
+      // Setext heading: `=`/`-` underline directly after the soft break.
       if let Some(lvl) = self.setext_underline_level() {
         self.eat_setext_underline();
-        return Node::Heading(Heading { level: lvl, children, span });
+        return Node::Heading(Heading { level: lvl, children, span, id: None });
       }
-      self.pos = saved;
+      // Blank line (another break right away) closes the paragraph.
+      if matches!(
+        self.peek_kind(),
+        Some(TokenKind::SoftBreak) | Some(TokenKind::HardBreak) | Some(TokenKind::Eof) | None
+      ) {
+        self.pos = saved;
+        break;
+      }
+      // A block-starter token following the soft break also closes the
+      // paragraph — heading, list item, blockquote, code fence, JSX
+      // root, frontmatter, etc.
+      let next_is_block = matches!(
+        self.peek_kind(),
+        Some(TokenKind::Heading(_))
+          | Some(TokenKind::UnorderedListItem)
+          | Some(TokenKind::OrderedListItem)
+          | Some(TokenKind::BlockQuote)
+          | Some(TokenKind::CodeStart(_))
+          | Some(TokenKind::ThematicBreak)
+          | Some(TokenKind::JsxOpenTagStart)
+          | Some(TokenKind::FrontmatterStart)
+          | Some(TokenKind::Import)
+          | Some(TokenKind::Export)
+      );
+      if next_is_block {
+        self.pos = saved;
+        break;
+      }
+      // Same-paragraph continuation: keep the soft break as a literal
+      // newline inside the text and collect the next line's inlines.
+      let break_span = self.current_span();
+      children.push(Node::SoftBreak(BreakNode { span: break_span }));
+      let more = self.collect_inline_until_break();
+      if more.is_empty() {
+        // Nothing useful followed; rewind so the soft break we ate
+        // becomes a separate empty-line marker.
+        self.pos = saved;
+        children.pop();
+        break;
+      }
+      children.extend(more);
     }
     Node::Paragraph(Paragraph { children, span })
   }

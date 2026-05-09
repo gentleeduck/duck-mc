@@ -1,7 +1,6 @@
-use dmc_parser::ast::*;
-
 mod common;
 use common::parse_doc;
+use dmc_parser::ast::*;
 
 #[test]
 fn indented_code_block() {

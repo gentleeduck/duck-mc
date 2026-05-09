@@ -81,6 +81,8 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       }
     }
 
+    let children = unwrap_jsx_only_paragraphs(children);
+
     if name.is_empty() {
       Node::JsxFragment(JsxFragment { children, span })
     } else {
@@ -171,5 +173,58 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         },
       }
     }
+  }
+}
+
+/// Indented block JSX inside a `<Tag>...</Tag>` body looks like
+///
+///   <TabsList>
+///     <TabsTrigger value="cli">CLI</TabsTrigger>
+///   </TabsList>
+///
+/// to the block parser, which sees the leading two-space indent + the
+/// JSX opener as inline content and wraps the whole line in a
+/// `Paragraph`. That makes the emitted React tree
+/// `<TabsList><p>  <TabsTrigger>…</p></TabsList>`, which is wrong both
+/// semantically and visually.
+///
+/// MDX's rule: a JSX element that is the only non-whitespace content
+/// on a line is a block child of its enclosing element, *not* a
+/// paragraph child. Implement the rule as a post-pass: for each
+/// `Paragraph` child, drop pure-whitespace `Text` nodes; if the
+/// remainder is one or more JSX nodes only, splice them in as direct
+/// children. Otherwise the paragraph stays.
+fn unwrap_jsx_only_paragraphs(children: Vec<Node>) -> Vec<Node> {
+  let mut out = Vec::with_capacity(children.len());
+  for child in children {
+    if let Node::Paragraph(p) = &child {
+      let only_jsx = p
+        .children
+        .iter()
+        .filter(|n| !is_whitespace_text(n))
+        .all(|n| matches!(n, Node::JsxElement(_) | Node::JsxSelfClosing(_) | Node::JsxFragment(_)));
+      let any_jsx =
+        p.children.iter().any(|n| matches!(n, Node::JsxElement(_) | Node::JsxSelfClosing(_) | Node::JsxFragment(_)));
+      if only_jsx && any_jsx {
+        for n in p
+          .children
+          .iter()
+          .filter(|n| matches!(n, Node::JsxElement(_) | Node::JsxSelfClosing(_) | Node::JsxFragment(_)))
+        {
+          out.push(n.clone());
+        }
+        continue;
+      }
+    }
+    out.push(child);
+  }
+  out
+}
+
+fn is_whitespace_text(n: &Node) -> bool {
+  match n {
+    Node::Text(t) => t.value.chars().all(|c| c.is_whitespace()),
+    Node::SoftBreak(_) | Node::HardBreak(_) => true,
+    _ => false,
   }
 }

@@ -1,7 +1,6 @@
-use dmc_parser::ast::*;
-
 mod common;
 use common::parse_doc;
+use dmc_parser::ast::*;
 
 fn first_paragraph_children(doc: &Document) -> &[Node] {
   for c in &doc.children {

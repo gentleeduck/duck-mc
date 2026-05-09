@@ -116,13 +116,53 @@ fn parse_alignment_row(s: &str) -> Option<Vec<TableAlign>> {
 
 /// Split `|a|b|c|` into the cell strings between pipes (no trim; caller
 /// trims when materialising the cell).
+///
+/// Pipes inside an inline-code span (`` ` `` … `` ` ``) and pipes
+/// escaped with `\|` are *content*, not delimiters. GFM's table grammar
+/// requires this; without it, a row like
+/// `` | `"single" \| "multiple"` | `"single"` | `` is mis-split into
+/// three cells. Track the escape and code-span state while walking the
+/// row.
 fn split_cells(s: &str) -> Vec<String> {
   let t = s.trim();
   if t.len() < 2 {
     return Vec::new();
   }
   let inner = &t[1..t.len() - 1];
-  inner.split('|').map(|c| c.to_string()).collect()
+
+  let mut cells: Vec<String> = Vec::new();
+  let mut current = String::new();
+  let mut chars = inner.chars().peekable();
+  let mut in_code = false;
+  while let Some(c) = chars.next() {
+    match c {
+      '\\' => {
+        // GFM: `\|` inside a table cell is a literal pipe, not a delimiter.
+        // Forward the escaped character verbatim (without the backslash) so
+        // the inline parser sees the intended content.
+        if let Some(&next) = chars.peek() {
+          if next == '|' {
+            chars.next();
+            current.push('|');
+          } else {
+            current.push('\\');
+          }
+        } else {
+          current.push('\\');
+        }
+      },
+      '`' => {
+        in_code = !in_code;
+        current.push('`');
+      },
+      '|' if !in_code => {
+        cells.push(std::mem::take(&mut current));
+      },
+      _ => current.push(c),
+    }
+  }
+  cells.push(current);
+  cells
 }
 
 /// Build one `TableRow` from raw cell strings. Each cell string is

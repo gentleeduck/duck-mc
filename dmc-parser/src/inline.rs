@@ -150,22 +150,34 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
             self.advance();
             continue;
           }
-          self.advance();
+          self.advance(); // consume the closing `]`
+          // CommonMark / GFM: `[label]` is only a link when followed by
+          // `(destination)` (inline link) or `[reference]` (reference
+          // link). A bare `[label]` is plain text — without this guard
+          // `string[]` inside a code-adjacent run gets coerced into an
+          // empty `<a href="">` because the parser unconditionally
+          // emitted a Link node when no `(` followed.
+          if !matches!(self.peek_kind(), Some(TokenKind::ParenOpen)) {
+            out.push(Node::Text(Text { value: "[".into(), span: span.clone() }));
+            for n in inner {
+              out.push(n);
+            }
+            out.push(Node::Text(Text { value: "]".into(), span }));
+            continue;
+          }
+          self.advance(); // consume `(`
           let mut paren_body = String::new();
-          if matches!(self.peek_kind(), Some(TokenKind::ParenOpen)) {
-            self.advance();
-            while let Some(tok) = self.peek() {
-              match &tok.kind {
-                TokenKind::ParenClose => {
-                  self.advance();
-                  break;
-                },
-                TokenKind::Eof => break,
-                _ => {
-                  paren_body.push_str(tok.raw);
-                  self.advance();
-                },
-              }
+          while let Some(tok) = self.peek() {
+            match &tok.kind {
+              TokenKind::ParenClose => {
+                self.advance();
+                break;
+              },
+              TokenKind::Eof => break,
+              _ => {
+                paren_body.push_str(tok.raw);
+                self.advance();
+              },
             }
           }
           let (href, title) = Self::split_destination_title(&paren_body);

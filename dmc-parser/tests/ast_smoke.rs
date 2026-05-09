@@ -14,6 +14,7 @@ fn build_a_simple_document() {
         level: 1,
         span: sp(),
         children: vec![Node::Text(Text { value: "Hello".into(), span: sp() })],
+        id: None,
       }),
       Node::Paragraph(Paragraph {
         span: sp(),
