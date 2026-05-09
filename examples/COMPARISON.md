@@ -64,7 +64,7 @@ Reload, view source, diff the served HTML.
   `catppuccin-mocha` themes. Colors match in light mode.
 - **HTML size**: dmc kitchen-sink HTML is about 12 KB; velite HTML is
   about 25 KB (KaTeX expansion + pretty-code's `<figure>` wrappers).
-- **Build time**: see `docs/sidecar-path-perf.md` for benchmark numbers.
+- **Build time**: see `dmc-docs/dmc-sidecar/perf.md` for benchmark numbers.
 
 ## Files of interest
 

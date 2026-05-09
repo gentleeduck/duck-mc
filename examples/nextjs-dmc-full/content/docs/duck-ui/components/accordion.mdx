@@ -1,0 +1,78 @@
+---
+title: Accordion
+description: Stacked, expandable sections. Compound component pattern.
+tags: [component, accordion, duck-ui]
+---
+
+<ComponentPreview
+  name="accordion-1"
+  className="[&_.preview]:items-start"
+  description="An accordion with three items"
+/>
+
+## Philosophy
+
+Accordions solve the progressive disclosure problem - show the outline,
+hide the details until requested. We use a compound component pattern
+(`Accordion` -> `AccordionItem` -> `AccordionTrigger` + `AccordionContent`)
+because each piece needs independent control while sharing open/close
+state.
+
+## How It's Built
+
+<MermaidDiagram chart={`graph TD
+    A[Accordion] --> B[AccordionItem]
+    B --> C[AccordionTrigger]
+    B --> D[AccordionContent]
+`} />
+
+## Installation
+
+<Tabs defaultValue="cli">
+
+<TabsList>
+  <TabsTrigger value="cli">CLI</TabsTrigger>
+  <TabsTrigger value="manual">Manual</TabsTrigger>
+</TabsList>
+
+<TabsContent value="cli">
+
+```bash
+npx @gentleduck/cli add accordion
+```
+
+</TabsContent>
+
+<TabsContent value="manual">
+
+```tsx
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion"
+```
+
+</TabsContent>
+
+</Tabs>
+
+## Examples
+
+### Single
+
+<ComponentPreview name="accordion-1" />
+
+### Multiple
+
+<ComponentPreview name="accordion-2" />
+
+## API
+
+| Prop | Type | Default | Description |
+| --- | --- | --- | --- |
+| `type` | `"single" \| "multiple"` | `"single"` | Whether one or many items can be open. |
+| `collapsible` | `boolean` | `false` | Allow closing the open item. |
+| `defaultValue` | `string \| string[]` | `-` | Initial open item value(s). |
+| `dir` | `"ltr" \| "rtl"` | `"ltr"` | Reading direction. |

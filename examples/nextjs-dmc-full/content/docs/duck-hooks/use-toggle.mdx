@@ -1,0 +1,21 @@
+---
+title: useToggle
+description: Boolean state with a stable toggle setter.
+tags: [hook, duck-hooks]
+---
+
+# useToggle
+
+A tiny hook that returns `[value, toggle]` for simple boolean state.
+
+```ts
+function useToggle(initial = false): [boolean, () => void]
+```
+
+## Usage
+
+```tsx
+const [isOpen, toggle] = useToggle()
+
+return <button onClick={toggle}>{isOpen ? "close" : "open"}</button>
+```
