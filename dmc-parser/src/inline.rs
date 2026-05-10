@@ -565,6 +565,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
           match self.peek_kind() {
             Some(TokenKind::LinkTargetOpen) => {
               self.advance(); // consume `(`
+              let body_start_pos = self.pos;
               let body_start_ptr = self.peek().map(|t| t.raw.as_ptr() as usize).unwrap_or(0);
               // CM 6.3: bare destinations allow balanced parens. Track
               // depth so `[link](foo(and(bar)))` keeps both inner pairs
@@ -641,6 +642,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
                 String::new()
               };
               let has_close = matches!(self.peek_kind(), Some(TokenKind::LinkTargetClose));
+              let body_end_pos = self.pos;
               if has_close {
                 self.advance();
               }
@@ -655,29 +657,32 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
                   // CM 6.3: malformed `[label](destination)` falls back to
                   // shortcut reference resolution -- if `[label]` matches
                   // a definition, render the link and leave the failed
-                  // paren body as literal text after it. Decode entities
-                  // in the paren body so re-escaping at codegen time
-                  // restores the original `&XYZ;` rather than `&amp;XYZ;`.
-                  // CM 6.6: malformed-link body re-renders inline; entity
-                  // refs decode and `\X` escapes resolve to the
-                  // escaped character. Apply both before pushing as
-                  // text so escape_text re-encodes only the resolved
-                  // characters (eg `\>` -> `>` -> `&gt;`).
-                  let body_decoded = decode_entities_in(&Self::unescape_markdown(&paren_body));
+                  // paren body as literal inline content after it.
+                  // Reparse the consumed token slice so raw HTML / entity
+                  // refs inside the malformed body keep their normal CM
+                  // inline semantics instead of being flattened into one
+                  // escaped text blob.
+                  let body_nodes = self.parse_literal_inline_slice(body_start_pos, body_end_pos, !has_close);
                   let label_raw = raw_inner_label.clone();
                   let label_plain = plain_text(&inner);
                   let resolved = self.refs.get(&label_raw).cloned().or_else(|| self.refs.get(&label_plain).cloned());
                   if let Some((href, title)) = resolved {
                     out.push(Node::Link(Link { href, title, children: inner, span: span.clone() }));
-                    let close_str = if has_close { ")" } else { "" };
-                    out.push(Node::Text(Text { value: format!("({}{}", body_decoded, close_str), span }));
+                    out.push(Node::Text(Text { value: "(".into(), span: span.clone() }));
+                    out.extend(body_nodes);
+                    if has_close {
+                      out.push(Node::Text(Text { value: ")".into(), span }));
+                    }
                   } else {
                     out.push(Node::Text(Text { value: "[".into(), span: span.clone() }));
                     for n in inner {
                       out.push(n);
                     }
-                    let close_str = if has_close { ")" } else { "" };
-                    out.push(Node::Text(Text { value: format!("]({}{}", body_decoded, close_str), span }));
+                    out.push(Node::Text(Text { value: "](".into(), span: span.clone() }));
+                    out.extend(body_nodes);
+                    if has_close {
+                      out.push(Node::Text(Text { value: ")".into(), span }));
+                    }
                   }
                 },
               }
@@ -993,6 +998,24 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         },
       }
     }
+  }
+
+  fn parse_literal_inline_slice(&self, start: usize, end: usize, trim_trailing_break: bool) -> Vec<Node> {
+    let mut tokens: Vec<_> = self.tokens[start..end].to_vec();
+    if trim_trailing_break {
+      while matches!(
+        tokens.last().map(|t| &t.kind),
+        Some(TokenKind::SoftBreak) | Some(TokenKind::HardBreak)
+      ) {
+        tokens.pop();
+      }
+    }
+    let eof_span = tokens.last().map(|t| t.span.clone()).unwrap_or_else(default_span);
+    tokens.push(dmc_lexer::token::Token::new(TokenKind::Eof, eof_span, ""));
+    let mut diag = duck_diagnostic::DiagnosticEngine::<dmc_diagnostic::Code>::new();
+    let mut parser = Parser::new(tokens, self.meta.clone(), &mut diag);
+    parser.refs = self.refs.clone();
+    parser.collect_inline(&|k| matches!(k, TokenKind::Eof))
   }
 
   /// Split the body of a `(...)` link/image destination into
