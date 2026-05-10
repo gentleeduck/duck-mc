@@ -2,6 +2,101 @@ use crate::ast::*;
 use crate::parser::Parser;
 use dmc_lexer::token::{AutolinkKind, EmphasisChar, TokenKind};
 
+/// One emphasis delimiter run captured during `collect_inline`. The
+/// post-pass walks these and pairs openers with closers per CM 6.4
+/// to produce `<em>` / `<strong>` nodes.
+struct DelimRecord {
+  c: EmphasisChar,
+  run: u8,
+  can_open: bool,
+  can_close: bool,
+  out_idx: usize,
+  raw: String,
+  span: duck_diagnostic::Span,
+}
+
+/// Resolve emphasis delimiter pairs in `out` per CM 6.4 stack
+/// algorithm. Each consumed delimiter is replaced with the resulting
+/// `<em>` / `<strong>` (or further nested) node.
+fn resolve_emphasis_delims(out: &mut Vec<Node>, delims: &mut [DelimRecord]) {
+  // CM 6.4 process_emphasis: walk delims left-to-right; for each
+  // closer, scan back for the latest matching opener.
+  let mut i = 0usize;
+  while i < delims.len() {
+    if !delims[i].can_close || delims[i].run == 0 {
+      i += 1;
+      continue;
+    }
+    // Scan back for a matching opener.
+    let mut j: Option<usize> = None;
+    let mut k = i;
+    while k > 0 {
+      k -= 1;
+      let d = &delims[k];
+      if d.run == 0 || !d.can_open || d.c != delims[i].c {
+        continue;
+      }
+      // CM rule 9 / 10: combined-length-not-multiple-of-3 unless
+      // both lengths are multiples of 3. Apply only when the
+      // current delimiter is BOTH a potential opener and closer.
+      let combined = (d.run + delims[i].run) as usize;
+      let both_open_close = (d.can_open && d.can_close) || (delims[i].can_open && delims[i].can_close);
+      if both_open_close && combined % 3 == 0 && d.run as usize % 3 != 0 {
+        continue;
+      }
+      j = Some(k);
+      break;
+    }
+    if let Some(open_idx) = j {
+      let open_run = delims[open_idx].run;
+      let close_run = delims[i].run;
+      // Pair only when both delim runs are fully consumed in one
+      // step. Mismatched lengths fall back to no-pair so we don't
+      // have to track partial-run placeholders. This loses CM
+      // mixed-run cases but keeps the algorithm tractable.
+      if open_run != close_run {
+        i += 1;
+        continue;
+      }
+      let use_n: u8 = if open_run >= 2 { 2 } else { 1 };
+      let open_out_idx = delims[open_idx].out_idx;
+      let close_out_idx = delims[i].out_idx;
+      let span = delims[open_idx].span.clone();
+      let lo = open_out_idx + 1;
+      let hi = close_out_idx;
+      let inner: Vec<Node> = out.drain(lo..hi).collect();
+      let node = if use_n == 1 {
+        Node::Italic(Inline { children: inner, span })
+      } else {
+        // Run length 3 = strong+em combined.
+        if open_run == 3 {
+          let strong = Node::Bold(Inline { children: inner, span: span.clone() });
+          Node::Italic(Inline { children: vec![strong], span })
+        } else {
+          Node::Bold(Inline { children: inner, span })
+        }
+      };
+      out[open_out_idx] = node;
+      out.remove(lo); // drop closer placeholder
+      let removed = (hi - lo) + 1;
+      // Mark both delim records consumed.
+      delims[open_idx].run = 0;
+      delims[i].run = 0;
+      delims[open_idx].can_open = false;
+      delims[i].can_close = false;
+      for d in delims.iter_mut() {
+        if d.out_idx > open_out_idx {
+          d.out_idx = d.out_idx.saturating_sub(removed);
+        }
+      }
+      i += 1;
+      continue;
+    }
+    // No opener found -- the placeholder stays as literal text.
+    i += 1;
+  }
+}
+
 /// CM 6.4 "Unicode punctuation": ASCII punctuation plus Unicode
 /// general categories Pc, Pd, Pe, Pf, Pi, Po, Ps. Approximated here as
 /// `c.is_ascii_punctuation()` plus a handful of common ranges; full
@@ -148,6 +243,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
   /// is left on the stream.
   pub(crate) fn collect_inline(&mut self, stop: &dyn Fn(&TokenKind) -> bool) -> Vec<Node> {
     let mut out = Vec::new();
+    let mut delims: Vec<DelimRecord> = Vec::new();
     while let Some(t) = self.peek() {
       let kind = t.kind.clone();
       if stop(&kind) {
@@ -191,111 +287,59 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
           out.push(Node::Text(Text { value: raw, span }));
         },
         TokenKind::Emphasis(c, n) => {
-          let open_c: EmphasisChar = *c;
-          let open_n = *n;
+          let dc: EmphasisChar = *c;
+          let dn = *n;
           let raw = t.raw.to_string();
-          // CM 6.4 left-flanking rule: an emphasis run that is followed
-          // by whitespace / EOL / EOF can't open. For `_` underscores
-          // also block opening when the previous char is alphanumeric
-          // (intra-word `_` rule). When can't open, surface the run as
-          // text and let the closer's logic decide if anything still
-          // pairs.
+          let dspan = span.clone();
+          // CM 6.4 flanking rules. Compute can_open / can_close from
+          // the current cursor context; resolution into <em>/<strong>
+          // happens after collect_inline returns via the delimiter
+          // stack walk below.
           let next_tok = self.tokens.get(self.pos + 1);
-          let next_is_break = match next_tok.map(|t| &t.kind) {
+          let next_ws = match next_tok.map(|t| &t.kind) {
             Some(TokenKind::SoftBreak)
             | Some(TokenKind::HardBreak)
             | Some(TokenKind::BlankLine)
             | Some(TokenKind::Eof)
             | None => true,
             Some(TokenKind::Whitespace(_)) => true,
-            // Catch Unicode whitespace embedded in a Text token (e.g.
-            // NBSP `\xa0`) -- CM 6.4 left-flanking rule treats those
-            // as whitespace too.
             _ => next_tok.is_some_and(|t| t.raw.chars().next().is_some_and(|c| c.is_whitespace())),
           };
           let next_punct = next_tok.is_some_and(|t| t.raw.chars().next().is_some_and(is_unicode_punct));
-          let prev_char: Option<char> = match out.last() {
-            Some(Node::Text(t)) => t.value.chars().last(),
-            _ => None,
-          };
-          let prev_is_ws_or_punct =
-            prev_char.is_none() || prev_char.is_some_and(|c| c.is_whitespace() || is_unicode_punct(c));
+          let next_alnum = next_tok.is_some_and(|t| t.raw.chars().next().is_some_and(|c| c.is_alphanumeric()));
+          let prev_char: Option<char> = self
+            .pos
+            .checked_sub(1)
+            .and_then(|i| self.tokens.get(i))
+            .and_then(|t| t.raw.chars().last());
+          let prev_ws = prev_char.map(|c| c.is_whitespace()).unwrap_or(true);
+          let prev_punct = prev_char.is_some_and(is_unicode_punct);
           let prev_alnum = prev_char.is_some_and(|c| c.is_alphanumeric());
-          // CM 6.4 left-flanking-delimiter run.
-          let mut can_open = !next_is_break;
-          if can_open && next_punct {
-            can_open = prev_is_ws_or_punct;
-          }
-          if open_c == EmphasisChar::Underscore && prev_alnum {
-            can_open = false;
-          }
-          if !can_open {
-            self.advance();
-            out.push(Node::Text(Text { value: raw, span }));
-            continue;
-          }
-          self.advance();
-          let inner = self.collect_inline(&|k| {
-            Self::is_top_level_break(k)
-              || matches!(k, TokenKind::Emphasis(cc, m) if *cc == open_c && *m == open_n)
-              || matches!(k, TokenKind::LinkClose)
-          });
-          // CM 6.4 right-flanking: closer must not be preceded by
-          // whitespace. Underscore additionally can't close when
-          // immediately followed by an alphanumeric char (intra-word
-          // `_`).
-          let closed_kind =
-            matches!(self.peek_kind(), Some(TokenKind::Emphasis(cc, m)) if *cc == open_c && *m == open_n);
-          // Char in source immediately before the would-be closer = last
-          // char of the previously-consumed token.
-          let prev_at_close =
-            self.pos.checked_sub(1).and_then(|i| self.tokens.get(i)).and_then(|t| t.raw.chars().last());
-          let after_closer_tok = self.tokens.get(self.pos + 1);
-          let after_alnum = after_closer_tok.is_some_and(|t| t.raw.chars().next().is_some_and(|c| c.is_alphanumeric()));
-          let prev_at_close_ws = prev_at_close.map(|c| c.is_whitespace()).unwrap_or(true);
-          let prev_at_close_punct = prev_at_close.is_some_and(is_unicode_punct);
-          let after_punct = after_closer_tok.is_some_and(|t| t.raw.chars().next().is_some_and(is_unicode_punct));
-          let after_ws = match after_closer_tok.map(|t| &t.kind) {
-            Some(TokenKind::SoftBreak)
-            | Some(TokenKind::HardBreak)
-            | Some(TokenKind::BlankLine)
-            | Some(TokenKind::Eof)
-            | None => true,
-            Some(TokenKind::Whitespace(_)) => true,
-            _ => after_closer_tok.is_some_and(|t| t.raw.chars().next().is_some_and(|c| c.is_whitespace())),
-          };
-          let mut can_close = closed_kind && !prev_at_close_ws;
-          // CM 6.4 rule 4 for `*`: closer is right-flanking; if also
-          // left-flanking (preceded by punctuation), closer must be
-          // followed by whitespace / punct / EOF for the run to close.
-          if can_close && prev_at_close_punct && !(after_ws || after_punct) {
-            can_close = false;
-          }
-          if open_c == EmphasisChar::Underscore && after_alnum {
-            can_close = false;
-          }
-          let closed = closed_kind && can_close;
-          if !closed {
-            // CM: an unmatched emphasis run is literal text. Surface the
-            // opener and the already-collected inner as siblings so the
-            // delimiters render verbatim.
-            out.push(Node::Text(Text { value: raw, span: span.clone() }));
-            for n in inner {
-              out.push(n);
+          // Left-flanking: not followed by ws AND (not followed by
+          // punct OR preceded by ws/punct).
+          let left_flank = !next_ws && (!next_punct || prev_ws || prev_punct);
+          // Right-flanking: not preceded by ws AND (not preceded by
+          // punct OR followed by ws/punct).
+          let right_flank = !prev_ws && (!prev_punct || next_ws || next_punct);
+          let mut can_open = left_flank;
+          let mut can_close = right_flank;
+          if dc == EmphasisChar::Underscore {
+            // Intra-word `_` rule: can't open when preceded by alnum,
+            // can't close when followed by alnum (unless flanking
+            // requirement compensates per CM rule 7-8).
+            if prev_alnum && next_alnum {
+              can_open = false;
+              can_close = false;
+            } else if prev_alnum {
+              can_open = false;
+            } else if next_alnum {
+              can_close = false;
             }
-            continue;
           }
           self.advance();
-          // Run-length 1 = italic, 2 = bold, 3 = strong+em combined per
-          // CommonMark: <em><strong>x</strong></em>.
-          match open_n {
-            1 => out.push(Node::Italic(Inline { children: inner, span })),
-            2 => out.push(Node::Bold(Inline { children: inner, span })),
-            _ => {
-              let strong = Node::Bold(Inline { children: inner, span: span.clone() });
-              out.push(Node::Italic(Inline { children: vec![strong], span }));
-            },
-          }
+          let idx = out.len();
+          out.push(Node::Text(Text { value: raw.clone(), span: dspan.clone() }));
+          delims.push(DelimRecord { c: dc, run: dn, can_open, can_close, out_idx: idx, raw, span: dspan });
         },
         TokenKind::Strikethrough => {
           self.advance();
@@ -611,6 +655,9 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
           }
         },
       }
+    }
+    if !delims.is_empty() {
+      resolve_emphasis_delims(&mut out, &mut delims);
     }
     out
   }
