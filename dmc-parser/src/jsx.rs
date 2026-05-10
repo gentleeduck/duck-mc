@@ -1,9 +1,125 @@
 use crate::ast::*;
 use crate::parser::Parser;
 use dmc_diagnostic::Code;
-use dmc_lexer::token::TokenKind;
+use dmc_lexer::token::{QuoteKind, TokenKind};
 
 impl<'eng, 'tokens> Parser<'eng, 'tokens> {
+  /// Lowercase / kebab-case JSX tag names are routed through the
+  /// CommonMark raw-HTML path. Keep uppercase / namespaced / member
+  /// names on the JSX path for MDX component semantics.
+  pub(crate) fn is_plain_html_jsx_tag(&self) -> bool {
+    let Some(open) = self.tokens.get(self.pos) else {
+      return false;
+    };
+    if !matches!(open.kind, TokenKind::JsxOpenTagStart | TokenKind::JsxCloseTagStart) {
+      return false;
+    }
+    let Some(name_tok) = self.tokens.get(self.pos + 1) else {
+      return false;
+    };
+    if !matches!(name_tok.kind, TokenKind::JsxTagName) {
+      return false;
+    }
+    name_tok.raw.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
+  }
+
+  /// CommonMark raw HTML does not use JS-style quote escaping inside
+  /// attribute strings. Reject those cases so malformed tags stay text.
+  pub(crate) fn jsx_raw_html_tag_is_valid(&self) -> bool {
+    let Some(kind) = self.peek_kind() else {
+      return false;
+    };
+    if !self.is_plain_html_jsx_tag() {
+      return false;
+    }
+    let is_close = matches!(kind, TokenKind::JsxCloseTagStart);
+    let mut i = self.pos + 2;
+    let mut valid = true;
+    let mut quote: Option<QuoteKind> = None;
+    while let Some(tok) = self.tokens.get(i) {
+      match tok.kind {
+        TokenKind::JsxAttrStringOpen(kind) if !is_close => {
+          quote = Some(kind);
+        },
+        TokenKind::JsxAttrString if !is_close => {
+          if let Some(kind) = quote {
+            let escaped_quote = match kind {
+              QuoteKind::Double => "\\\"",
+              QuoteKind::Single => "\\'",
+            };
+            if tok.raw.contains(escaped_quote) {
+              valid = false;
+            }
+          }
+        },
+        TokenKind::JsxAttrStringClose(_) if !is_close => {
+          quote = None;
+        },
+        TokenKind::JsxAttributeName | TokenKind::JsxAttrEq if !is_close => {},
+        TokenKind::JsxOpenTagEnd | TokenKind::JsxSelfClosingEnd if !is_close => {
+          return valid && quote.is_none();
+        },
+        TokenKind::JsxCloseTagEnd if is_close => return valid,
+        TokenKind::ExpressionStart | TokenKind::ExpressionEnd | TokenKind::JsxAttributeSpread => {
+          valid = false;
+        },
+        TokenKind::Eof | TokenKind::BlankLine | TokenKind::SoftBreak | TokenKind::HardBreak => return false,
+        _ => {
+          valid = false;
+        },
+      }
+      i += 1;
+    }
+    false
+  }
+
+  /// Reconstruct one JSX-tokenized lowercase HTML tag as either raw HTML
+  /// (valid per the lightweight CM checks above) or literal text (for
+  /// malformed tags that must escape on output).
+  pub(crate) fn parse_inline_raw_html_tag(&mut self) -> Option<Node> {
+    let kind = self.peek_kind()?.clone();
+    if !matches!(kind, TokenKind::JsxOpenTagStart | TokenKind::JsxCloseTagStart) || !self.is_plain_html_jsx_tag() {
+      return None;
+    }
+
+    let span = self.current_span();
+    let valid = self.jsx_raw_html_tag_is_valid();
+    let start_ptr = self.tokens.get(self.pos)?.raw.as_ptr() as usize;
+    let mut end_idx = self.pos;
+    let want_close = matches!(kind, TokenKind::JsxCloseTagStart);
+    while let Some(tok) = self.tokens.get(end_idx) {
+      let done = match tok.kind {
+        TokenKind::JsxCloseTagEnd => want_close,
+        TokenKind::JsxOpenTagEnd | TokenKind::JsxSelfClosingEnd => !want_close,
+        _ => false,
+      };
+      if done {
+        break;
+      }
+      if matches!(tok.kind, TokenKind::Eof) {
+        return None;
+      }
+      end_idx += 1;
+    }
+
+    let end_ptr = self.tokens.get(end_idx).map(|t| t.raw.as_ptr() as usize + t.raw.len()).unwrap_or(start_ptr);
+    let value = if end_ptr > start_ptr {
+      // SAFETY: every Token.raw points into the same source buffer.
+      let len = end_ptr - start_ptr;
+      let slice = unsafe { std::slice::from_raw_parts(start_ptr as *const u8, len) };
+      std::str::from_utf8(slice).map(|s| s.to_string()).unwrap_or_default()
+    } else {
+      String::new()
+    };
+    self.pos = end_idx + 1;
+
+    Some(if valid {
+      Node::Html(Html { value, span })
+    } else {
+      Node::Text(Text { value, span })
+    })
+  }
+
   /// Skip the inter-token whitespace the lexer now keeps for inline
   /// spacing. JSX tag-internal whitespace is structural noise; the parser
   /// drops it so attribute / closing-tag tokens line up the way they did

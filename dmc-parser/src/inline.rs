@@ -869,8 +869,16 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
           out.push(Node::Html(Html { value, span: html_span }));
           continue;
         },
-        TokenKind::JsxOpenTagStart => {
-          out.push(self.parse_jsx());
+        TokenKind::JsxOpenTagStart | TokenKind::JsxCloseTagStart => {
+          let raw = t.raw.to_string();
+          if let Some(raw_html) = self.parse_inline_raw_html_tag() {
+            out.push(raw_html);
+          } else if matches!(kind, TokenKind::JsxOpenTagStart) {
+            out.push(self.parse_jsx());
+          } else {
+            self.advance();
+            out.push(Node::Text(Text { value: raw, span }));
+          }
           continue;
         },
         TokenKind::JsxFragmentOpen => {

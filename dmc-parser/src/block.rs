@@ -1528,19 +1528,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
   /// Is the upcoming JSX open tag a lowercase HTML-ish tag (so the
   /// surrounding paragraph wraps it as inline raw HTML)?
   fn is_lowercase_jsx_tag(&self) -> bool {
-    let Some(open) = self.tokens.get(self.pos) else {
-      return false;
-    };
-    if !matches!(open.kind, TokenKind::JsxOpenTagStart) {
-      return false;
-    }
-    let Some(name_tok) = self.tokens.get(self.pos + 1) else {
-      return false;
-    };
-    if !matches!(name_tok.kind, TokenKind::JsxTagName) {
-      return false;
-    }
-    name_tok.raw.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit())
+    matches!(self.peek_kind(), Some(TokenKind::JsxOpenTagStart)) && self.is_plain_html_jsx_tag()
   }
 
   fn jsx_html_block_mode(&self) -> Option<HtmlBlockMode> {
@@ -1563,7 +1551,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       Some(HtmlBlockMode::Type1(lower))
     } else if HTML_BLOCK_TYPE6_TAGS.contains(&lower.as_str()) {
       Some(HtmlBlockMode::Type6)
-    } else if raw_name.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit()) && self.line_after_tag_is_blank() {
+    } else if self.is_plain_html_jsx_tag() && self.jsx_raw_html_tag_is_valid() && self.line_after_tag_is_blank() {
       // CM 4.6 Type-7: any tag at col 0 closes on next blank line --
       // BUT the start line itself must contain only the tag plus
       // whitespace (no inline content after the closing `>`).
