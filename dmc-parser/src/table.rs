@@ -87,19 +87,23 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
   }
 }
 
-/// True when `s` starts and ends with `|` and has at least two pipes.
+/// GFM permits a table row with leading/trailing `|` optional, so we
+/// accept any line that contains at least one unescaped `|` and isn't a
+/// pure separator (those are caught later).
 fn looks_like_table_row(s: &str) -> bool {
   let t = s.trim();
-  t.starts_with('|') && t.ends_with('|') && t.matches('|').count() >= 2
+  if t.is_empty() {
+    return false;
+  }
+  t.matches('|').count() >= 1
 }
 
-/// Parse the `|:---|---:|:---:|` alignment row. `None` on any malformed cell.
+/// Parse the `|:---|---:|:---:|` alignment row. Leading/trailing `|`
+/// optional per GFM 4.10. `None` on any malformed cell.
 fn parse_alignment_row(s: &str) -> Option<Vec<TableAlign>> {
   let t = s.trim();
-  if !t.starts_with('|') || !t.ends_with('|') {
-    return None;
-  }
-  let inner = &t[1..t.len() - 1];
+  let inner = t.strip_prefix('|').unwrap_or(t);
+  let inner = inner.strip_suffix('|').unwrap_or(inner);
   let mut aligns = Vec::new();
   for cell in inner.split('|') {
     let cell = cell.trim();
@@ -133,10 +137,13 @@ fn parse_alignment_row(s: &str) -> Option<Vec<TableAlign>> {
 /// row.
 fn split_cells(s: &str) -> Vec<String> {
   let t = s.trim();
-  if t.len() < 2 {
+  if t.is_empty() {
     return Vec::new();
   }
-  let inner = &t[1..t.len() - 1];
+  // GFM 4.10 allows omitting the leading and trailing `|`. Strip them
+  // when present so `bar | baz` parses identically to `| bar | baz |`.
+  let inner = t.strip_prefix('|').unwrap_or(t);
+  let inner = inner.strip_suffix('|').unwrap_or(inner);
 
   let mut cells: Vec<String> = Vec::new();
   let mut current = String::new();
