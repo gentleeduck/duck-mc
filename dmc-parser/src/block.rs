@@ -195,6 +195,9 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       },
       TokenKind::JsxFragmentOpen => Some(self.parse_jsx_fragment()),
       TokenKind::HtmlBlockOpen(_) => Some(self.parse_html_block()),
+      TokenKind::HtmlCommentOpen if self.peek().is_some_and(|t| t.span.column == 1) => {
+        Some(self.parse_html_comment_block())
+      },
       TokenKind::ExpressionStart => Some(self.parse_jsx_expression()),
       TokenKind::MdxCommentOpen => {
         self.skip_md_comment();
@@ -607,7 +610,10 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
               && let Some(last) = items.last_mut()
             {
               Self::ensure_loose_item(last, &span);
-              Self::append_to_item(last, Node::CodeBlock(CodeBlock { lang: None, meta: None, value: buf, span: span_code }));
+              Self::append_to_item(
+                last,
+                Node::CodeBlock(CodeBlock { lang: None, meta: None, value: buf, span: span_code }),
+              );
             }
             continue;
           }
@@ -1227,6 +1233,39 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
   /// Raw HTML block (CM 4.6 types 2-5). Lexer flagged the open token
   /// with the type discriminator; we capture the entire span verbatim
   /// (open + body + close) into a single `Html` node.
+  /// CM 4.6 type-2: HTML comment as a block (cursor on
+  /// `HtmlCommentOpen` at col 0). Slurps tokens through the matching
+  /// `HtmlCommentClose` and emits a single `Html` node containing the
+  /// verbatim source. The block extends to a blank line if the close
+  /// never fires on the same line.
+  fn parse_html_comment_block(&mut self) -> Node {
+    let span = self.current_span();
+    let mut value = String::new();
+    if let Some(t) = self.peek() {
+      value.push_str(t.raw);
+    }
+    self.advance();
+    loop {
+      match self.peek_kind() {
+        Some(TokenKind::HtmlCommentClose) => {
+          if let Some(t) = self.peek() {
+            value.push_str(t.raw);
+          }
+          self.advance();
+          break;
+        },
+        Some(TokenKind::BlankLine) | Some(TokenKind::Eof) | None => break,
+        _ => {
+          if let Some(t) = self.peek() {
+            value.push_str(t.raw);
+          }
+          self.advance();
+        },
+      }
+    }
+    Node::Html(Html { value, span })
+  }
+
   fn parse_html_block(&mut self) -> Node {
     let span = self.current_span();
     let mut value = String::new();
