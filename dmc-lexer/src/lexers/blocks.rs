@@ -87,9 +87,16 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
       return false;
     }
     match self.peek() {
-      Some(' ' | '\t') => {
+      // CM 5.2 + 2.2: only 1 col is consumed after the marker. A tab
+      // contributes its 4-col snap; leave it for the parser when it
+      // would steal more than 1 col of content indent.
+      Some(' ') => {
         self.advance();
       },
+      Some('\t') if self.column % 4 == 3 => {
+        self.advance();
+      },
+      Some('\t') => {},
       None | Some('\n') => {},
       _ => return false,
     }

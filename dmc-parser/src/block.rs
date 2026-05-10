@@ -445,16 +445,13 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       self.advance();
 
       // Track extra whitespace between the marker and the first non-blank
-      // content. CM 5.2: when 0-4 extras, content_indent grows by that
-      // count; 5+ folds back to 1 (content becomes an indented code line
-      // inside the item).
-      let extra_ws = match self.peek() {
-        Some(t) if matches!(t.kind, TokenKind::Whitespace(_)) => {
-          let ws = t.raw.chars().count();
-          if !marker_raw_has_ws && marker_raw_width > 0 { ws.saturating_sub(1) } else { ws }
-        },
-        _ => 0,
-      };
+      // content. CM 5.2 + 2.2: when 0-4 visual cols of extra, content_indent
+      // grows by that count; 5+ folds back to 1 (content becomes an indented
+      // code line inside the item). Tabs snap to the 4-col stop, so use
+      // visual cols rather than byte count.
+      let extra_ws = self.peek_leading_indent().map(|n| {
+        if !marker_raw_has_ws && marker_raw_width > 0 { n.saturating_sub(1) } else { n }
+      }).unwrap_or(0);
       let item_content_extra = if extra_ws >= 4 { 0 } else { extra_ws };
 
       // Ordered-list items: trim the trailing `.` left in the first Text token.
@@ -944,9 +941,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
             }
             continue 'after_item;
           }
-          if n == content_indent
-            && matches!(next_after_ws, Some(TokenKind::IndentedCodeLine))
-          {
+          if n == content_indent && matches!(next_after_ws, Some(TokenKind::IndentedCodeLine)) {
             self.tokens[self.pos + 1].kind = TokenKind::Text;
           }
           self.advance(); // skip whitespace
