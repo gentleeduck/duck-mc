@@ -1060,8 +1060,10 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         // CM 5.1 lazy continuation: a non-marker line continues the
         // currently-open paragraph when the cursor sits on inline
         // content (not a block-boundary token).
+        let starts_other_block = self.line_starts_other_block();
         let top = children.len() - 1;
         let lazy_eligible = !paragraphs[top].is_empty()
+          && !starts_other_block
           && matches!(
             self.peek_kind(),
             Some(TokenKind::Text)
@@ -1312,6 +1314,32 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     if matches!(self.peek_kind(), Some(TokenKind::Whitespace(_))) {
       self.advance();
     }
+  }
+
+  /// Whether the current physical line begins with another block
+  /// construct after up to three leading spaces. Used to prevent CM
+  /// 5.1 lazy continuation from swallowing lines that should break out
+  /// of the current blockquote paragraph.
+  fn line_starts_other_block(&self) -> bool {
+    let mut i = self.pos;
+    if matches!(self.tokens.get(i).map(|t| &t.kind), Some(TokenKind::Whitespace(_))) {
+      i += 1;
+    }
+    matches!(
+      self.tokens.get(i).map(|t| &t.kind),
+      Some(TokenKind::Heading(_))
+        | Some(TokenKind::ThematicBreak)
+        | Some(TokenKind::BlockQuoteMarker)
+        | Some(TokenKind::UnorderedListMarker)
+        | Some(TokenKind::OrderedListMarker(_))
+        | Some(TokenKind::IndentedCodeLine)
+        | Some(TokenKind::CodeFenceOpen(_, _))
+        | Some(TokenKind::HtmlCommentOpen)
+        | Some(TokenKind::HtmlBlockOpen(_))
+        | Some(TokenKind::JsxOpenTagStart)
+        | Some(TokenKind::JsxCloseTagStart)
+        | Some(TokenKind::LinkRefDef)
+    )
   }
 
   /// Wrap the upcoming `Import` token's raw lexeme into an `Import` node.
