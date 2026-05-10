@@ -488,7 +488,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
   /// authors can write `\*literal\*` without the asterisks turning into
   /// emphasis. The lexer keeps the backslash in `Text` raw to preserve
   /// source spans; this collapses it for the rendered text.
-  fn unescape_markdown(s: &str) -> String {
+  pub(crate) fn unescape_markdown(s: &str) -> String {
     if !s.contains('\\') {
       return s.to_string();
     }

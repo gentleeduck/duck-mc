@@ -144,7 +144,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         self.advance();
         Some(Node::HorizontalRule(HorizontalRule { span }))
       },
-      TokenKind::HardBreak | TokenKind::SoftBreak => {
+      TokenKind::HardBreak | TokenKind::SoftBreak | TokenKind::BlankLine => {
         self.advance();
         None
       },
@@ -1038,9 +1038,12 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       match info_trimmed.split_once(char::is_whitespace) {
         Some((l, rest)) => {
           let rest = rest.trim();
-          (Some(l.to_string()), if rest.is_empty() { None } else { Some(rest.to_string()) })
+          (
+            Some(Self::unescape_markdown(l)),
+            if rest.is_empty() { None } else { Some(Self::unescape_markdown(rest)) },
+          )
         },
-        None => (Some(info_trimmed.to_string()), None),
+        None => (Some(Self::unescape_markdown(info_trimmed)), None),
       }
     };
 

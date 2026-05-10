@@ -199,7 +199,8 @@ impl HtmlEmitter {
   fn code_block(&mut self, cb: &CodeBlock) {
     self.out.push_str("<pre><code");
     if let Some(lang) = &cb.lang {
-      self.out.push_str(&format!(" class=\"gentledmc-language-{}\"", escape_attr(lang)));
+      // CM reference output uses the bare `language-{lang}` class.
+      self.out.push_str(&format!(" class=\"language-{}\"", escape_attr(lang)));
     }
     self.out.push('>');
     self.out.push_str(&escape_text(&cb.value));

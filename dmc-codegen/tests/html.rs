@@ -68,7 +68,8 @@ fn image_renders() {
 fn fenced_code_with_lang() {
   let src = "```ts\nlet x = 1\n```\n";
   let h = html(src);
-  assert!(h.contains("<pre><code class=\"gentledmc-language-ts\""), "got {}", h);
+  // CM reference output uses the bare `language-{lang}` class.
+  assert!(h.contains("<pre><code class=\"language-ts\""), "got {}", h);
   assert!(h.contains("let x = 1"), "got {}", h);
 }
 
