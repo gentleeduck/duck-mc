@@ -13,6 +13,36 @@ fn first_paragraph(d: &Document) -> &Paragraph {
 }
 
 #[test]
+fn footnote_ref_emits_node() {
+  let d = parse_doc("see [^1] there\n");
+  let p = first_paragraph(&d);
+  let id = p
+    .children
+    .iter()
+    .find_map(|n| match n {
+      Node::FootnoteRef(f) => Some(f.id.clone()),
+      _ => None,
+    })
+    .expect("footnote ref");
+  assert_eq!(id, "1");
+}
+
+#[test]
+fn footnote_def_emits_node() {
+  let d = parse_doc("[^1]: body of note\n");
+  let def = d
+    .children
+    .iter()
+    .find_map(|n| match n {
+      Node::FootnoteDef(f) => Some(f),
+      _ => None,
+    })
+    .expect("footnote def");
+  assert_eq!(def.id, "1");
+  assert!(!def.children.is_empty());
+}
+
+#[test]
 fn shortcut_reference_link_resolves() {
   // `[foo]` after `[foo]: /url "title"` should become Link(href=/url).
   let d = parse_doc("[foo]\n\n[foo]: /url \"title\"\n");

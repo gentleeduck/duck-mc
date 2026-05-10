@@ -32,6 +32,8 @@ pub enum Node {
   HardBreak(BreakNode),
   SoftBreak(BreakNode),
   Html(Html),
+  FootnoteRef(FootnoteRef),
+  FootnoteDef(FootnoteDef),
 }
 
 impl Node {
@@ -49,6 +51,7 @@ impl Node {
       Node::TableCell(n) => &n.children,
       Node::JsxElement(n) => &n.children,
       Node::JsxFragment(n) => &n.children,
+      Node::FootnoteDef(n) => &n.children,
       _ => &[],
     }
   }
@@ -67,6 +70,7 @@ impl Node {
       Node::TableCell(n) => Some(&mut n.children),
       Node::JsxElement(n) => Some(&mut n.children),
       Node::JsxFragment(n) => Some(&mut n.children),
+      Node::FootnoteDef(n) => Some(&mut n.children),
       _ => None,
     }
   }
@@ -283,5 +287,21 @@ pub struct BreakNode {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Html {
   pub value: String,
+  pub span: Span,
+}
+
+/// GFM footnote reference (`[^id]`).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct FootnoteRef {
+  pub id: String,
+  pub span: Span,
+}
+
+/// GFM footnote definition (`[^id]: body`). The body is an inline
+/// subtree; renderers number the definition globally on output.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct FootnoteDef {
+  pub id: String,
+  pub children: Vec<Node>,
   pub span: Span,
 }

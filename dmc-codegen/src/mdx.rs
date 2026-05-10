@@ -521,6 +521,16 @@ impl MdxBodyEmitter {
         self.jsx_tag_ref("div"),
         Self::js_string(&h.value)
       ),
+      // GFM footnotes: emit a superscript link to the def section. The
+      // def itself renders as a list-item paragraph.
+      Node::FootnoteRef(f) => format!(
+        "jsx({}, {{ children: jsx({}, {{ href: \"#fn-{}\", children: {} }}) }})",
+        self.jsx_tag_ref("sup"),
+        self.jsx_tag_ref("a"),
+        f.id,
+        Self::js_string(&f.id)
+      ),
+      Node::FootnoteDef(f) => self.wrap_jsx("p", &f.children),
       Node::Frontmatter(_)
       | Node::Import(_)
       | Node::Export(_)

@@ -301,6 +301,8 @@ fn describe(node: &Node) -> (String, Vec<&Node>) {
     Node::HardBreak(_) => ("HardBreak".to_string(), vec![]),
     Node::SoftBreak(_) => ("SoftBreak".to_string(), vec![]),
     Node::Html(h) => (format!("Html         {:?}", trunc(&h.value, 80)), vec![]),
+    Node::FootnoteRef(f) => (format!("FootnoteRef  id={:?}", f.id), vec![]),
+    Node::FootnoteDef(f) => (format!("FootnoteDef  id={:?}", f.id), f.children.iter().collect()),
   }
 }
 

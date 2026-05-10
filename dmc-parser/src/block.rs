@@ -70,6 +70,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         self.advance();
         None
       },
+      TokenKind::FootnoteDefMarker => Some(self.parse_footnote_def()),
       _ => {
         if let Some(n) = self.try_parse_table() {
           return Some(n);
@@ -648,6 +649,24 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       }
     }
     Node::Heading(Heading { level, children, span, id: None })
+  }
+
+  /// GFM footnote definition: cursor at `FootnoteDefMarker`. The marker
+  /// token's raw lexeme is `[^id]: ` (trailing space included by the
+  /// lexer); body is the inline run that follows up to the next break.
+  fn parse_footnote_def(&mut self) -> Node {
+    let span = self.current_span();
+    let raw = self.peek().map(|t| t.raw.to_string()).unwrap_or_default();
+    self.advance();
+    let id = raw
+      .trim_start_matches('[')
+      .trim_start_matches('^')
+      .split(']')
+      .next()
+      .unwrap_or("")
+      .to_string();
+    let children = self.collect_inline_until_break();
+    Node::FootnoteDef(FootnoteDef { id, children, span })
   }
 
   /// Raw HTML block (CM 4.6 types 2-5). Lexer flagged the open token

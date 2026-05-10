@@ -363,6 +363,13 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
           out.push(self.parse_jsx_expression());
           continue;
         },
+        TokenKind::FootnoteRefOpen => {
+          // Lexer emits a single token covering `[^id]`; pull the id out.
+          let raw = t.raw.to_string();
+          self.advance();
+          let id = raw.trim_start_matches('[').trim_start_matches('^').trim_end_matches(']').to_string();
+          out.push(Node::FootnoteRef(FootnoteRef { id, span }));
+        },
         TokenKind::EntityRef => {
           let raw = t.raw.to_string();
           self.advance();
