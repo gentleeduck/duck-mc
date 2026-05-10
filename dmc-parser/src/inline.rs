@@ -655,21 +655,24 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
                   // CM 6.3: malformed `[label](destination)` falls back to
                   // shortcut reference resolution -- if `[label]` matches
                   // a definition, render the link and leave the failed
-                  // paren body as literal text after it.
+                  // paren body as literal text after it. Decode entities
+                  // in the paren body so re-escaping at codegen time
+                  // restores the original `&XYZ;` rather than `&amp;XYZ;`.
+                  let body_decoded = decode_entities_in(&paren_body);
                   let label_raw = raw_inner_label.clone();
                   let label_plain = plain_text(&inner);
                   let resolved = self.refs.get(&label_raw).cloned().or_else(|| self.refs.get(&label_plain).cloned());
                   if let Some((href, title)) = resolved {
                     out.push(Node::Link(Link { href, title, children: inner, span: span.clone() }));
                     let close_str = if has_close { ")" } else { "" };
-                    out.push(Node::Text(Text { value: format!("({}{}", paren_body, close_str), span }));
+                    out.push(Node::Text(Text { value: format!("({}{}", body_decoded, close_str), span }));
                   } else {
                     out.push(Node::Text(Text { value: "[".into(), span: span.clone() }));
                     for n in inner {
                       out.push(n);
                     }
                     let close_str = if has_close { ")" } else { "" };
-                    out.push(Node::Text(Text { value: format!("]({}{}", paren_body, close_str), span }));
+                    out.push(Node::Text(Text { value: format!("]({}{}", body_decoded, close_str), span }));
                   }
                 },
               }

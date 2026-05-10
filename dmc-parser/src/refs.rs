@@ -192,7 +192,11 @@ pub fn parse_link_ref_def(raw: &str) -> Option<(String, String, Option<String>)>
       let matched =
         (first == b'"' && last == b'"') || (first == b'\'' && last == b'\'') || (first == b'(' && last == b')');
       if starts_title {
-        if matched && rest.len() >= 2 { Some(rest[1..rest.len() - 1].to_string()) } else { return None; }
+        if matched && rest.len() >= 2 {
+          Some(rest[1..rest.len() - 1].to_string())
+        } else {
+          return None;
+        }
       } else {
         return None;
       }
