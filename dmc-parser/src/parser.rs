@@ -7,6 +7,15 @@ use dmc_lexer::token::{Token, TokenKind};
 use duck_diagnostic::{Diagnostic, DiagnosticEngine, Span};
 use std::sync::Arc;
 
+/// Dialect knobs that change parse behavior between strict CommonMark and
+/// MDX. Default is MDX-friendly so capital JSX components round-trip as
+/// `JsxElement` nodes; spec runners can flip `cm_strict_html_blocks` to
+/// treat capital lowercase tags as CM 4.6 type-7 raw HTML.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct ParseOptions {
+  pub cm_strict_html_blocks: bool,
+}
+
 /// Token-stream cursor + diagnostic engine. `'tokens` ties borrowed lexemes to
 /// the source; `'eng` ties the engine borrow to the caller.
 pub struct Parser<'eng, 'tokens> {
@@ -15,6 +24,7 @@ pub struct Parser<'eng, 'tokens> {
   pub pos: usize,
   pub refs: RefMap,
   pub diag_engine: &'eng mut DiagnosticEngine<Code>,
+  pub options: ParseOptions,
 }
 
 impl<'eng, 'tokens> Parser<'eng, 'tokens> {
@@ -24,7 +34,17 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     meta: Arc<SourceMeta>,
     diag_engine: &'eng mut DiagnosticEngine<Code>,
   ) -> Self {
-    Self { tokens, meta, pos: 0, refs: RefMap::new(), diag_engine }
+    Self { tokens, meta, pos: 0, refs: RefMap::new(), diag_engine, options: ParseOptions::default() }
+  }
+
+  /// Build a parser with explicit `ParseOptions`.
+  pub fn new_with_options(
+    tokens: Vec<Token<'tokens>>,
+    meta: Arc<SourceMeta>,
+    diag_engine: &'eng mut DiagnosticEngine<Code>,
+    options: ParseOptions,
+  ) -> Self {
+    Self { tokens, meta, pos: 0, refs: RefMap::new(), diag_engine, options }
   }
 
   /// Drive the top-level loop until EOF. Force-advances on no-progress so a
@@ -214,6 +234,12 @@ fn unescape_link_part(s: &str) -> String {
 /// tests + the `parse` bin; production callers should construct their own
 /// `DiagnosticEngine`.
 pub fn parse(source: &str) -> Document {
+  parse_with(source, ParseOptions::default())
+}
+
+/// `parse` variant with explicit `ParseOptions`. Used by the CM spec
+/// runner to opt into CM-strict HTML block detection.
+pub fn parse_with(source: &str, options: ParseOptions) -> Document {
   let meta = Arc::from(SourceMeta { path: Arc::from("<inline>"), origin: Origin::Inline("<inline>") });
   let mut lex_engine = DiagnosticEngine::new();
   let mut lexer = Lexer::new(source, meta.clone(), &mut lex_engine);
@@ -222,7 +248,7 @@ pub fn parse(source: &str) -> Document {
   drop(lexer);
 
   let mut parse_engine = DiagnosticEngine::new();
-  let mut p = Parser::new(tokens, meta, &mut parse_engine);
+  let mut p = Parser::new_with_options(tokens, meta, &mut parse_engine, options);
   p.parse()
 }
 

@@ -2032,6 +2032,15 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       // like `<MyComponent>` and namespaces like `<svg:circle>` stay
       // on the JSX path and compile to component invocations.
       Some(HtmlBlockMode::Type7)
+    } else if self.options.cm_strict_html_blocks
+      && self.is_htmlish_jsx_tag()
+      && self.jsx_raw_html_tag_is_valid_htmlish()
+      && self.line_after_tag_is_blank()
+    {
+      // CM-strict spec runner: also treat uppercase HTML-ish names
+      // (like `<Warning>`) as Type-7 raw HTML blocks. MDX mode keeps
+      // these on the JSX path so the component compiles correctly.
+      Some(HtmlBlockMode::Type7)
     } else {
       None
     }

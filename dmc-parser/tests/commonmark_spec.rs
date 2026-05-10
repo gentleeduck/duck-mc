@@ -73,7 +73,10 @@ fn commonmark_spec_no_regression() {
   let mut first_failures: Vec<u32> = Vec::new();
 
   for ex in &examples {
-    let doc = dmc_parser::parse(&ex.markdown);
+    let doc = dmc_parser::parse_with(
+      &ex.markdown,
+      dmc_parser::parser::ParseOptions { cm_strict_html_blocks: true },
+    );
     let html = dmc_codegen::render_html(&doc);
     if normalize(&html) == normalize(&ex.html) {
       pass += 1;
@@ -104,7 +107,10 @@ fn commonmark_spec_dump_failures() {
   let limit: usize = std::env::var("DMC_DUMP_LIMIT").ok().and_then(|s| s.parse().ok()).unwrap_or(20);
 
   for ex in &examples {
-    let doc = dmc_parser::parse(&ex.markdown);
+    let doc = dmc_parser::parse_with(
+      &ex.markdown,
+      dmc_parser::parser::ParseOptions { cm_strict_html_blocks: true },
+    );
     let html = dmc_codegen::render_html(&doc);
     if normalize(&html) != normalize(&ex.html) {
       shown += 1;

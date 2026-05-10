@@ -10,5 +10,5 @@ pub mod refs;
 pub mod slugger;
 mod table;
 
-pub use parser::{Parser, parse, parse_inline_str};
+pub use parser::{ParseOptions, Parser, parse, parse_inline_str, parse_with};
 pub use slugger::{Slugger, github_slugify};
