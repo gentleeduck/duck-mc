@@ -935,6 +935,20 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
             }
             continue 'after_item;
           }
+          if let Some(TokenKind::IndentedCodeLine) = next_after_ws.as_ref()
+            && let Some(code) = self.parse_same_indent_fenced_code_in_list(content_indent)
+          {
+            if let Some(last) = items.last_mut() {
+              Self::ensure_loose_item(last, &span);
+              Self::append_to_item(last, code);
+            }
+            continue 'after_item;
+          }
+          if n == content_indent
+            && matches!(next_after_ws, Some(TokenKind::IndentedCodeLine))
+          {
+            self.tokens[self.pos + 1].kind = TokenKind::Text;
+          }
           self.advance(); // skip whitespace
           self.try_promote_text_blockquote_marker();
           self.try_promote_text_list_marker();
@@ -1154,6 +1168,86 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       }
     }
     Node::CodeBlock(CodeBlock { lang: None, meta: None, value: buf, span })
+  }
+
+  fn parse_same_indent_fenced_code_in_list(&mut self, content_indent: usize) -> Option<Node> {
+    if self.peek_leading_indent() != Some(content_indent) {
+      return None;
+    }
+    let raw = match self.tokens.get(self.pos + 1) {
+      Some(t) if matches!(t.kind, TokenKind::IndentedCodeLine) => t.raw,
+      _ => return None,
+    };
+    let bytes = raw.as_bytes();
+    let fence_byte = match bytes.first().copied() {
+      Some(b'`') => b'`',
+      Some(b'~') => b'~',
+      _ => return None,
+    };
+    let mut fence_n = 0usize;
+    while fence_n < bytes.len() && bytes[fence_n] == fence_byte {
+      fence_n += 1;
+    }
+    if fence_n < 3 {
+      return None;
+    }
+
+    let span = self.current_span();
+    self.advance(); // content indent
+    self.advance(); // opener line
+    if matches!(self.peek_kind(), Some(TokenKind::SoftBreak) | Some(TokenKind::HardBreak)) {
+      self.advance();
+    }
+
+    let mut value = String::new();
+    loop {
+      let Some(indent) = self.peek_leading_indent() else {
+        break;
+      };
+      if indent < content_indent {
+        break;
+      }
+      self.advance();
+      let Some(t) = self.peek() else {
+        break;
+      };
+      if !matches!(t.kind, TokenKind::IndentedCodeLine) {
+        break;
+      }
+      let raw = t.raw.to_string();
+      let close = {
+        let b = raw.as_bytes();
+        let mut i = 0usize;
+        while i < b.len() && b[i] == b' ' && i < 3 {
+          i += 1;
+        }
+        let mut count = 0usize;
+        while i + count < b.len() && b[i + count] == fence_byte {
+          count += 1;
+        }
+        let mut j = i + count;
+        while j < b.len() && matches!(b[j], b' ' | b'\t') {
+          j += 1;
+        }
+        count >= fence_n && j == b.len()
+      };
+      self.advance();
+      if close {
+        if matches!(self.peek_kind(), Some(TokenKind::SoftBreak) | Some(TokenKind::HardBreak)) {
+          self.advance();
+        }
+        break;
+      }
+      value.push_str(&raw);
+      value.push('\n');
+      if matches!(self.peek_kind(), Some(TokenKind::SoftBreak) | Some(TokenKind::HardBreak)) {
+        self.advance();
+      } else {
+        break;
+      }
+    }
+
+    Some(Node::CodeBlock(CodeBlock { lang: None, meta: None, value, span }))
   }
 
   fn is_block_node(node: &Node) -> bool {
@@ -1709,7 +1803,6 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         }
       }
       items.push(item);
-
     }
 
     Node::List(List { ordered, start, children: items, span })
