@@ -8,8 +8,9 @@ fn html(src: &str) -> String {
 
 #[test]
 fn h1_with_id() {
-  // codegen does NOT include autolink - that's the transformer's job.
-  // Test the codegen alone here, separate from the pipeline.
+  // CM-strict codegen: emit `id` only when the AST carries one. The
+  // `AssignHeadingIds` transform is what populates `h.id`; codegen no
+  // longer auto-slugs (which would diverge from the CM spec runner).
   use dmc_parser::ast::*;
   let doc = Document {
     span: dmc_parser::ast::default_span(),
@@ -17,11 +18,27 @@ fn h1_with_id() {
       level: 1,
       children: vec![Node::Text(Text { value: "Hello".into(), span: dmc_parser::ast::default_span() })],
       span: dmc_parser::ast::default_span(),
-      id: None,
+      id: Some("hello".into()),
     })],
   };
   let html = dmc_codegen::render_html(&doc);
   assert_eq!(html, "<h1 id=\"hello\">Hello</h1>");
+}
+
+#[test]
+fn h1_without_id_omits_attribute() {
+  use dmc_parser::ast::*;
+  let doc = Document {
+    span: dmc_parser::ast::default_span(),
+    children: vec![Node::Heading(Heading {
+      level: 1,
+      children: vec![Node::Text(Text { value: "Hi".into(), span: dmc_parser::ast::default_span() })],
+      span: dmc_parser::ast::default_span(),
+      id: None,
+    })],
+  };
+  let html = dmc_codegen::render_html(&doc);
+  assert_eq!(html, "<h1>Hi</h1>");
 }
 
 #[test]
@@ -94,9 +111,10 @@ fn ordered_list_with_start_renders() {
 #[test]
 fn thematic_break_html() {
   let h = dmc_codegen::render_html(&dmc_parser::parse("---\n"));
-  // HTML5 closes void elements implicitly; remark/rehype don't write the
-  // XHTML self-closing slash on `<hr>`, so we don't either.
-  assert!(h.contains("<hr>"), "got {}", h);
+  // CM 0.31.2 spec output uses the XHTML self-closing form `<hr />`,
+  // so the spec runner can compare directly. Browsers treat the two
+  // forms identically.
+  assert!(h.contains("<hr />"), "got {}", h);
 }
 
 #[test]

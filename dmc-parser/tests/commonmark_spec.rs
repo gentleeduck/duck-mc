@@ -93,3 +93,29 @@ fn commonmark_spec_no_regression() {
     );
   }
 }
+
+/// Dump the first `N` failures with section, source, expected vs.
+/// actual HTML. Run with `--ignored --nocapture` to see categories.
+#[test]
+#[ignore]
+fn commonmark_spec_dump_failures() {
+  let examples = load_examples();
+  let mut shown = 0usize;
+  let limit: usize = std::env::var("DMC_DUMP_LIMIT").ok().and_then(|s| s.parse().ok()).unwrap_or(20);
+
+  for ex in &examples {
+    let doc = dmc_parser::parse(&ex.markdown);
+    let html = dmc_codegen::render_html(&doc);
+    if normalize(&html) != normalize(&ex.html) {
+      shown += 1;
+      println!("=== example {} ({}) ===", ex.example, ex.section);
+      println!("--- markdown ---\n{}", ex.markdown);
+      println!("--- expected ---\n{}", ex.html);
+      println!("--- actual ---\n{}", html);
+      println!();
+      if shown >= limit {
+        break;
+      }
+    }
+  }
+}

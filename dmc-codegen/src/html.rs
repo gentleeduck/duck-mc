@@ -33,8 +33,8 @@ impl NodeSink for HtmlEmitter {
       },
       Node::CodeBlock(cb) => self.code_block(cb),
       Node::Image(i) => self.image(i),
-      Node::HorizontalRule(_) => self.out.push_str("<hr>"),
-      Node::HardBreak(_) => self.out.push_str("<br/>"),
+      Node::HorizontalRule(_) => self.out.push_str("<hr />"),
+      Node::HardBreak(_) => self.out.push_str("<br />"),
       Node::SoftBreak(_) => self.out.push('\n'),
       Node::JsxSelfClosing(s) => self.jsx_self_closing(s),
       Node::JsxExpression(e) => {
@@ -109,7 +109,10 @@ impl HtmlEmitter {
   /// Write the opening tag for a container node.
   fn open_tag(&mut self, node: &Node) {
     match node {
-      Node::Heading(h) => self.out.push_str(&format!("<h{} id=\"{}\">", h.level, escape_attr(&h.slug()))),
+      Node::Heading(h) => match &h.id {
+        Some(id) => self.out.push_str(&format!("<h{} id=\"{}\">", h.level, escape_attr(id))),
+        None => self.out.push_str(&format!("<h{}>", h.level)),
+      },
       Node::Paragraph(_) => self.out.push_str("<p>"),
       Node::Bold(_) => self.out.push_str("<strong>"),
       Node::Italic(_) => self.out.push_str("<em>"),
@@ -356,7 +359,7 @@ impl HtmlEmitter {
         self.out.push_str("</a>");
       },
       Node::Image(i) => self.image(i),
-      Node::HardBreak(_) => self.out.push_str("<br/>"),
+      Node::HardBreak(_) => self.out.push_str("<br />"),
       Node::SoftBreak(_) => self.out.push('\n'),
       Node::CodeBlock(cb) => self.code_block(cb),
       _ => {

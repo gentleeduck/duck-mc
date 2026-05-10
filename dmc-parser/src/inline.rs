@@ -196,6 +196,18 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
               },
             }
           }
+          // CM 6.1: line endings inside become single spaces; if the
+          // resulting string both starts and ends with a single space
+          // (and isn't all-spaces), strip one from each side.
+          let value = value.replace('\n', " ");
+          let value = if value.starts_with(' ')
+            && value.ends_with(' ')
+            && value.chars().any(|c| c != ' ')
+          {
+            value[1..value.len() - 1].to_string()
+          } else {
+            value
+          };
           out.push(Node::InlineCode(InlineCode { value, span }));
         },
         TokenKind::LinkOpen => {
@@ -473,24 +485,40 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     while i < bytes.len() {
       if bytes[i] == b'\\' && i + 1 < bytes.len() {
         let nx = bytes[i + 1];
+        // CM appendix: `!"#$%&'()*+,-./:;<=>?@[\]^_`{|}~`.
         if matches!(
           nx,
-          b'\\'
-            | b'*'
-            | b'_'
-            | b'`'
-            | b'<'
-            | b'>'
-            | b'{'
-            | b'}'
-            | b'['
-            | b']'
+          b'!'
+            | b'"'
+            | b'#'
+            | b'$'
+            | b'%'
+            | b'&'
+            | b'\''
             | b'('
             | b')'
-            | b'!'
-            | b'#'
+            | b'*'
+            | b'+'
+            | b','
             | b'-'
-            | b'$'
+            | b'.'
+            | b'/'
+            | b':'
+            | b';'
+            | b'<'
+            | b'='
+            | b'>'
+            | b'?'
+            | b'@'
+            | b'['
+            | b'\\'
+            | b']'
+            | b'^'
+            | b'_'
+            | b'`'
+            | b'{'
+            | b'|'
+            | b'}'
             | b'~'
         ) {
           out.push(nx as char);
