@@ -503,6 +503,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         TokenKind::LinkOpen => {
           let start = self.pos;
           self.advance();
+          let label_start_pos = self.pos;
           // Capture raw label text via pointer arithmetic on token raws
           // so emphasis/inline markers survive for ref-def lookup
           // (`[*foo* bar]: /url` matches `[*foo* bar]`).
@@ -516,6 +517,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
             self.advance();
             continue;
           }
+          let label_end_pos = self.pos;
           let label_end_ptr = self
             .tokens
             .get(self.pos.saturating_sub(1))
@@ -782,9 +784,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
                 continue;
               }
               out.push(Node::Text(Text { value: "[".into(), span: span.clone() }));
-              for n in inner {
-                out.push(n);
-              }
+              self.replay_inline_slice_into(label_start_pos, label_end_pos, out, delims, false);
               out.push(Node::Text(Text { value: "]".into(), span }));
             },
           }
@@ -1019,6 +1019,28 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     let mut parser = Parser::new(tokens, self.meta.clone(), &mut diag);
     parser.refs = self.refs.clone();
     parser.collect_inline(&|k| matches!(k, TokenKind::Eof))
+  }
+
+  fn replay_inline_slice_into(
+    &self,
+    start: usize,
+    end: usize,
+    out: &mut Vec<Node>,
+    delims: &mut Vec<DelimRecord>,
+    trim_trailing_break: bool,
+  ) {
+    let mut tokens: Vec<_> = self.tokens[start..end].to_vec();
+    if trim_trailing_break {
+      while matches!(tokens.last().map(|t| &t.kind), Some(TokenKind::SoftBreak) | Some(TokenKind::HardBreak)) {
+        tokens.pop();
+      }
+    }
+    let eof_span = tokens.last().map(|t| t.span.clone()).unwrap_or_else(default_span);
+    tokens.push(dmc_lexer::token::Token::new(TokenKind::Eof, eof_span, ""));
+    let mut diag = duck_diagnostic::DiagnosticEngine::<dmc_diagnostic::Code>::new();
+    let mut parser = Parser::new(tokens, self.meta.clone(), &mut diag);
+    parser.refs = self.refs.clone();
+    parser.collect_inline_into(&|k| matches!(k, TokenKind::Eof), out, delims);
   }
 
   /// Split the body of a `(...)` link/image destination into

@@ -37,8 +37,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       return false;
     }
     let mut chars = name_tok.raw.chars();
-    matches!(chars.next(), Some(c) if c.is_ascii_alphabetic())
-      && chars.all(|c| c.is_ascii_alphanumeric() || c == '-')
+    matches!(chars.next(), Some(c) if c.is_ascii_alphabetic()) && chars.all(|c| c.is_ascii_alphanumeric() || c == '-')
   }
 
   /// CommonMark raw HTML does not use JS-style quote escaping inside
