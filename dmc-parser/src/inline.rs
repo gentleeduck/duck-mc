@@ -246,11 +246,13 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
           let after_alnum = after_closer_tok.is_some_and(|t| t.raw.chars().next().is_some_and(|c| c.is_alphanumeric()));
           let prev_at_close_ws = prev_at_close.map(|c| c.is_whitespace()).unwrap_or(true);
           let prev_at_close_punct = prev_at_close.is_some_and(is_unicode_punct);
-          let after_punct =
-            after_closer_tok.is_some_and(|t| t.raw.chars().next().is_some_and(is_unicode_punct));
+          let after_punct = after_closer_tok.is_some_and(|t| t.raw.chars().next().is_some_and(is_unicode_punct));
           let after_ws = match after_closer_tok.map(|t| &t.kind) {
-            Some(TokenKind::SoftBreak) | Some(TokenKind::HardBreak) | Some(TokenKind::BlankLine)
-            | Some(TokenKind::Eof) | None => true,
+            Some(TokenKind::SoftBreak)
+            | Some(TokenKind::HardBreak)
+            | Some(TokenKind::BlankLine)
+            | Some(TokenKind::Eof)
+            | None => true,
             Some(TokenKind::Whitespace(_)) => true,
             _ => after_closer_tok.is_some_and(|t| t.raw.chars().next().is_some_and(|c| c.is_whitespace())),
           };
@@ -550,44 +552,45 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     if trimmed.is_empty() {
       return (String::new(), None);
     }
-    // Walk back from the end looking for a balanced quoted title.
-    let bytes = trimmed.as_bytes();
-    let last = bytes[bytes.len() - 1];
-    let close = match last {
-      b'"' => Some(b'"'),
-      b'\'' => Some(b'\''),
-      b')' => Some(b'('),
-      _ => None,
-    };
-    let Some(open) = close else {
-      return (trimmed.to_string(), None);
-    };
-    // Find the matching opener, ensuring a whitespace separator before it.
-    let mut i = bytes.len() - 1;
-    let mut depth = 1;
-    while i > 0 {
-      i -= 1;
-      let b = bytes[i];
-      if b == last && b != open {
-        depth += 1;
-      }
-      if b == open {
-        depth -= 1;
-        if depth == 0 {
-          break;
+    // CM 6.3 link destination: `<...>` (no spaces / line breaks
+    // inside) or a bare run with no whitespace.
+    let (dest_end, raw_dest) = if let Some(rest) = trimmed.strip_prefix('<') {
+      if let Some(end) = rest.find('>') {
+        let inside = &rest[..end];
+        if inside.contains('\n') || inside.contains('<') {
+          // CM rejects line breaks / nested `<` inside angle dest.
+          (1 + end + 1, format!("<{}>", inside))
+        } else {
+          (1 + end + 1, inside.to_string())
         }
+      } else {
+        // No closing `>`. Whole body is bare dest fallback.
+        return (trimmed.to_string(), None);
       }
+    } else {
+      // Bare destination: stop at first whitespace.
+      let dest_end = trimmed.find(char::is_whitespace).unwrap_or(trimmed.len());
+      (dest_end, trimmed[..dest_end].to_string())
+    };
+    let rest = trimmed[dest_end..].trim_start();
+    if rest.is_empty() {
+      return (raw_dest, None);
     }
-    if depth != 0 {
-      return (trimmed.to_string(), None);
+    // Title: `"..."`, `'...'`, or `(...)`.
+    let bytes = rest.as_bytes();
+    let first = bytes[0];
+    let last = bytes[bytes.len() - 1];
+    let matches_pair = (first == b'"' && last == b'"')
+      || (first == b'\'' && last == b'\'')
+      || (first == b'(' && last == b')');
+    if matches_pair && rest.len() >= 2 {
+      (raw_dest, Some(rest[1..rest.len() - 1].to_string()))
+    } else {
+      // Malformed title -- whole body is dest only? CM falls back to
+      // not-a-link, but we don't have the wholesale-rollback path
+      // here. Best-effort: keep the raw dest, no title.
+      (raw_dest, None)
     }
-    // Need at least one whitespace between dest and the opener.
-    if i == 0 || !bytes[i - 1].is_ascii_whitespace() {
-      return (trimmed.to_string(), None);
-    }
-    let dest = trimmed[..i].trim_end().to_string();
-    let title = trimmed[i + 1..bytes.len() - 1].to_string();
-    (dest, Some(title))
   }
 
   /// Strip `\X` -> `X` for the standard CommonMark escapable set so
