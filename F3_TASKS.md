@@ -1,0 +1,86 @@
+# Post-CM-100 Task List
+
+CommonMark spec: 652/652 (100%). Below = remaining work to make dmc the best markdown+MDX parser.
+
+Status legend: `[ ]` pending, `[~]` in progress, `[x]` done.
+
+## Phase F4 — GFM spec runner
+
+- [ ] F4.1 Vendor GitHub Flavored Markdown spec JSON (gfm-spec 0.29 or latest).
+  - Place at `dmc-parser/tests/fixtures/gfm_spec.json`.
+  - Source: https://github.github.com/gfm/ — extract examples programmatically.
+- [ ] F4.2 Add `gfm_spec_no_regression` test mirroring `commonmark_spec_no_regression`.
+  - Baseline file: `dmc-parser/tests/fixtures/gfm_baseline.txt`.
+  - Initial baseline: 0; bump on first run.
+- [ ] F4.3 Triage GFM failures by section (tables / strike / tasklists / autolinks / footnotes / disallowed-raw-HTML).
+- [ ] F4.4 Push GFM baseline ≥95% (matches CM grind cadence — small commits).
+
+## Phase G1 — Bench
+
+- [ ] G1.1 Add `dmc-parser/benches/parse.rs` using `criterion`.
+  - Inputs: small / medium / large MD (1 KB / 100 KB / 5 MB).
+  - Compare: `pulldown_cmark::Parser::new`, `markdown::Markdown::parse`, optional `comrak`.
+- [ ] G1.2 Run + record results in `BENCHMARKS.md`.
+- [ ] G1.3 Verify 500M tok/s claim or correct it.
+- [ ] G1.4 Add `bench-regress.yml` in CI to fail on >10% regression.
+
+## Phase G2 — Fuzzing
+
+- [ ] G2.1 `cargo fuzz init` under `dmc-parser/fuzz`.
+- [ ] G2.2 Targets: `parse`, `parse_with(cm_strict=true)`, `render_html(parse(...))`.
+- [ ] G2.3 Seed corpus from CM + GFM spec examples.
+- [ ] G2.4 Run 24h on each target. Fix any crashes.
+
+## Phase G3 — Refactor
+
+- [ ] G3.1 Split `dmc-parser/src/block.rs` (≈2500 lines) by construct.
+  - `block/list.rs`, `block/blockquote.rs`, `block/code.rs`, `block/heading.rs`, `block/html.rs`, `block/mod.rs`.
+- [ ] G3.2 Replace in-place token rewriting (`try_promote_text_*`) with a token-classification helper that returns a virtual token without mutating the slice.
+- [ ] G3.3 Audit `unsafe` pointer-arithmetic body-slice reconstruction (link body, html block, raw HTML inline).
+  - Add miri job in CI: `cargo +nightly miri test -p dmc-parser`.
+- [ ] G3.4 Remove dead code warnings (`strip_inline_markers`).
+
+## Phase G4 — Docs
+
+- [ ] G4.1 Refresh `dmc-parser/ROADMAP.md` with final F2 + this F3 plan.
+- [ ] G4.2 Refresh `dmc-lexer/ROADMAP.md`. Document CM column-aware whitespace, tab handling, ESM detection.
+- [ ] G4.3 Write `README.md` for each crate: dmc-lexer, dmc-parser, dmc-codegen, dmc-transform.
+- [ ] G4.4 Add `CHANGELOG.md` covering F2 grind (rounds 1-140 + post-fix).
+
+## Phase G5 — Spec edges
+
+- [ ] G5.1 Replace `htmlentity` crate or build full HTML5 entity table (covers `&ngE;` etc with multi-codepoint output).
+- [ ] G5.2 Replace approximate Unicode case-fold (`ẞ → ss`) with `icu_normalizer` or `unicode-case-mapping` crate.
+- [ ] G5.3 Replace approximate Unicode punctuation table with proper general-category lookup.
+
+## Phase G6 — MDX completeness
+
+- [ ] G6.1 JSX TS generics: `<Foo<T> />` parsing.
+- [ ] G6.2 JSX comments inside expressions: `{/* comment */}` round-trip tests.
+- [ ] G6.3 ESM `import` / `export` body must lex as JS — at least balanced braces + strings, no markdown inside.
+- [ ] G6.4 MDX 3 expression typing: `{...spread}`, optional-chaining, JSX-in-expr.
+
+## Phase G7 — Diagnostics
+
+- [ ] G7.1 Audit every `Code::*` diagnostic. Replace placeholder messages with actionable spans + suggestions.
+- [ ] G7.2 Add recovery-quality tests: malformed link / unterminated fence / orphan close tag should produce ONE diagnostic, not many.
+- [ ] G7.3 Snapshot diagnostic output for CM error cases.
+
+## Phase G8 — Stability
+
+- [ ] G8.1 Run full workspace `cargo +nightly miri test -p dmc-parser`.
+- [ ] G8.2 Run `cargo clippy --workspace --all-targets -- -D warnings`. Fix new warnings.
+- [ ] G8.3 Verify `cargo doc --workspace --no-deps` builds without warnings.
+
+## Stop conditions per phase
+
+- F4: GFM ≥ 95% passes.
+- G1: benchmarks committed + CI gate active.
+- G2: 24h fuzz with no crashes.
+- G3: block.rs ≤ 800 lines each module.
+- G4: All four READMEs published.
+- G5-G8: each task marked done individually.
+
+## Execution policy
+
+Codex runs phases in order. Each commit cites the rule / motivation. Workspace tests must stay green after every commit (1 FAILED line max from any pre-existing flake — currently 0).
