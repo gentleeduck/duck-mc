@@ -85,11 +85,12 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
     }
 
     // CM 6.6 raw HTML tagname: `[a-zA-Z][a-zA-Z0-9-]*`. JSX additionally
-    // permits `.` (member access) and `:` (namespace), but those forms
-    // are uppercase JSX components -- a lowercase first char combined
-    // with `.` or `:` (`<m:abc>`, `<foo.bar.baz>`) is neither a valid
-    // HTML element nor a valid React component, so reject them and let
-    // the dispatcher fall back to literal text.
+    // permits `.` (member access) and `:` (namespace). Reject the
+    // ambiguous CM case where a *short* lowercase prefix + `:` matches
+    // an autolink scheme (eg `<m:abc>`) or member-expression-only
+    // forms like `<foo.bar.baz>` that are neither valid raw HTML nor
+    // a typical SVG namespace. Accept lowercase prefixes of length
+    // >= 2 followed by `:` (eg `<svg:circle />`, `<xml:lang />`).
     {
       let bytes = self.source.as_bytes();
       let first = bytes[self.current];
@@ -98,10 +99,12 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
         while i < bytes.len() && (bytes[i].is_ascii_alphanumeric() || bytes[i] == b'-') {
           i += 1;
         }
-        if i < bytes.len() && matches!(bytes[i], b'.' | b':') {
-          // Make sure the next char after `.`/`:` is part of a tag-name
-          // continuation (alpha) -- if it's punctuation/whitespace we'd
-          // already terminate the name.
+        let prefix_len = i - self.current;
+        if i < bytes.len() && bytes[i] == b'.' {
+          if matches!(bytes.get(i + 1), Some(c) if c.is_ascii_alphabetic()) {
+            return false;
+          }
+        } else if i < bytes.len() && bytes[i] == b':' && prefix_len < 2 {
           if matches!(bytes.get(i + 1), Some(c) if c.is_ascii_alphabetic()) {
             return false;
           }

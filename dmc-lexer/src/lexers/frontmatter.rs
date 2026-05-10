@@ -115,6 +115,51 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
       return;
     }
 
+    // JSON frontmatter must look like an object body: at least one
+    // `"key":` pair. Plain MDX expressions like `{2 + 2}` or
+    // `{`hello`}` have no JSON-shaped keys, so they fall through to
+    // the dispatch's expression / text path.
+    let body = &bytes[1..close_idx];
+    let has_json_key = {
+      let mut found = false;
+      let mut idx = 0;
+      while idx < body.len() {
+        if body[idx] == b'"' {
+          // Scan to closing quote.
+          idx += 1;
+          let mut closed = false;
+          while idx < body.len() {
+            if body[idx] == b'\\' && idx + 1 < body.len() {
+              idx += 2;
+              continue;
+            }
+            if body[idx] == b'"' {
+              closed = true;
+              idx += 1;
+              break;
+            }
+            idx += 1;
+          }
+          if closed {
+            // Skip whitespace after closing quote, look for `:`.
+            while idx < body.len() && matches!(body[idx], b' ' | b'\t' | b'\n' | b'\r') {
+              idx += 1;
+            }
+            if idx < body.len() && body[idx] == b':' {
+              found = true;
+              break;
+            }
+          }
+        } else {
+          idx += 1;
+        }
+      }
+      found
+    };
+    if !has_json_key {
+      return;
+    }
+
     // Opening `{`.
     self.advance();
     self.emit(TokenKind::FrontmatterStart(FrontmatterKind::Json));
