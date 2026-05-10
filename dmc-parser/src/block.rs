@@ -1382,7 +1382,46 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     if !delims.is_empty() {
       crate::inline::resolve_emphasis_delims(&mut children, &mut delims);
     }
+    Self::finalize_inline_breaks(&mut children);
     Node::Paragraph(Paragraph { children, span })
+  }
+
+  /// CM 6.7: a hard line break needs content after it. Strip a stripped
+  /// `\` from the prev `Text` for mid-paragraph breaks; drop a trailing
+  /// `HardBreak` (plus any trailing whitespace-only text) so paragraphs
+  /// like `foo\` render as literal `foo\`.
+  fn finalize_inline_breaks(children: &mut Vec<Node>) {
+    for i in 0..children.len() {
+      if !matches!(children.get(i), Some(Node::HardBreak(_))) {
+        continue;
+      }
+      let is_last = i + 1 == children.len();
+      if is_last {
+        continue;
+      }
+      if let Some(Node::Text(t)) = children.get_mut(i.saturating_sub(1))
+        && t.value.ends_with('\\')
+      {
+        t.value.pop();
+      }
+    }
+    while let Some(Node::HardBreak(_)) = children.last() {
+      children.pop();
+      while let Some(Node::Text(t)) = children.last() {
+        let trimmed = t.value.trim_end_matches([' ', '\t']);
+        if trimmed.is_empty() {
+          children.pop();
+          continue;
+        }
+        if trimmed.len() != t.value.len() {
+          let len = trimmed.len();
+          if let Some(Node::Text(t)) = children.last_mut() {
+            t.value.truncate(len);
+          }
+        }
+        break;
+      }
+    }
   }
 
   /// `Some(1)` for an `=` underline, `Some(2)` for a `-` underline, else
