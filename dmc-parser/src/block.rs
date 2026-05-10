@@ -1344,12 +1344,11 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       // Whitespace(>=4) immediately after the bq marker is an indented
       // code block inside the bq -- gather contiguous indented lines
       // until the indent breaks.
-      let indented_code: Option<Node> =
-        if matches!(after_marker_kind, TokenKind::Whitespace(w) if (w as usize) >= 4) {
-          Some(self.parse_indented_code_in_bq())
-        } else {
-          None
-        };
+      let indented_code: Option<Node> = if matches!(after_marker_kind, TokenKind::Whitespace(w) if (w as usize) >= 4) {
+        Some(self.parse_indented_code_in_bq())
+      } else {
+        None
+      };
       let block_node: Option<Node> = if indented_code.is_some() {
         indented_code
       } else {
@@ -2132,18 +2131,41 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         ),
         _ => false,
       };
+      // CM 4.6: only HTML block types 1-6 can interrupt a paragraph;
+      // type-7 (any other lowercase tag) is inline raw HTML and stays
+      // in the running paragraph. MDX components (uppercase /
+      // namespaced) always start a JSX block.
+      let next_is_jsx_block = match self.peek_kind() {
+        Some(TokenKind::JsxOpenTagStart) => {
+          if let Some(name_tok) = self.tokens.get(self.pos + 1)
+            && matches!(name_tok.kind, TokenKind::JsxTagName)
+          {
+            let name = name_tok.raw;
+            let lower = name.to_ascii_lowercase();
+            if !self.is_plain_html_jsx_tag() {
+              true
+            } else {
+              HTML_BLOCK_TYPE1_TAGS.contains(&lower.as_str())
+                || HTML_BLOCK_TYPE6_TAGS.contains(&lower.as_str())
+            }
+          } else {
+            true
+          }
+        },
+        _ => false,
+      };
       let next_is_block = matches!(
         self.peek_kind(),
         Some(TokenKind::Heading(_))
           | Some(TokenKind::BlockQuoteMarker)
           | Some(TokenKind::CodeFenceOpen(_, _))
           | Some(TokenKind::ThematicBreak)
-          | Some(TokenKind::JsxOpenTagStart)
           | Some(TokenKind::FrontmatterStart(_))
           | Some(TokenKind::Import)
           | Some(TokenKind::Export)
       ) || next_is_ol_interrupting
-        || next_is_ul_interrupting;
+        || next_is_ul_interrupting
+        || next_is_jsx_block;
       if next_is_block {
         self.pos = saved;
         break;
