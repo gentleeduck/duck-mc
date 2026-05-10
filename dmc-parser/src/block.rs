@@ -1245,6 +1245,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       value.push_str(t.raw);
     }
     self.advance();
+    let mut closed = false;
     loop {
       match self.peek_kind() {
         Some(TokenKind::HtmlCommentClose) => {
@@ -1252,9 +1253,22 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
             value.push_str(t.raw);
           }
           self.advance();
-          break;
+          closed = true;
         },
         Some(TokenKind::BlankLine) | Some(TokenKind::Eof) | None => break,
+        Some(TokenKind::SoftBreak) | Some(TokenKind::HardBreak) => {
+          if !closed {
+            // Comment still open: absorb the newline verbatim and keep
+            // slurping into the next line.
+            value.push('\n');
+            self.advance();
+            continue;
+          }
+          // CM 4.6 type-2: block ends at the end of the line that
+          // contains `-->`. Stop here so the next line opens a fresh
+          // block.
+          break;
+        },
         _ => {
           if let Some(t) = self.peek() {
             value.push_str(t.raw);
