@@ -450,10 +450,21 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
               if matches!(self.peek_kind(), Some(TokenKind::LinkTargetClose)) {
                 self.advance();
               }
-              let (href, title) = Self::split_destination_title(&paren_body);
-              let href = decode_entities_in(&Self::unescape_markdown(&href));
-              let title = title.map(|t| decode_entities_in(&Self::unescape_markdown(&t)));
-              out.push(Node::Link(Link { href, title, children: inner, span }));
+              match Self::split_destination_title(&paren_body) {
+                Some((href, title)) => {
+                  let href = decode_entities_in(&Self::unescape_markdown(&href));
+                  let title = title.map(|t| decode_entities_in(&Self::unescape_markdown(&t)));
+                  out.push(Node::Link(Link { href, title, children: inner, span }));
+                },
+                None => {
+                  // CM 6.3: malformed destination -- emit literal text.
+                  out.push(Node::Text(Text { value: "[".into(), span: span.clone() }));
+                  for n in inner {
+                    out.push(n);
+                  }
+                  out.push(Node::Text(Text { value: format!("]({})", paren_body), span }));
+                },
+              }
             },
             Some(TokenKind::LinkOpen) => {
               // Reference form: peek the second `[..]` to distinguish
@@ -567,10 +578,16 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
                 },
               }
             }
-            let (src, title) = Self::split_destination_title(&paren_body);
-            let src = decode_entities_in(&Self::unescape_markdown(&src));
-            let title = title.map(|t| decode_entities_in(&Self::unescape_markdown(&t)));
-            out.push(Node::Image(Image { src, alt, title, span }));
+            match Self::split_destination_title(&paren_body) {
+              Some((src, title)) => {
+                let src = decode_entities_in(&Self::unescape_markdown(&src));
+                let title = title.map(|t| decode_entities_in(&Self::unescape_markdown(&t)));
+                out.push(Node::Image(Image { src, alt, title, span }));
+              },
+              None => {
+                out.push(Node::Text(Text { value: format!("![{}]({})", alt, paren_body), span }));
+              },
+            }
             continue;
           }
           // Reference forms: `[label]` (full / collapsed) or shortcut.
@@ -683,10 +700,10 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
   /// `(href, title)`. CommonMark allows an optional trailing
   /// `"title"` / `'title'` / `(title)` separated from the destination
   /// by whitespace. Unterminated/missing title returns `(body, None)`.
-  fn split_destination_title(body: &str) -> (String, Option<String>) {
+  fn split_destination_title(body: &str) -> Option<(String, Option<String>)> {
     let trimmed = body.trim();
     if trimmed.is_empty() {
-      return (String::new(), None);
+      return Some((String::new(), None));
     }
     // CM 6.3 link destination: `<...>` (no spaces / line breaks
     // inside) or a bare run with no whitespace.
@@ -694,37 +711,33 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       if let Some(end) = rest.find('>') {
         let inside = &rest[..end];
         if inside.contains('\n') || inside.contains('<') {
-          // CM rejects line breaks / nested `<` inside angle dest.
-          (1 + end + 1, format!("<{}>", inside))
-        } else {
-          (1 + end + 1, inside.to_string())
+          return None;
         }
+        (1 + end + 1, inside.to_string())
       } else {
-        // No closing `>`. Whole body is bare dest fallback.
-        return (trimmed.to_string(), None);
+        return None;
       }
     } else {
-      // Bare destination: stop at first whitespace.
+      // Bare destination: no whitespace allowed in the destination.
       let dest_end = trimmed.find(char::is_whitespace).unwrap_or(trimmed.len());
       (dest_end, trimmed[..dest_end].to_string())
     };
     let rest = trimmed[dest_end..].trim_start();
     if rest.is_empty() {
-      return (raw_dest, None);
+      return Some((raw_dest, None));
     }
-    // Title: `"..."`, `'...'`, or `(...)`.
+    // Title: `"..."`, `'...'`, or `(...)`. Trailing junk after the
+    // destination (without a valid title pair) makes the link
+    // malformed per CM 6.3.
     let bytes = rest.as_bytes();
     let first = bytes[0];
     let last = bytes[bytes.len() - 1];
     let matches_pair =
       (first == b'"' && last == b'"') || (first == b'\'' && last == b'\'') || (first == b'(' && last == b')');
     if matches_pair && rest.len() >= 2 {
-      (raw_dest, Some(rest[1..rest.len() - 1].to_string()))
+      Some((raw_dest, Some(rest[1..rest.len() - 1].to_string())))
     } else {
-      // Malformed title -- whole body is dest only? CM falls back to
-      // not-a-link, but we don't have the wholesale-rollback path
-      // here. Best-effort: keep the raw dest, no title.
-      (raw_dest, None)
+      None
     }
   }
 
