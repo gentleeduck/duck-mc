@@ -16,7 +16,14 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
       i += 1;
     }
     let inner = &self.source[self.current..i];
-    let kind = if inner.contains("://") { AutolinkKind::AngleUrl } else { AutolinkKind::AngleEmail };
+    // CM 6.5: classify by scheme. If the part before the first `:` is
+    // a valid URI scheme (alpha-lead, 2-32 chars, `[A-Za-z0-9+.-]`),
+    // treat as URL. Otherwise an `@` makes it an email.
+    let kind = match inner.find(':') {
+      Some(colon) if Self::is_uri_scheme(&inner[..colon]) => AutolinkKind::AngleUrl,
+      _ if inner.contains('@') => AutolinkKind::AngleEmail,
+      _ => AutolinkKind::AngleUrl,
+    };
     let total = i + 1 - self.current;
     self.advance_bytes(total);
     self.emit(TokenKind::Autolink(kind));
