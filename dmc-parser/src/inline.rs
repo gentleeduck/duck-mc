@@ -496,13 +496,23 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
                   out.push(Node::Link(Link { href, title, children: inner, span }));
                 },
                 None => {
-                  // CM 6.3: malformed destination -- emit literal text.
-                  out.push(Node::Text(Text { value: "[".into(), span: span.clone() }));
-                  for n in inner {
-                    out.push(n);
+                  // CM 6.3: malformed `[label](destination)` falls back to
+                  // shortcut reference resolution -- if `[label]` matches
+                  // a definition, render the link and leave the failed
+                  // paren body as literal text after it.
+                  let label = plain_text(&inner);
+                  if let Some((href, title)) = self.refs.get(&label).cloned() {
+                    out.push(Node::Link(Link { href, title, children: inner, span: span.clone() }));
+                    let close_str = if has_close { ")" } else { "" };
+                    out.push(Node::Text(Text { value: format!("({}{}", paren_body, close_str), span }));
+                  } else {
+                    out.push(Node::Text(Text { value: "[".into(), span: span.clone() }));
+                    for n in inner {
+                      out.push(n);
+                    }
+                    let close_str = if has_close { ")" } else { "" };
+                    out.push(Node::Text(Text { value: format!("]({}{}", paren_body, close_str), span }));
                   }
-                  let close_str = if has_close { ")" } else { "" };
-                  out.push(Node::Text(Text { value: format!("]({}{}", paren_body, close_str), span }));
                 },
               }
             },
