@@ -112,12 +112,20 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     {
       match next.kind {
         TokenKind::UnorderedListMarker => {
+          let w = match self.peek_kind() {
+            Some(TokenKind::Whitespace(w)) => *w as usize,
+            _ => 0,
+          };
           self.advance();
-          return Some(self.parse_list(false, 0));
+          return Some(self.parse_list(false, w));
         },
         TokenKind::OrderedListMarker(_) => {
+          let w = match self.peek_kind() {
+            Some(TokenKind::Whitespace(w)) => *w as usize,
+            _ => 0,
+          };
           self.advance();
-          return Some(self.parse_list(true, 0));
+          return Some(self.parse_list(true, w));
         },
         TokenKind::ThematicBreak => {
           self.advance();
