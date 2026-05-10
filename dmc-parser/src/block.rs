@@ -1632,6 +1632,23 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         }
         break;
       }
+      let marker_raw = self.peek_raw().unwrap_or("");
+      let marker_raw_width = marker_raw.chars().count();
+      let marker_raw_has_ws = marker_raw.ends_with([' ', '\t']);
+      let following_ws = match self.tokens.get(self.pos + 1) {
+        Some(t) if matches!(t.kind, TokenKind::Whitespace(_)) => t.raw.chars().count(),
+        _ => 0,
+      };
+      let marker_width = if !marker_raw_has_ws && following_ws > 0 { marker_raw_width + 1 } else { marker_raw_width };
+      let extra_ws = match self.tokens.get(self.pos + 1) {
+        Some(t) if matches!(t.kind, TokenKind::Whitespace(_)) => {
+          let ws = t.raw.chars().count();
+          if !marker_raw_has_ws && marker_raw_width > 0 { ws.saturating_sub(1) } else { ws }
+        },
+        _ => 0,
+      };
+      let item_content_extra = if extra_ws >= 4 { 0 } else { extra_ws };
+      let content_floor = (if ordered { marker_width.max(3) } else { marker_width.max(2) }) + item_content_extra;
       self.advance();
 
       if ordered {
@@ -1648,12 +1665,51 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         }
       }
 
-      let item = self.parse_one_list_item(ordered);
-      items.push(item);
-
+      let mut item = self.parse_one_list_item(ordered);
       if matches!(self.peek_kind(), Some(TokenKind::SoftBreak) | Some(TokenKind::HardBreak)) {
         self.advance();
       }
+
+      loop {
+        let saved = self.pos;
+        let line_markers = self.count_line_blockquote_markers();
+        if line_markers < bq_depth {
+          break;
+        }
+        self.consume_blockquote_markers(bq_depth);
+        if !matches!(self.peek_kind(), Some(TokenKind::SoftBreak) | Some(TokenKind::HardBreak)) {
+          self.pos = saved;
+          break;
+        }
+        self.advance();
+
+        let next_saved = self.pos;
+        let next_markers = self.count_line_blockquote_markers();
+        if next_markers < bq_depth {
+          self.pos = saved;
+          break;
+        }
+        self.consume_blockquote_markers(bq_depth);
+        let indent = self.peek_leading_indent().unwrap_or(0);
+        if indent < content_floor || indent >= content_floor + 4 {
+          self.pos = saved;
+          break;
+        }
+        self.advance();
+        let para_span = self.current_span();
+        let inline = self.collect_inline_until_break();
+        if inline.is_empty() {
+          self.pos = next_saved;
+          break;
+        }
+        Self::ensure_loose_item(&mut item, &span);
+        Self::append_to_item(&mut item, Node::Paragraph(Paragraph { children: inline, span: para_span }));
+        if matches!(self.peek_kind(), Some(TokenKind::SoftBreak) | Some(TokenKind::HardBreak)) {
+          self.advance();
+        }
+      }
+      items.push(item);
+
     }
 
     Node::List(List { ordered, start, children: items, span })
