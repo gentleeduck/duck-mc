@@ -1301,10 +1301,18 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         },
         _ => false,
       };
+      // CM 5.2: an unordered list interrupting a paragraph requires
+      // non-empty content immediately after the marker.
+      let next_is_ul_interrupting = match self.peek_kind() {
+        Some(TokenKind::UnorderedListMarker) => !matches!(
+          self.tokens.get(self.pos + 1).map(|t| &t.kind),
+          Some(TokenKind::SoftBreak) | Some(TokenKind::HardBreak) | Some(TokenKind::BlankLine) | Some(TokenKind::Eof) | None
+        ),
+        _ => false,
+      };
       let next_is_block = matches!(
         self.peek_kind(),
         Some(TokenKind::Heading(_))
-          | Some(TokenKind::UnorderedListMarker)
           | Some(TokenKind::BlockQuoteMarker)
           | Some(TokenKind::CodeFenceOpen(_, _))
           | Some(TokenKind::ThematicBreak)
@@ -1312,7 +1320,8 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
           | Some(TokenKind::FrontmatterStart(_))
           | Some(TokenKind::Import)
           | Some(TokenKind::Export)
-      ) || next_is_ol_interrupting;
+      ) || next_is_ol_interrupting
+        || next_is_ul_interrupting;
       if next_is_block {
         self.pos = saved;
         break;
