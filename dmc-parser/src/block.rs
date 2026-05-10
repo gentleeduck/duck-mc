@@ -802,61 +802,74 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
 
   /// Reconstruct a raw HTML block from a JSX-tokenized stream. Type-1
   /// closes on the matching `</tag>`; Type-6 closes on the next blank
-  /// line. The captured `value` is the verbatim source slice covering
-  /// every token between (and including) the open and the closer.
+  /// line. Captures the verbatim source span from the first token's
+  /// start to the closer's end so internal whitespace and attribute
+  /// formatting survive intact (the lexer's JSX path normalizes
+  /// whitespace, so per-token concat alone would drop it).
   fn parse_html_block_from_jsx(&mut self, mode: HtmlBlockMode) -> Node {
     let span = self.current_span();
-    let mut value = String::new();
+    let start_ptr = self.tokens.get(self.pos).map(|t| t.raw.as_ptr() as usize).unwrap_or(0);
+    let mut end_ptr = start_ptr;
+    let mut bump_end = |this: &Self| -> usize {
+      this
+        .tokens
+        .get(this.pos.saturating_sub(1))
+        .map(|t| t.raw.as_ptr() as usize + t.raw.len())
+        .unwrap_or(start_ptr)
+    };
     match mode {
       HtmlBlockMode::Type1(tag) => loop {
         match self.peek_kind() {
           Some(TokenKind::JsxCloseTagStart) => {
-            // Capture `</`, the name, and `>` so the matching closer
-            // ends up in the verbatim block value.
-            if let Some(t) = self.peek() {
-              value.push_str(t.raw);
-            }
             self.advance();
             let close_name = match self.peek() {
               Some(t) if matches!(t.kind, TokenKind::JsxTagName) => {
                 let n = t.raw.to_ascii_lowercase();
-                value.push_str(t.raw);
                 self.advance();
                 n
               },
               _ => String::new(),
             };
             if matches!(self.peek_kind(), Some(TokenKind::JsxCloseTagEnd)) {
-              if let Some(t) = self.peek() {
-                value.push_str(t.raw);
-              }
               self.advance();
             }
+            end_ptr = bump_end(self);
             if close_name == tag {
               break;
             }
           },
-          Some(TokenKind::Eof) | None => break,
+          Some(TokenKind::Eof) | None => {
+            end_ptr = bump_end(self);
+            break;
+          },
           _ => {
-            if let Some(t) = self.peek() {
-              value.push_str(t.raw);
-            }
             self.advance();
+            end_ptr = bump_end(self);
           },
         }
       },
       HtmlBlockMode::Type6 => loop {
         match self.peek_kind() {
-          Some(TokenKind::BlankLine) | Some(TokenKind::Eof) | None => break,
+          Some(TokenKind::BlankLine) | Some(TokenKind::Eof) | None => {
+            end_ptr = bump_end(self);
+            break;
+          },
           _ => {
-            if let Some(t) = self.peek() {
-              value.push_str(t.raw);
-            }
             self.advance();
+            end_ptr = bump_end(self);
           },
         }
       },
     }
+    let value = if end_ptr > start_ptr {
+      // SAFETY: every Token.raw borrows from the same `&'src str`
+      // source; pointer subtraction stays within that buffer.
+      let len = end_ptr - start_ptr;
+      let slice = unsafe { std::slice::from_raw_parts(start_ptr as *const u8, len) };
+      std::str::from_utf8(slice).map(|s| s.to_string()).unwrap_or_default()
+    } else {
+      String::new()
+    };
     Node::Html(Html { value, span })
   }
 
