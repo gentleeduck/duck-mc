@@ -658,7 +658,12 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
                   // paren body as literal text after it. Decode entities
                   // in the paren body so re-escaping at codegen time
                   // restores the original `&XYZ;` rather than `&amp;XYZ;`.
-                  let body_decoded = decode_entities_in(&paren_body);
+                  // CM 6.6: malformed-link body re-renders inline; entity
+                  // refs decode and `\X` escapes resolve to the
+                  // escaped character. Apply both before pushing as
+                  // text so escape_text re-encodes only the resolved
+                  // characters (eg `\>` -> `>` -> `&gt;`).
+                  let body_decoded = decode_entities_in(&Self::unescape_markdown(&paren_body));
                   let label_raw = raw_inner_label.clone();
                   let label_plain = plain_text(&inner);
                   let resolved = self.refs.get(&label_raw).cloned().or_else(|| self.refs.get(&label_plain).cloned());
@@ -1048,14 +1053,27 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       return Some((String::new(), None));
     }
     // CM 6.3 link destination: `<...>` (no spaces / line breaks
-    // inside) or a bare run with no whitespace.
+    // inside) or a bare run with no whitespace. Backslash escapes
+    // the closing `>` inside the bracketed form -- scan byte-by-
+    // byte so `<foo\>` is treated as unterminated, not as dest "foo\".
     let (dest_end, raw_dest) = if let Some(rest) = trimmed.strip_prefix('<') {
-      if let Some(end) = rest.find('>') {
-        let inside = &rest[..end];
-        if inside.contains('\n') || inside.contains('<') {
-          return None;
+      let bytes = rest.as_bytes();
+      let mut i = 0;
+      let mut found = false;
+      while i < bytes.len() {
+        match bytes[i] {
+          b'>' => {
+            found = true;
+            break;
+          },
+          b'<' | b'\n' => return None,
+          b'\\' if i + 1 < bytes.len() => i += 2,
+          _ => i += 1,
         }
-        (1 + end + 1, inside.to_string())
+      }
+      if found {
+        let inside = &rest[..i];
+        (1 + i + 1, inside.to_string())
       } else {
         return None;
       }
