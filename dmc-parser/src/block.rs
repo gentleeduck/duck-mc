@@ -149,6 +149,13 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
           self.advance(); // skip the ref-def itself
           return None;
         },
+        // Whitespace followed by an empty-line break -- drop both,
+        // they're indent + blank padding around block structure.
+        TokenKind::BlankLine | TokenKind::SoftBreak | TokenKind::HardBreak => {
+          self.advance();
+          self.advance();
+          return None;
+        },
         // Plain content with 1-3 leading spaces -- strip the indent and
         // dispatch normally so the resulting paragraph doesn't render
         // the leading whitespace.
