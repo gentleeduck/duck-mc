@@ -800,6 +800,30 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
           {
             out.pop();
           }
+          // Backslash-induced hard break: strip the trailing `\` from
+          // the preceding text node IFF the break is followed by more
+          // inline content. CM 6.7 keeps the `\` literal when the
+          // break sits at the end of the inline run (`foo\` with no
+          // continuation -> `<p>foo\</p>`).
+          let has_following_inline = !matches!(
+            self.peek_kind(),
+            Some(TokenKind::BlankLine)
+              | Some(TokenKind::Eof)
+              | Some(TokenKind::SoftBreak)
+              | Some(TokenKind::HardBreak)
+              | Some(TokenKind::ThematicBreak)
+              | Some(TokenKind::SetextUnderline(_))
+              | None
+          );
+          if has_following_inline
+            && let Some(Node::Text(t)) = out.last_mut()
+            && t.value.ends_with('\\')
+          {
+            t.value.pop();
+            if t.value.is_empty() {
+              out.pop();
+            }
+          }
           out.push(Node::HardBreak(BreakNode { span }));
         },
         TokenKind::FootnoteRefOpen => {
