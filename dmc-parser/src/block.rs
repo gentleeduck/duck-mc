@@ -99,8 +99,11 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       return Some(self.parse_indented_code());
     }
 
-    // Whitespace-then-list-marker: nested list at top level.
-    if matches!(self.peek_kind(), Some(TokenKind::Whitespace(_)))
+    // Whitespace-then-block-marker. CM allows up to 3 leading spaces
+    // before any block-level marker, so when the lexer emitted a
+    // leading Whitespace followed by a known block opener we drop the
+    // indent and dispatch on the marker.
+    if matches!(self.peek_kind(), Some(TokenKind::Whitespace(w)) if (*w as usize) <= 3)
       && let Some(next) = self.tokens.get(self.pos + 1)
     {
       match next.kind {
@@ -111,6 +114,16 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         TokenKind::OrderedListMarker(_) => {
           self.advance();
           return Some(self.parse_list(true, 0));
+        },
+        TokenKind::ThematicBreak => {
+          self.advance();
+          let span = self.current_span();
+          self.advance();
+          return Some(Node::HorizontalRule(HorizontalRule { span }));
+        },
+        TokenKind::Heading(_) => {
+          self.advance();
+          return Some(self.parse_heading());
         },
         _ => {},
       }
@@ -713,6 +726,13 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     };
     self.advance();
     let mut children = self.collect_inline_until_break();
+    // CM 4.2: drop trailing HardBreak / whitespace-only text from a
+    // heading. Trailing-spaces hard-break detection by the lexer fires
+    // on the `   \n` at the end of `# foo   `, which the spec doesn't
+    // turn into a `<br />` inside a heading.
+    while matches!(children.last(), Some(Node::HardBreak(_))) {
+      children.pop();
+    }
     // The lexer leaves the post-`#` space in the inline stream as a Text /
     // Whitespace node, so the first heading-text node ends up with a leading
     // space ("` Inline marks`"). Strip it to match velite / rehype output.
@@ -1038,10 +1058,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       match info_trimmed.split_once(char::is_whitespace) {
         Some((l, rest)) => {
           let rest = rest.trim();
-          (
-            Some(Self::unescape_markdown(l)),
-            if rest.is_empty() { None } else { Some(Self::unescape_markdown(rest)) },
-          )
+          (Some(Self::unescape_markdown(l)), if rest.is_empty() { None } else { Some(Self::unescape_markdown(rest)) })
         },
         None => (Some(Self::unescape_markdown(info_trimmed)), None),
       }

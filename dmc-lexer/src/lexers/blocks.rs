@@ -11,7 +11,7 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
   /// `Heading(level)` if the run is 1-6 hashes followed by space/tab/EOL,
   /// otherwise falls back to `lex_text`.
   pub(crate) fn lex_heading(&mut self) {
-    if self.start_column != 0 {
+    if !self.at_block_marker_position() {
       return self.lex_text();
     }
     let mut level: u8 = 1;
@@ -73,7 +73,7 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
   /// CM 5.2 unordered list marker. The `-`, `+`, or `*` is already
   /// consumed. Must be followed by space/tab or EOL.
   pub(crate) fn lex_unordered_list_marker(&mut self) -> bool {
-    if self.start_column != 0 {
+    if !self.at_block_marker_position() {
       return false;
     }
     match self.peek() {

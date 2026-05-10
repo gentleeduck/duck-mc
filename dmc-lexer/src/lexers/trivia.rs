@@ -89,7 +89,7 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
   ///
   /// Returns `true` if the break was emitted, `false` otherwise.
   pub(crate) fn lex_thematic_break(&mut self, marker: char) -> bool {
-    if self.start_column != 0 {
+    if !self.at_block_marker_position() {
       return false;
     }
     let mb = marker as u8;

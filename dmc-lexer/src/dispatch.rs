@@ -43,7 +43,7 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
       },
 
       // Headings
-      '#' if self.start_column == 0 => self.lex_heading(),
+      '#' if self.at_block_marker_position() => self.lex_heading(),
       '#' => {
         if !self.lex_heading_trailing_hashes() {
           self.lex_text();
@@ -161,8 +161,11 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
       // Tables: parser disambiguates rows
       '|' => self.emit(TokenKind::TablePipe),
 
-      // Thematic break / list marker / emphasis (column-0 cascade)
-      '-' | '*' | '_' if self.start_column == 0 => {
+      // Thematic break / list marker / emphasis. CM allows up to 3
+      // leading spaces before any block-level marker, so the thematic
+      // / list path is taken whenever the preceding content on this
+      // line is just 0-3 chars of whitespace.
+      '-' | '*' | '_' if self.at_block_marker_position() => {
         if self.lex_thematic_break(c) {
         } else if c != '_' && self.lex_unordered_list_marker() {
         } else if c == '*' || c == '_' {
@@ -173,7 +176,7 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
       },
       '*' | '_' => self.lex_emphasis(c),
 
-      '+' if self.start_column == 0 => {
+      '+' if self.at_block_marker_position() => {
         if !self.lex_unordered_list_marker() {
           self.lex_text();
         }
@@ -181,6 +184,25 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
 
       _ => self.lex_text(),
     }
+  }
+
+  /// True when the just-consumed marker char (`-` / `*` / `_` / `+`)
+  /// is in a position where CM treats it as a block-level dispatch
+  /// candidate: column 0-3 with only whitespace before it on this
+  /// line. Lets `   ***` resolve to a thematic break rather than
+  /// inline emphasis.
+  pub(crate) fn at_block_marker_position(&self) -> bool {
+    if self.start_column == 0 {
+      return true;
+    }
+    if self.start_column > 3 {
+      return false;
+    }
+    // Verify that the bytes between the line start and `start` are
+    // all spaces / tabs.
+    let bytes = self.source.as_bytes();
+    let line_start = self.start - self.start_column;
+    bytes[line_start..self.start].iter().all(|&b| b == b' ' || b == b'\t')
   }
 
   /// CommonMark backslash-escapable set (appendix). The lexer consumes
