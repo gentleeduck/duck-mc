@@ -37,11 +37,58 @@ impl RefMap {
 }
 
 /// CM 4.7: case-insensitive comparison, internal whitespace collapsed
-/// to single spaces, leading/trailing whitespace trimmed.
+/// to single spaces, leading/trailing whitespace trimmed. Backslash
+/// escapes resolve before comparison so `[Foo\]]` and `Foo]` match.
 pub fn normalize_label(s: &str) -> String {
   let mut out = String::with_capacity(s.len());
   let mut prev_ws = true;
-  for c in s.chars() {
+  let mut chars = s.chars().peekable();
+  while let Some(c) = chars.next() {
+    if c == '\\' {
+      if let Some(&nx) = chars.peek()
+        && matches!(
+          nx,
+          '!' | '"'
+            | '#'
+            | '$'
+            | '%'
+            | '&'
+            | '\''
+            | '('
+            | ')'
+            | '*'
+            | '+'
+            | ','
+            | '-'
+            | '.'
+            | '/'
+            | ':'
+            | ';'
+            | '<'
+            | '='
+            | '>'
+            | '?'
+            | '@'
+            | '['
+            | '\\'
+            | ']'
+            | '^'
+            | '_'
+            | '`'
+            | '{'
+            | '|'
+            | '}'
+            | '~'
+        )
+      {
+        chars.next();
+        for low in nx.to_lowercase() {
+          out.push(low);
+        }
+        prev_ws = false;
+        continue;
+      }
+    }
     if c.is_whitespace() {
       if !prev_ws {
         out.push(' ');
@@ -129,14 +176,9 @@ pub fn parse_link_ref_def(raw: &str) -> Option<(String, String, Option<String>)>
       let bs = rest.as_bytes();
       let first = *bs.first()?;
       let last = *bs.last()?;
-      let matched = (first == b'"' && last == b'"')
-        || (first == b'\'' && last == b'\'')
-        || (first == b'(' && last == b')');
-      if matched && rest.len() >= 2 {
-        Some(rest[1..rest.len() - 1].to_string())
-      } else {
-        Some(rest.to_string())
-      }
+      let matched =
+        (first == b'"' && last == b'"') || (first == b'\'' && last == b'\'') || (first == b'(' && last == b')');
+      if matched && rest.len() >= 2 { Some(rest[1..rest.len() - 1].to_string()) } else { Some(rest.to_string()) }
     }
   };
   Some((label, url, title))
