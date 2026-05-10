@@ -35,8 +35,7 @@ pub fn escape_url(s: &str) -> String {
         | b',' | b';' | b'='
         | b'+'
         | b':' | b'@' | b'/'
-        | b'?' | b'#' | b'['
-        | b']'
+        | b'?' | b'#'
       );
     if b == b'%' && i + 2 < bytes.len() && bytes[i + 1].is_ascii_hexdigit() && bytes[i + 2].is_ascii_hexdigit() {
       // Already percent-encoded; pass through.
