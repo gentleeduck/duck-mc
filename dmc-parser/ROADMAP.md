@@ -393,11 +393,11 @@ Goal: spec-pinned test runners.
 - Phase E (structural): 3/4 (E1 + E2 done; E3 partial; E4 lazy
   continuation outstanding).
 - Phase F (validation): 1/4 done + F2 partial -- spec runner now
-  passes 425/652 (~65%, up from 118 at landing across 35 rounds).
+  passes 438/652 (~67%, up from 118 at landing across 40 rounds).
   Remaining gaps concentrate in CM emphasis delimiter-stack pairing
-  (47 examples), lazy continuation in list items (32) / block
-  quotes (10), MDX-vs-CM dialect for capital JSX / inline raw HTML
-  (18 + 11), and link destination strict CM rollback.
+  (47), nested list lazy continuation, fenced code leading-indent
+  strip, MDX-vs-CM dialect for capital JSX / inline raw HTML, and
+  link destination strict CM rollback.
 - Phase G (polish): 0/4.
 
 ## Coverage targets (after each phase)
