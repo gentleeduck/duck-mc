@@ -231,6 +231,16 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     } else {
       None
     };
+    // CM 5.2: a list of one type can't continue with a different
+    // marker. `- foo\n+ bar` is two lists. Track the bullet char
+    // (unordered) or separator (ordered) of the first item and break
+    // out when the next marker mismatches.
+    let bullet_char: Option<char> = if !ordered { self.peek().and_then(|t| t.raw.chars().next()) } else { None };
+    let ordered_sep: Option<dmc_lexer::token::OrderedSep> =
+      if ordered { self.peek().and_then(|t| match t.kind {
+        TokenKind::OrderedListMarker(s) => Some(s),
+        _ => None,
+      }) } else { None };
 
     let mut first = true;
     loop {
@@ -261,9 +271,18 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         None => break,
       };
       let want_marker = if ordered {
-        matches!(kind, TokenKind::OrderedListMarker(_))
+        match kind {
+          TokenKind::OrderedListMarker(s) => ordered_sep.is_none() || ordered_sep == Some(*s),
+          _ => false,
+        }
       } else {
-        matches!(kind, TokenKind::UnorderedListMarker)
+        match kind {
+          TokenKind::UnorderedListMarker => {
+            let this_char = self.peek().and_then(|t| t.raw.chars().next());
+            bullet_char.is_none() || this_char == bullet_char
+          },
+          _ => false,
+        }
       };
       if !want_marker {
         break;
@@ -765,12 +784,17 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         t.value = trimmed;
       }
     }
-    if let Some(Node::Text(t)) = children.last_mut() {
+    // Strip trailing whitespace-only text nodes (left by the HeadingTrailingHashes
+    // skip + spaces between the text and the optional `###`).
+    while let Some(Node::Text(t)) = children.last_mut() {
       let trimmed = t.value.trim_end_matches([' ', '\t']).to_string();
       if trimmed.is_empty() {
         children.pop();
-      } else {
+      } else if trimmed.len() != t.value.len() {
         t.value = trimmed;
+        break;
+      } else {
+        break;
       }
     }
     Node::Heading(Heading { level, children, span, id: None })
@@ -809,14 +833,6 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
   fn parse_html_block_from_jsx(&mut self, mode: HtmlBlockMode) -> Node {
     let span = self.current_span();
     let start_ptr = self.tokens.get(self.pos).map(|t| t.raw.as_ptr() as usize).unwrap_or(0);
-    let mut end_ptr = start_ptr;
-    let mut bump_end = |this: &Self| -> usize {
-      this
-        .tokens
-        .get(this.pos.saturating_sub(1))
-        .map(|t| t.raw.as_ptr() as usize + t.raw.len())
-        .unwrap_or(start_ptr)
-    };
     match mode {
       HtmlBlockMode::Type1(tag) => loop {
         match self.peek_kind() {
@@ -833,34 +849,30 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
             if matches!(self.peek_kind(), Some(TokenKind::JsxCloseTagEnd)) {
               self.advance();
             }
-            end_ptr = bump_end(self);
             if close_name == tag {
               break;
             }
           },
-          Some(TokenKind::Eof) | None => {
-            end_ptr = bump_end(self);
-            break;
-          },
+          Some(TokenKind::Eof) | None => break,
           _ => {
             self.advance();
-            end_ptr = bump_end(self);
           },
         }
       },
       HtmlBlockMode::Type6 => loop {
         match self.peek_kind() {
-          Some(TokenKind::BlankLine) | Some(TokenKind::Eof) | None => {
-            end_ptr = bump_end(self);
-            break;
-          },
+          Some(TokenKind::BlankLine) | Some(TokenKind::Eof) | None => break,
           _ => {
             self.advance();
-            end_ptr = bump_end(self);
           },
         }
       },
     }
+    let end_ptr = self
+      .tokens
+      .get(self.pos.saturating_sub(1))
+      .map(|t| t.raw.as_ptr() as usize + t.raw.len())
+      .unwrap_or(start_ptr);
     let value = if end_ptr > start_ptr {
       // SAFETY: every Token.raw borrows from the same `&'src str`
       // source; pointer subtraction stays within that buffer.
