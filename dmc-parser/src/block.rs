@@ -1030,6 +1030,29 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
   fn parse_paragraph(&mut self) -> Node {
     let span = self.current_span();
     let mut children = self.collect_inline_until_break();
+    // Setext H2 retro-fold: when the inline run ends with a hard break
+    // followed by a Text node consisting only of `-` characters, treat
+    // the run as the body of an `<h2>`. CM 4.3 allows trailing
+    // whitespace before the underline; the hard break captured those
+    // spaces.
+    if children.len() >= 2
+      && let Some(Node::Text(t)) = children.last()
+      && !t.value.is_empty()
+      && t.value.chars().all(|c| c == '-')
+      && matches!(children.get(children.len() - 2), Some(Node::HardBreak(_)))
+    {
+      children.pop(); // text "----"
+      children.pop(); // hard break
+      while matches!(children.last(), Some(Node::HardBreak(_)) | Some(Node::Text(_))) {
+        if let Some(Node::Text(t)) = children.last()
+          && t.value.chars().any(|c| !c.is_whitespace())
+        {
+          break;
+        }
+        children.pop();
+      }
+      return Node::Heading(Heading { level: 2, children, span, id: None });
+    }
     loop {
       if !matches!(self.peek_kind(), Some(TokenKind::SoftBreak)) {
         break;
