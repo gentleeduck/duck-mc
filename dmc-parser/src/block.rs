@@ -129,6 +129,17 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
           self.advance();
           return Some(self.parse_code_block());
         },
+        TokenKind::JsxOpenTagStart => {
+          // Peek the JSX tag two tokens ahead (after the leading
+          // whitespace) to see if it routes to a Type-1 / Type-6 raw
+          // HTML block.
+          let saved = self.pos;
+          self.advance();
+          if let Some(mode) = self.jsx_html_block_mode() {
+            return Some(self.parse_html_block_from_jsx(mode));
+          }
+          self.pos = saved;
+        },
         _ => {},
       }
     }
@@ -764,7 +775,9 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
   /// the type-1 or type-6 set; cursor untouched.
   fn jsx_html_block_mode(&self) -> Option<HtmlBlockMode> {
     let open = self.tokens.get(self.pos)?;
-    if open.span.column != 1 {
+    // Span column is 1-based; accept 1-4 (col 0-3 in 0-based) per CM
+    // 4.6: up to three leading spaces are allowed before any block.
+    if open.span.column > 4 {
       return None;
     }
     let name_tok = self.tokens.get(self.pos + 1)?;
