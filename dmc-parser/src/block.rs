@@ -678,6 +678,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
                 Node::CodeBlock(CodeBlock { lang: None, meta: None, value: buf, span: span_code }),
               );
             }
+            self.try_continue_same_list_after_blankline(ordered, indent, &mut items, &span, &mut saw_blank_between_items);
             continue;
           }
           // Sub-list nest: if the indented line opens with a list marker,
@@ -780,6 +781,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
             if matches!(self.peek_kind(), Some(TokenKind::SoftBreak) | Some(TokenKind::HardBreak)) {
               self.advance();
             }
+            self.try_continue_same_list_after_blankline(ordered, indent, &mut items, &span, &mut saw_blank_between_items);
             continue;
           }
           let para_span = self.current_span();
@@ -792,6 +794,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
             if matches!(self.peek_kind(), Some(TokenKind::SoftBreak) | Some(TokenKind::HardBreak)) {
               self.advance();
             }
+            self.try_continue_same_list_after_blankline(ordered, indent, &mut items, &span, &mut saw_blank_between_items);
             continue;
           } else {
             self.pos = saved;
@@ -1362,6 +1365,55 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         | Some(TokenKind::JsxCloseTagStart)
         | Some(TokenKind::LinkRefDef)
     )
+  }
+
+  /// After consuming a continuation block inside a list item, a
+  /// following blank line may still separate this item from the next
+  /// marker in the SAME list. Keep the cursor on that next marker so
+  /// the outer list loop can continue instead of splitting the list.
+  fn try_continue_same_list_after_blankline(
+    &mut self,
+    ordered: bool,
+    indent: usize,
+    items: &mut Vec<Node>,
+    span: &duck_diagnostic::Span,
+    saw_blank_between_items: &mut bool,
+  ) -> bool {
+    if !matches!(self.peek_kind(), Some(TokenKind::BlankLine)) {
+      return false;
+    }
+    let blank_pos = self.pos;
+    self.advance();
+    let ws_pos = match self.peek_kind() {
+      Some(TokenKind::Whitespace(_)) => Some(self.pos),
+      _ => None,
+    };
+    if ws_pos.is_some() {
+      self.advance();
+    }
+    let next_is_marker = match self.peek_kind() {
+      Some(TokenKind::UnorderedListMarker) if !ordered => true,
+      Some(TokenKind::OrderedListMarker(_)) if ordered => true,
+      _ => false,
+    };
+    let next_indent = if let Some(pos) = ws_pos {
+      self.tokens.get(pos).map(|t| t.raw.chars().count()).unwrap_or(0)
+    } else {
+      0
+    };
+    let same_list_indent = if indent > 0 { next_indent == indent } else { next_indent <= 3 };
+    if !next_is_marker || !same_list_indent {
+      self.pos = blank_pos;
+      return false;
+    }
+    if let Some(pos) = ws_pos {
+      self.pos = pos;
+    }
+    *saw_blank_between_items = true;
+    if let Some(last) = items.last_mut() {
+      Self::ensure_loose_item(last, span);
+    }
+    true
   }
 
   /// Wrap the upcoming `Import` token's raw lexeme into an `Import` node.
