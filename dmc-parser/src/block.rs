@@ -1872,9 +1872,10 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     // CM 4.6 type-7 requires the open tag to be a single complete tag on
     // the start line, so reject if any tag-internal token spans a newline.
     let mut i = self.pos;
+    let start_line = self.tokens.get(i).map(|t| t.span.line);
     let mut depth = 0i32;
     while let Some(t) = self.tokens.get(i) {
-      if t.raw.contains('\n') {
+      if t.raw.contains('\n') || start_line.is_some_and(|line| t.span.line != line) {
         return false;
       }
       match t.kind {

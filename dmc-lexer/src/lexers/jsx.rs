@@ -120,6 +120,10 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
       }
     }
     self.emit(TokenKind::JsxTagName);
+    let allow_unquoted_attr_values = self
+      .tokens
+      .last()
+      .is_some_and(|t| matches!(t.kind, TokenKind::JsxTagName) && Self::is_htmlish_tag_name(t.raw));
 
     // Closing tags don't take attributes.
     if is_close {
@@ -128,8 +132,11 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
     }
 
     // Attribute loop.
+    let mut saw_attr = false;
     loop {
+      let ws_start = self.current;
       self.skip_jsx_whitespace();
+      let had_ws = self.current > ws_start;
       match self.peek() {
         Some('/') if self.peek_next() == Some('>') => {
           self.advance();
@@ -143,14 +150,22 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
           return true;
         },
         Some('{') => {
+          if saw_attr && !had_ws {
+            return false;
+          }
           if !self.lex_jsx_spread() {
             return false;
           }
+          saw_attr = true;
         },
         Some(c) if c.is_ascii_alphabetic() || c == '_' => {
-          if !self.lex_jsx_attribute() {
+          if saw_attr && !had_ws {
             return false;
           }
+          if !self.lex_jsx_attribute(allow_unquoted_attr_values) {
+            return false;
+          }
+          saw_attr = true;
         },
         _ => return false,
       }
@@ -175,7 +190,7 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
     true
   }
 
-  fn lex_jsx_attribute(&mut self) -> bool {
+  fn lex_jsx_attribute(&mut self, allow_unquoted_value: bool) -> bool {
     // Attribute name: ident chars + `-` + `:` (namespaced like xml:lang).
     while let Some(c) = self.peek() {
       if c.is_ascii_alphanumeric() || c == '_' || c == '-' || c == ':' {
@@ -187,11 +202,13 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
     self.emit(TokenKind::JsxAttributeName);
 
     // Boolean attribute (no `=`).
-    if self.peek() != Some('=') {
+    if !self.peek_jsx_attr_eq_after_ws() {
       return true;
     }
+    self.skip_jsx_whitespace();
     self.advance();
     self.emit(TokenKind::JsxAttrEq);
+    self.skip_jsx_whitespace();
 
     match self.peek() {
       Some(q @ ('"' | '\'')) => {
@@ -268,8 +285,36 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
         self.lex_mdx_expression();
         true
       },
+      Some(_) if allow_unquoted_value => {
+        while let Some(c) = self.peek() {
+          if matches!(c, ' ' | '\t' | '\n' | '\r' | '"' | '\'' | '=' | '<' | '>' | '`') {
+            break;
+          }
+          self.advance();
+        }
+        if self.current == self.start {
+          return false;
+        }
+        self.emit(TokenKind::JsxAttrString);
+        true
+      },
       _ => false,
     }
+  }
+
+  fn is_htmlish_tag_name(name: &str) -> bool {
+    let mut chars = name.chars();
+    matches!(chars.next(), Some(c) if c.is_ascii_alphabetic())
+      && chars.all(|c| c.is_ascii_alphanumeric() || c == '-')
+  }
+
+  fn peek_jsx_attr_eq_after_ws(&self) -> bool {
+    let bytes = self.source.as_bytes();
+    let mut i = self.current;
+    while i < bytes.len() && matches!(bytes[i], b' ' | b'\t' | b'\n' | b'\r') {
+      i += 1;
+    }
+    bytes.get(i) == Some(&b'=')
   }
 
   /// Spread attribute `{...rest}`. Emits ExpressionStart, then the body

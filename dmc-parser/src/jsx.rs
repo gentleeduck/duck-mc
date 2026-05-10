@@ -282,6 +282,11 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
             }
             JsxAttrValue::String(s)
           },
+          Some(TokenKind::JsxAttrString) => {
+            let s = self.peek().unwrap().raw.to_string();
+            self.advance();
+            JsxAttrValue::String(s)
+          },
           Some(TokenKind::ExpressionStart) => {
             self.advance();
             let mut s = String::new();
