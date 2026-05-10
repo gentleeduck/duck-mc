@@ -197,22 +197,111 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
       return false;
     }
 
-    // Skip whitespace after `:`.
+    // Skip whitespace after `:`. CM 4.7 allows the destination to
+    // start on the next line (after exactly one newline + optional
+    // leading whitespace).
     let mut j = i + 2;
     while j < bytes.len() && matches!(bytes[j], b' ' | b'\t') {
       j += 1;
     }
-    if j >= bytes.len() || matches!(bytes[j], b'\n') {
+    if j < bytes.len() && bytes[j] == b'\n' {
+      // Look at the next line: blank line means malformed def.
+      j += 1;
+      while j < bytes.len() && matches!(bytes[j], b' ' | b'\t') {
+        j += 1;
+      }
+      if j >= bytes.len() || bytes[j] == b'\n' {
+        return false;
+      }
+    }
+    if j >= bytes.len() {
       return false;
     }
 
-    // Consume URL until whitespace.
-    while j < bytes.len() && !matches!(bytes[j], b' ' | b'\t' | b'\n') {
+    // Destination: `<bracketed>` or bare run.
+    if bytes[j] == b'<' {
+      let mut p = j + 1;
+      while p < bytes.len() && bytes[p] != b'>' && bytes[p] != b'\n' {
+        p += 1;
+      }
+      if p >= bytes.len() || bytes[p] != b'>' {
+        return false;
+      }
+      j = p + 1;
+    } else {
+      let dest_start = j;
+      while j < bytes.len() && !matches!(bytes[j], b' ' | b'\t' | b'\n') {
+        j += 1;
+      }
+      if dest_start == j {
+        return false;
+      }
+    }
+
+    // Optional title. Can be on the same line (after whitespace) or
+    // on the next line (after exactly one newline + optional indent).
+    let title_search_start = j;
+    while j < bytes.len() && matches!(bytes[j], b' ' | b'\t') {
       j += 1;
     }
-    // Consume optional title (rest of line).
-    while j < bytes.len() && bytes[j] != b'\n' {
-      j += 1;
+    let cross_newline = if j < bytes.len() && bytes[j] == b'\n' {
+      let after_nl = j + 1;
+      let mut k = after_nl;
+      while k < bytes.len() && matches!(bytes[k], b' ' | b'\t') {
+        k += 1;
+      }
+      // Blank line ends the def -- no title.
+      if k >= bytes.len() || bytes[k] == b'\n' {
+        // Definition ends at the original newline.
+        j = j;
+        false
+      } else {
+        j = k;
+        true
+      }
+    } else {
+      false
+    };
+    if j < bytes.len() && matches!(bytes[j], b'"' | b'\'' | b'(') {
+      let open = bytes[j];
+      let close = if open == b'(' { b')' } else { open };
+      let mut p = j + 1;
+      let mut found = false;
+      while p < bytes.len() {
+        if bytes[p] == b'\n' && p + 1 < bytes.len() && bytes[p + 1] == b'\n' {
+          break; // Blank line within title aborts.
+        }
+        if bytes[p] == close {
+          found = true;
+          p += 1;
+          break;
+        }
+        if bytes[p] == b'\\' && p + 1 < bytes.len() {
+          p += 2;
+          continue;
+        }
+        p += 1;
+      }
+      if found {
+        j = p;
+      } else if cross_newline {
+        // No matching close on the title line; fall back to no-title
+        // definition that ends at the original line break.
+        j = title_search_start;
+      } else {
+        // Single-line title with no closer -- consume rest of line.
+        while j < bytes.len() && bytes[j] != b'\n' {
+          j += 1;
+        }
+      }
+    } else if cross_newline {
+      // No title on next line; def ends at the prior newline.
+      j = title_search_start;
+    } else {
+      // Bare destination, eat trailing whitespace on the same line.
+      while j < bytes.len() && bytes[j] != b'\n' {
+        j += 1;
+      }
     }
 
     self.advance_bytes(j - self.current);
