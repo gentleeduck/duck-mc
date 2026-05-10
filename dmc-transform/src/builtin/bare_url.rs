@@ -39,22 +39,38 @@ impl Apply {
         // No URL found if every piece is a Text (just the original
         // string round-tripping). Otherwise rewrite into the
         // text+link mix.
-        let any_url = pieces.iter().any(|p| matches!(p, Piece::Url(_)));
+        let any_url = pieces.iter().any(|p| matches!(p, Piece::Url(_) | Piece::Display(_)));
         if !any_url {
           out.push(n.clone());
           continue;
         }
         let span = t.span.clone();
-        for piece in pieces {
+        let mut iter = pieces.into_iter().peekable();
+        while let Some(piece) = iter.next() {
           match piece {
             Piece::Text(s) if !s.is_empty() => out.push(Node::Text(Text { value: s, span: span.clone() })),
             Piece::Text(_) => {},
-            Piece::Url(url) => out.push(Node::Link(Link {
-              href: url.clone(),
-              title: None,
-              children: vec![Node::Text(Text { value: url, span: span.clone() })],
-              span: span.clone(),
-            })),
+            Piece::Url(href) => {
+              let display = match iter.peek() {
+                Some(Piece::Display(_)) => match iter.next() {
+                  Some(Piece::Display(d)) => d,
+                  _ => href.clone(),
+                },
+                _ => href.clone(),
+              };
+              out.push(Node::Link(Link {
+                href,
+                title: None,
+                children: vec![Node::Text(Text { value: display, span: span.clone() })],
+                span: span.clone(),
+              }));
+            },
+            Piece::Display(d) => {
+              // Stray Display without preceding Url -- emit as text.
+              if !d.is_empty() {
+                out.push(Node::Text(Text { value: d, span: span.clone() }));
+              }
+            },
           }
         }
       } else {
@@ -64,42 +80,102 @@ impl Apply {
     out
   }
 
-  /// Split `s` into alternating `Text` / `Url` pieces around `http(s)://`
-  /// runs. URL boundary is whitespace, `)`, `<`, or `>`.
+  /// Split `s` into alternating `Text` / `Url` pieces around GFM
+  /// autolink runs: `http(s)://...` plus `www....`. URL boundary is
+  /// whitespace, `<`, or unbalanced `)`. Trailing `?!.,:*_~` is
+  /// trimmed as sentence punctuation; trailing `&entity;` is also
+  /// stripped because GFM treats the entity ref as following text.
   fn split_by_url(s: &str) -> Vec<Piece> {
+    fn next_url_match(rest: &str) -> Option<(usize, &'static str)> {
+      // Find the earliest position where one of the GFM autolink
+      // prefixes starts at a valid boundary (start of string or
+      // preceded by a non-alphanumeric / `_`).
+      let bytes = rest.as_bytes();
+      let mut best: Option<(usize, &'static str)> = None;
+      for prefix in ["http://", "https://", "www."] {
+        if let Some(idx) = rest.find(prefix) {
+          let ok_boundary = idx == 0
+            || matches!(bytes.get(idx - 1).copied(), Some(b) if !b.is_ascii_alphanumeric() && b != b'_');
+          if !ok_boundary {
+            continue;
+          }
+          if best.is_none_or(|(b, _)| idx < b) {
+            best = Some((idx, prefix));
+          }
+        }
+      }
+      best
+    }
+    fn url_body_end(after: &str) -> usize {
+      after.find(|c: char| c.is_whitespace() || c == '<').unwrap_or(after.len())
+    }
+    fn trim_trailing(s: &str) -> (&str, &str) {
+      let bytes = s.as_bytes();
+      let mut end = bytes.len();
+      loop {
+        if end == 0 {
+          break;
+        }
+        let last = bytes[end - 1];
+        // Strip trailing sentence punctuation.
+        if matches!(last, b'?' | b'!' | b'.' | b',' | b':' | b'*' | b'_' | b'~') {
+          end -= 1;
+          continue;
+        }
+        // Strip an unmatched `)` (more closes than opens in the
+        // current URL body).
+        if last == b')' {
+          let opens = bytes[..end].iter().filter(|&&b| b == b'(').count();
+          let closes = bytes[..end].iter().filter(|&&b| b == b')').count();
+          if closes > opens {
+            end -= 1;
+            continue;
+          }
+        }
+        // Strip a trailing `&entity;` (entity refs render as following
+        // text per GFM autolink rule).
+        if last == b';' {
+          if let Some(amp) = bytes[..end - 1].iter().rposition(|&b| b == b'&') {
+            let inner = &bytes[amp + 1..end - 1];
+            if !inner.is_empty() && inner.iter().all(|&b| b.is_ascii_alphanumeric()) {
+              end = amp;
+              continue;
+            }
+          }
+        }
+        break;
+      }
+      (&s[..end], &s[end..])
+    }
+
     let mut out = Vec::new();
     let mut rest = s;
-    while let Some(idx) = rest.find("http") {
+    while let Some((idx, prefix)) = next_url_match(rest) {
       let before = &rest[..idx];
       let after = &rest[idx..];
-      if !(after.starts_with("http://") || after.starts_with("https://")) {
-        out.push(Piece::Text(format!("{}{}", before, &rest[idx..idx + 1])));
-        rest = &rest[idx + 1..];
+      let url_end = url_body_end(after);
+      let raw = &after[..url_end];
+      let (url, trailing_punct) = trim_trailing(raw);
+      // GFM: `www.` autolinks require a `.` in the body after the prefix
+      // (the prefix itself ends with `.`).
+      if prefix == "www." && !url[prefix.len()..].contains('.') {
+        out.push(Piece::Text(format!("{}{}", before, prefix)));
+        rest = &after[prefix.len()..];
         continue;
       }
-      let url_end = after.find(|c: char| c.is_whitespace() || c == ')' || c == '<' || c == '>').unwrap_or(after.len());
-      let mut url = &after[..url_end];
-      // GFM autolink: trailing punctuation (`.,;:!?`) and an unmatched
-      // closing `)` are *not* part of the URL — they're sentence
-      // punctuation that follows it. Trim them off so the autolink stops
-      // at the URL proper, with the punctuation surfacing as text.
-      let mut trail_len = 0;
-      while let Some(last) = url.chars().last() {
-        match last {
-          '.' | ',' | ';' | ':' | '!' | '?' => {
-            trail_len += last.len_utf8();
-            url = &url[..url.len() - last.len_utf8()];
-          },
-          _ => break,
-        }
+      if url.is_empty() {
+        out.push(Piece::Text(before.to_string()));
+        rest = &after[1..];
+        continue;
       }
       if !before.is_empty() {
         out.push(Piece::Text(before.to_string()));
       }
-      out.push(Piece::Url(url.to_string()));
-      let trailing = &after[url_end - trail_len..url_end];
-      if !trailing.is_empty() {
-        out.push(Piece::Text(trailing.to_string()));
+      let href = if prefix == "www." { format!("http://{}", url) } else { url.to_string() };
+      out.push(Piece::Url(href));
+      out.push(Piece::Display(url.to_string()));
+      if !trailing_punct.is_empty() {
+        out.push(Piece::Text(trailing_punct.to_string()));
       }
       rest = &after[url_end..];
     }
@@ -129,5 +205,10 @@ impl Visitor for Apply {
 
 enum Piece {
   Text(String),
+  /// Resolved link destination (with `http://` prefix injected for
+  /// `www.` matches). Always immediately followed by `Display`.
   Url(String),
+  /// Visible text inside the synthesized `<a>` (matches the raw
+  /// autolink slice in the source, eg `www.commonmark.org`).
+  Display(String),
 }

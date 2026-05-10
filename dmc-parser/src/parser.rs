@@ -13,7 +13,14 @@ use std::sync::Arc;
 /// treat capital lowercase tags as CM 4.6 type-7 raw HTML.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct ParseOptions {
+  /// CM 4.6 strict raw-HTML block detection. Treats uppercase JSX
+  /// (`<Warning>`) as type-7 raw HTML instead of routing through the
+  /// MDX `JsxElement` path. Spec runner only.
   pub cm_strict_html_blocks: bool,
+  /// GFM autolink extension. Wraps `http(s)://` and `www....` runs in
+  /// `Link` nodes during inline parsing. Default off so the
+  /// `BareUrlAutolink` transformer owns this for MDX consumers.
+  pub gfm_autolinks: bool,
 }
 
 /// Token-stream cursor + diagnostic engine. `'tokens` ties borrowed lexemes to

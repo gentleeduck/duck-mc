@@ -392,8 +392,15 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
               let inner = raw.trim_start_matches('<').trim_end_matches('>').to_string();
               Some((inner.clone(), format!("mailto:{inner}")))
             },
-            // Bare URLs / `www.` runs are a GFM extension handled by the
-            // `BareUrlAutolink` transformer, not by the CommonMark parser.
+            // Bare URLs / `www.` runs are a GFM extension. Parser-level
+            // autolink fires only when `ParseOptions::gfm_autolinks` is
+            // on (spec runners, opt-in callers). Default MDX path keeps
+            // them as Text so the `BareUrlAutolink` transformer can
+            // operate later in the pipeline.
+            AutolinkKind::BareUrl if self.options.gfm_autolinks => Some((raw.clone(), raw.clone())),
+            AutolinkKind::BareWww if self.options.gfm_autolinks => {
+              Some((raw.clone(), format!("http://{}", raw)))
+            },
             AutolinkKind::BareUrl | AutolinkKind::BareWww => None,
           };
           if let Some((display, href)) = link {

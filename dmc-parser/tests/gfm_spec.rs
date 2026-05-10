@@ -69,7 +69,7 @@ fn gfm_spec_no_regression() {
   for ex in &examples {
     let doc = dmc_parser::parse_with(
       &ex.markdown,
-      dmc_parser::parser::ParseOptions { cm_strict_html_blocks: true },
+      dmc_parser::parser::ParseOptions { cm_strict_html_blocks: true, gfm_autolinks: true },
     );
     let html = dmc_codegen::render_html(&doc);
     if normalize(&html) == normalize(&ex.html) {
@@ -100,7 +100,7 @@ fn gfm_spec_dump_failures() {
   for ex in &examples {
     let doc = dmc_parser::parse_with(
       &ex.markdown,
-      dmc_parser::parser::ParseOptions { cm_strict_html_blocks: true },
+      dmc_parser::parser::ParseOptions { cm_strict_html_blocks: true, gfm_autolinks: true },
     );
     let html = dmc_codegen::render_html(&doc);
     if normalize(&html) != normalize(&ex.html) {
