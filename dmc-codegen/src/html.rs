@@ -1,6 +1,6 @@
 use crate::{
   NodeSink, WalkCtx, Walker,
-  escape::{escape_attr, escape_text},
+  escape::{escape_attr, escape_text, escape_url},
 };
 use dmc_diagnostic::Code;
 use dmc_parser::ast::*;
@@ -34,7 +34,7 @@ impl NodeSink for HtmlEmitter {
       Node::CodeBlock(cb) => self.code_block(cb),
       Node::Image(i) => self.image(i),
       Node::HorizontalRule(_) => self.out.push_str("<hr />"),
-      Node::HardBreak(_) => self.out.push_str("<br />"),
+      Node::HardBreak(_) => self.out.push_str("<br />\n"),
       Node::SoftBreak(_) => self.out.push('\n'),
       Node::JsxSelfClosing(s) => self.jsx_self_closing(s),
       Node::JsxExpression(e) => {
@@ -144,7 +144,7 @@ impl HtmlEmitter {
         self.out.push_str(&format!("<li class=\"task-list-item\"><input type=\"checkbox\"{} disabled> ", checked));
       },
       Node::Link(l) => {
-        self.out.push_str(&format!("<a href=\"{}\"", escape_attr(&l.href)));
+        self.out.push_str(&format!("<a href=\"{}\"", escape_attr(&escape_url(&l.href))));
         // CM 6.3 / 4.7: link title becomes the `title` attribute on
         // the anchor. (The autolink-headings transformer's tooltip
         // currently borrows the same field; if it ever needs distinct
@@ -207,7 +207,7 @@ impl HtmlEmitter {
   }
 
   fn image(&mut self, i: &Image) {
-    self.out.push_str(&format!("<img src=\"{}\" alt=\"{}\"", escape_attr(&i.src), escape_attr(&i.alt)));
+    self.out.push_str(&format!("<img src=\"{}\" alt=\"{}\"", escape_attr(&escape_url(&i.src)), escape_attr(&i.alt)));
     if let Some(title) = &i.title {
       self.out.push_str(&format!(" title=\"{}\"", escape_attr(title)));
     }
@@ -349,7 +349,7 @@ impl HtmlEmitter {
         self.out.push_str("</code>");
       },
       Node::Link(l) => {
-        self.out.push_str(&format!("<a href=\"{}\"", escape_attr(&l.href)));
+        self.out.push_str(&format!("<a href=\"{}\"", escape_attr(&escape_url(&l.href))));
         if let Some(label) = &l.title {
           self.out.push_str(&format!(" aria-label=\"{}\"", escape_attr(label)));
         }
@@ -360,7 +360,7 @@ impl HtmlEmitter {
         self.out.push_str("</a>");
       },
       Node::Image(i) => self.image(i),
-      Node::HardBreak(_) => self.out.push_str("<br />"),
+      Node::HardBreak(_) => self.out.push_str("<br />\n"),
       Node::SoftBreak(_) => self.out.push('\n'),
       Node::CodeBlock(cb) => self.code_block(cb),
       _ => {
