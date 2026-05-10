@@ -529,6 +529,16 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         self.advance();
         self.try_promote_text_blockquote_marker();
         self.try_promote_text_list_marker();
+        if child_indent.saturating_sub(content_floor) <= 3
+          && let Some(lvl) = self.setext_underline_level()
+          && Self::promote_item_to_setext_heading(&mut item, lvl, &span)
+        {
+          self.eat_setext_underline();
+          if matches!(self.peek_kind(), Some(TokenKind::SoftBreak) | Some(TokenKind::HardBreak)) {
+            self.advance();
+          }
+          continue;
+        }
         match self.peek_kind() {
           Some(TokenKind::UnorderedListMarker) if child_indent < content_floor => {
             self.pos = saved;
@@ -1208,8 +1218,18 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       Node::TaskListItem(t) => &mut t.children,
       _ => return false,
     };
-    if kids.iter().any(Self::is_block_node) {
-      return false;
+    if let Some(last_block) = kids.iter().rposition(Self::is_block_node) {
+      if !matches!(kids.get(last_block), Some(Node::Heading(_))) {
+        return false;
+      }
+      if kids[last_block + 1..].iter().any(Self::is_block_node) {
+        return false;
+      }
+      if last_block + 1 < kids.len() {
+        kids.push(Node::SoftBreak(BreakNode { span: span.clone() }));
+      }
+      kids.append(inline);
+      return true;
     }
     if !kids.is_empty() {
       kids.push(Node::SoftBreak(BreakNode { span: span.clone() }));
@@ -1246,6 +1266,37 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       Node::TaskListItem(t) => promote(&mut t.children, span),
       _ => {},
     }
+  }
+
+  /// Convert an inline-only list item into a setext heading. Tight-list
+  /// items keep following paragraph text as raw inline siblings, so we
+  /// only fold the leading inline run here.
+  fn promote_item_to_setext_heading(item: &mut Node, level: u8, span: &duck_diagnostic::Span) -> bool {
+    let kids = match item {
+      Node::ListItem(li) => &mut li.children,
+      Node::TaskListItem(t) => &mut t.children,
+      _ => return false,
+    };
+    if kids.is_empty() || kids.iter().any(Self::is_block_node) {
+      return false;
+    }
+    while let Some(Node::Text(t)) = kids.last_mut() {
+      let trimmed = t.value.trim_end_matches([' ', '\t']).to_string();
+      if trimmed.is_empty() {
+        kids.pop();
+      } else if trimmed.len() != t.value.len() {
+        t.value = trimmed;
+        break;
+      } else {
+        break;
+      }
+    }
+    if kids.is_empty() {
+      return false;
+    }
+    let heading_children = std::mem::take(kids);
+    kids.push(Node::Heading(Heading { level, children: heading_children, span: span.clone(), id: None }));
+    true
   }
 
   /// Parse the body of one list item. Promotes to `TaskListItem` if a GFM
