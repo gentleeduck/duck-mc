@@ -393,11 +393,12 @@ Goal: spec-pinned test runners.
 - Phase E (structural): 3/4 (E1 + E2 done; E3 partial; E4 lazy
   continuation outstanding).
 - Phase F (validation): 1/4 done + F2 partial -- spec runner now
-  passes 442/652 (~68%, up from 118 at landing across 43 rounds).
-  Remaining gaps concentrate in CM emphasis delimiter-stack pairing
-  (47), nested list-item containers (multi-block items + nested
-  blockquote+list), MDX-vs-CM dialect for capital JSX / inline raw
-  HTML, and link destination strict CM rollback.
+  passes 468/652 (~72%, up from 118 at landing across 45 rounds).
+  Remaining gaps concentrate in nested list-item containers
+  (multi-block items + nested blockquote+list), MDX-vs-CM dialect
+  for capital JSX / inline raw HTML, link destination strict CM
+  rollback, multi-line paragraph emphasis spanning soft breaks, and
+  setext titles preserving the trailing-backslash hard break.
 - Phase G (polish): 0/4.
 
 ## Coverage targets (after each phase)
