@@ -82,6 +82,10 @@ enum HtmlBlockMode {
   Type1(String),
   /// Closes on blank line.
   Type6,
+  /// Type-7: any other lowercase tag at col 0. Closes on blank line.
+  /// Skipped for capital / namespaced tags (those stay as JSX so the
+  /// MDX dialect keeps `<MyComponent>` working).
+  Type7,
 }
 
 impl<'eng, 'tokens> Parser<'eng, 'tokens> {
@@ -830,11 +834,17 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     if !matches!(name_tok.kind, TokenKind::JsxTagName) {
       return None;
     }
-    let lower = name_tok.raw.to_ascii_lowercase();
+    let raw_name = name_tok.raw;
+    let lower = raw_name.to_ascii_lowercase();
     if HTML_BLOCK_TYPE1_TAGS.contains(&lower.as_str()) {
       Some(HtmlBlockMode::Type1(lower))
     } else if HTML_BLOCK_TYPE6_TAGS.contains(&lower.as_str()) {
       Some(HtmlBlockMode::Type6)
+    } else if raw_name.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit()) {
+      // CM 4.6 Type-7: any tag at col 0 closes on next blank line.
+      // Restricted to plain lowercase names so MDX components like
+      // `<MyComponent>` and namespaces like `<svg:circle>` stay JSX.
+      Some(HtmlBlockMode::Type7)
     } else {
       None
     }
@@ -875,7 +885,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
           },
         }
       },
-      HtmlBlockMode::Type6 => loop {
+      HtmlBlockMode::Type6 | HtmlBlockMode::Type7 => loop {
         match self.peek_kind() {
           Some(TokenKind::BlankLine) | Some(TokenKind::Eof) | None => break,
           _ => {
