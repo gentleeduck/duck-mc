@@ -407,7 +407,38 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         }
       }
 
-      let mut item = self.parse_one_list_item(ordered);
+      let code_item = if extra_ws >= 4 {
+        let item_span = self.current_span();
+        if matches!(self.peek_kind(), Some(TokenKind::Whitespace(_))) {
+          self.advance();
+        }
+        let mut buf = String::new();
+        if extra_ws > 4 {
+          buf.push_str(&" ".repeat(extra_ws - 4));
+        }
+        while let Some(t) = self.peek() {
+          match &t.kind {
+            TokenKind::SoftBreak | TokenKind::HardBreak | TokenKind::BlankLine | TokenKind::Eof => break,
+            _ => {
+              buf.push_str(t.raw);
+              self.advance();
+            },
+          }
+        }
+        if !buf.is_empty() {
+          buf.push('\n');
+          Some(Node::ListItem(ListItem {
+            children: vec![Node::CodeBlock(CodeBlock { lang: None, meta: None, value: buf, span: item_span.clone() })],
+            span: item_span,
+          }))
+        } else {
+          None
+        }
+      } else {
+        None
+      };
+
+      let mut item = if let Some(item) = code_item { item } else { self.parse_one_list_item(ordered) };
 
       if matches!(self.peek_kind(), Some(TokenKind::SoftBreak) | Some(TokenKind::HardBreak)) {
         self.advance();
@@ -632,8 +663,10 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
 
       items.push(item);
 
-      // CM 5.3 blank-line handling.
-      if matches!(self.peek_kind(), Some(TokenKind::BlankLine)) {
+      // CM 5.3 blank-line handling. A list item may keep consuming
+      // blankline-separated child blocks until a sibling marker (or a
+      // de-dented block) finally breaks it.
+      'after_item: while matches!(self.peek_kind(), Some(TokenKind::BlankLine)) {
         let saved = self.pos;
         self.advance();
         let leading = self.peek_leading_indent();
@@ -719,7 +752,11 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
               &span,
               &mut saw_blank_between_items,
             );
-            continue;
+            if matches!(self.peek_kind(), Some(TokenKind::UnorderedListMarker) | Some(TokenKind::OrderedListMarker(_)))
+            {
+              break 'after_item;
+            }
+            continue 'after_item;
           }
           // Sub-list nest: if the indented line opens with a list marker,
           // recurse into a nested list at this indent. The line may have
@@ -737,7 +774,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
               Self::ensure_loose_item(last, &span);
               Self::append_to_item(last, nested);
             }
-            continue;
+            continue 'after_item;
           }
           if let Some(TokenKind::IndentedCodeLine) = next_after_ws.as_ref()
             && let Some(raw) = self.tokens.get(self.pos + 1).map(|t| t.raw)
@@ -770,7 +807,30 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
               Self::ensure_loose_item(last, &span);
               Self::append_to_item(last, nested);
             }
-            continue;
+            continue 'after_item;
+          }
+          if let Some(TokenKind::IndentedCodeLine) = next_after_ws.as_ref()
+            && let Some(raw) = self.tokens.get(self.pos + 1).map(|t| t.raw)
+            && raw.starts_with('>')
+            && raw[1..].chars().next().is_none_or(|c| c == ' ' || c == '\t')
+          {
+            let pos = self.pos + 1;
+            let original = self.tokens[pos].raw;
+            let rest = original[1..].trim_start_matches([' ', '\t']);
+            self.tokens[pos].raw = ">";
+            self.tokens[pos].kind = TokenKind::BlockQuoteMarker;
+            if !rest.is_empty() {
+              let text_tok =
+                dmc_lexer::token::Token { kind: TokenKind::Text, raw: rest, span: self.tokens[pos].span.clone() };
+              self.tokens.insert(pos + 1, text_tok);
+            }
+            self.advance();
+            let bq = self.parse_blockquote();
+            if let Some(last) = items.last_mut() {
+              Self::ensure_loose_item(last, &span);
+              Self::append_to_item(last, bq);
+            }
+            continue 'after_item;
           }
           self.advance(); // skip whitespace
           self.try_promote_text_blockquote_marker();
@@ -828,7 +888,11 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
               &span,
               &mut saw_blank_between_items,
             );
-            continue;
+            if matches!(self.peek_kind(), Some(TokenKind::UnorderedListMarker) | Some(TokenKind::OrderedListMarker(_)))
+            {
+              break 'after_item;
+            }
+            continue 'after_item;
           }
           let para_span = self.current_span();
           let inline = self.collect_inline_until_break();
@@ -847,9 +911,14 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
               &span,
               &mut saw_blank_between_items,
             );
-            continue;
+            if matches!(self.peek_kind(), Some(TokenKind::UnorderedListMarker) | Some(TokenKind::OrderedListMarker(_)))
+            {
+              break 'after_item;
+            }
+            continue 'after_item;
           } else {
             self.pos = saved;
+            break 'after_item;
           }
         } else {
           // Peek leading whitespace before the next marker without
@@ -885,6 +954,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
             }
           }
         }
+        break 'after_item;
       }
     }
 
