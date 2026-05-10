@@ -194,6 +194,8 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       TokenKind::JsxCloseTagStart => {
         if let Some(mode) = self.jsx_html_block_mode() {
           Some(self.parse_html_block_from_jsx(mode))
+        } else if self.is_plain_html_jsx_tag() {
+          Some(self.parse_plain_html_close_paragraph())
         } else {
           // Stray close tag at top level - treat as text by falling
           // through to paragraph collection.
@@ -2010,6 +2012,29 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       crate::inline::resolve_emphasis_delims(&mut children, &mut delims);
     }
     Self::finalize_inline_breaks(&mut children);
+    Node::Paragraph(Paragraph { children, span })
+  }
+
+  /// Top-level lowercase HTML close tags like `</a></b>` are inline raw
+  /// HTML, not JSX terminators. Use the normal paragraph break rules but
+  /// do not stop on `JsxCloseTagStart`.
+  fn parse_plain_html_close_paragraph(&mut self) -> Node {
+    let span = self.current_span();
+    let children = self.collect_inline(&|k| {
+      matches!(
+        k,
+        TokenKind::BlankLine
+          | TokenKind::SoftBreak
+          | TokenKind::Eof
+          | TokenKind::Heading(_)
+          | TokenKind::FrontmatterStart(_)
+          | TokenKind::Import
+          | TokenKind::Export
+      )
+    });
+    if matches!(self.peek_kind(), Some(TokenKind::SoftBreak) | Some(TokenKind::HardBreak)) {
+      self.advance();
+    }
     Node::Paragraph(Paragraph { children, span })
   }
 

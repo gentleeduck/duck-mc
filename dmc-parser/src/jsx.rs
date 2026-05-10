@@ -116,7 +116,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     Some(if valid {
       Node::Html(Html { value, span })
     } else {
-      Node::Text(Text { value, span })
+      Node::Text(Text { value: Self::unescape_markdown(&value), span })
     })
   }
 
