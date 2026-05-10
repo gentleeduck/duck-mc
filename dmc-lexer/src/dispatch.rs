@@ -205,18 +205,20 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
     if self.start_column == 0 {
       return true;
     }
-    let bytes = self.source.as_bytes();
-    let line_start = self.start - self.start_column;
-    let prefix = &bytes[line_start..self.start];
-    // Up to 3 leading spaces / tabs.
-    if self.start_column <= 3 && prefix.iter().all(|&b| b == b' ' || b == b'\t') {
-      return true;
+
+    let mut trailing_ws = 0usize;
+    for tok in self.tokens.iter().rev() {
+      match tok.kind {
+        TokenKind::SoftBreak | TokenKind::HardBreak | TokenKind::BlankLine => break,
+        TokenKind::Whitespace(w) => trailing_ws += usize::from(w),
+        TokenKind::BlockQuoteMarker | TokenKind::UnorderedListMarker | TokenKind::OrderedListMarker(_) => {
+          return trailing_ws <= 3;
+        },
+        _ => return false,
+      }
     }
-    // Blockquote prefix: any mix of `>` markers + spaces / tabs.
-    if prefix.iter().any(|&b| b == b'>') && prefix.iter().all(|&b| b == b'>' || b == b' ' || b == b'\t') {
-      return true;
-    }
-    false
+
+    trailing_ws <= 3
   }
 
   /// CommonMark backslash-escapable set (appendix). The lexer consumes
