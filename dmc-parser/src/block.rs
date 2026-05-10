@@ -996,6 +996,59 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     }
   }
 
+  /// CM 5.1 + 4.4: an indented code block inside a blockquote. Cursor is
+  /// at the leading Whitespace(>=4) immediately after the bq marker(s).
+  /// Reads one line of code, then continues across soft breaks when the
+  /// next bq line starts with another Whitespace(>=4).
+  fn parse_indented_code_in_bq(&mut self) -> Node {
+    let span = self.current_span();
+    let mut buf = String::new();
+    loop {
+      let ws_len = match self.peek() {
+        Some(t) if matches!(t.kind, TokenKind::Whitespace(_)) => t.raw.chars().count(),
+        _ => break,
+      };
+      if ws_len < 4 {
+        break;
+      }
+      self.advance(); // consume whitespace
+      let visible = ws_len.saturating_sub(4);
+      if visible > 0 {
+        buf.push_str(&" ".repeat(visible));
+      }
+      while let Some(t) = self.peek() {
+        match &t.kind {
+          TokenKind::SoftBreak | TokenKind::HardBreak | TokenKind::BlankLine | TokenKind::Eof => break,
+          _ => {
+            buf.push_str(t.raw);
+            self.advance();
+          },
+        }
+      }
+      buf.push('\n');
+      // Optional soft break + bq marker on next line; if the next non-
+      // marker peek isn't another Whitespace(>=4), stop.
+      let saved = self.pos;
+      if !matches!(self.peek_kind(), Some(TokenKind::SoftBreak)) {
+        break;
+      }
+      self.advance();
+      let next_markers = self.count_line_blockquote_markers();
+      if next_markers == 0 {
+        self.pos = saved;
+        break;
+      }
+      self.consume_blockquote_markers(next_markers);
+      let next_aligned =
+        matches!(self.peek(), Some(t) if matches!(t.kind, TokenKind::Whitespace(_)) && t.raw.chars().count() >= 4);
+      if !next_aligned {
+        self.pos = saved;
+        break;
+      }
+    }
+    Node::CodeBlock(CodeBlock { lang: None, meta: None, value: buf, span })
+  }
+
   fn is_block_node(node: &Node) -> bool {
     matches!(
       node,
@@ -1288,15 +1341,28 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         continue;
       }
       // ATX heading / thematic break / fenced code inside blockquote.
-      let block_node: Option<Node> = match after_marker_kind {
-        TokenKind::Heading(_) => Some(self.parse_heading()),
-        TokenKind::ThematicBreak => {
-          let hr_span = self.current_span();
-          self.advance();
-          Some(Node::HorizontalRule(HorizontalRule { span: hr_span }))
-        },
-        TokenKind::CodeFenceOpen(_, _) => Some(self.parse_code_block()),
-        _ => None,
+      // Whitespace(>=4) immediately after the bq marker is an indented
+      // code block inside the bq -- gather contiguous indented lines
+      // until the indent breaks.
+      let indented_code: Option<Node> =
+        if matches!(after_marker_kind, TokenKind::Whitespace(w) if (w as usize) >= 4) {
+          Some(self.parse_indented_code_in_bq())
+        } else {
+          None
+        };
+      let block_node: Option<Node> = if indented_code.is_some() {
+        indented_code
+      } else {
+        match after_marker_kind {
+          TokenKind::Heading(_) => Some(self.parse_heading()),
+          TokenKind::ThematicBreak => {
+            let hr_span = self.current_span();
+            self.advance();
+            Some(Node::HorizontalRule(HorizontalRule { span: hr_span }))
+          },
+          TokenKind::CodeFenceOpen(_, _) => Some(self.parse_code_block()),
+          _ => None,
+        }
       };
       if let Some(node) = block_node {
         if !paragraphs[top].is_empty() {
@@ -1467,7 +1533,11 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       self.advance();
       taken += 1;
     }
-    if matches!(self.peek_kind(), Some(TokenKind::Whitespace(_))) {
+    // Drop the optional leading whitespace between the deepest `>` and
+    // the line content -- but only when it's < 4 cols. Four or more
+    // cols flag an indented code block whose indent must remain visible
+    // to the caller.
+    if matches!(self.peek_kind(), Some(TokenKind::Whitespace(w)) if (*w as usize) < 4) {
       self.advance();
     }
   }
