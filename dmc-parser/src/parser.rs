@@ -49,16 +49,54 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
   /// payload into `self.refs`. Cursor is left untouched; the main parse
   /// loop then resolves shortcut / full / collapsed refs against the map.
   fn collect_refs(&mut self) {
+    // CM 4.7: a link reference definition cannot interrupt a paragraph.
+    // Track per-line whether the current line started with a paragraph-
+    // worthy inline run; the line ends at SoftBreak/HardBreak. If a
+    // LinkRefDef appears on a line whose predecessor line was paragraph
+    // text (no intervening blank / heading / etc.), skip the def.
+    let mut in_paragraph = false;
+    let mut on_heading_line = false;
     for tok in &self.tokens {
-      if matches!(tok.kind, TokenKind::LinkRefDef)
-        && let Some((label, url, title)) = parse_link_ref_def(tok.raw)
-      {
-        // Unescape `\X` then decode `&...;` entity references in url +
-        // title per CM 4.7 + 6.6 so the rendered link uses the
-        // canonical destination text.
-        let url = crate::inline::decode_entities_in(&unescape_link_part(&url));
-        let title = title.map(|t| crate::inline::decode_entities_in(&unescape_link_part(&t)));
-        self.refs.insert(&label, url, title);
+      match &tok.kind {
+        TokenKind::LinkRefDef => {
+          if !in_paragraph
+            && let Some((label, url, title)) = parse_link_ref_def(tok.raw)
+          {
+            let url = crate::inline::decode_entities_in(&unescape_link_part(&url));
+            let title = title.map(|t| crate::inline::decode_entities_in(&unescape_link_part(&t)));
+            self.refs.insert(&label, url, title);
+          }
+        },
+        TokenKind::BlankLine
+        | TokenKind::CodeFenceOpen(_, _)
+        | TokenKind::CodeFenceClose(_, _)
+        | TokenKind::ThematicBreak
+        | TokenKind::FrontmatterEnd(_) => {
+          in_paragraph = false;
+          on_heading_line = false;
+        },
+        TokenKind::Heading(_) => {
+          // ATX heading line: content on this line is heading content,
+          // not a paragraph. After the line break, in_paragraph resets.
+          in_paragraph = false;
+          on_heading_line = true;
+        },
+        TokenKind::BlockQuoteMarker => {
+          in_paragraph = false;
+          on_heading_line = false;
+        },
+        TokenKind::SoftBreak | TokenKind::HardBreak => {
+          if on_heading_line {
+            in_paragraph = false;
+          }
+          on_heading_line = false;
+        },
+        TokenKind::Whitespace(_) | TokenKind::Eof => {},
+        _ => {
+          if !on_heading_line {
+            in_paragraph = true;
+          }
+        },
       }
     }
   }
