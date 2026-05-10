@@ -1262,6 +1262,18 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         if !delims.is_empty() {
           crate::inline::resolve_emphasis_delims(&mut children, &mut delims);
         }
+        // Trim trailing whitespace-only text nodes from the heading.
+        while let Some(Node::Text(t)) = children.last_mut() {
+          let trimmed = t.value.trim_end_matches([' ', '\t']).to_string();
+          if trimmed.is_empty() {
+            children.pop();
+          } else if trimmed.len() != t.value.len() {
+            t.value = trimmed;
+            break;
+          } else {
+            break;
+          }
+        }
         return Node::Heading(Heading { level: lvl, children, span, id: None });
       }
       if ws_skip {
