@@ -290,7 +290,7 @@ Goal: 100/100/100 CM + GFM + MDX block coverage.
 - Coverage: GFM 99 -> 100%.
 - Touch: `table.rs`, `block.rs`, `ast/node.rs`. Size: L.
 
-### [ ] E3. Raw HTML types 1, 6, 7 classification (T14 parser side)
+### [~] E3. Raw HTML types 1, 6, 7 classification (T14 parser side)
 - Spec: CM 4.6.
 - When a JSX-style tag opens at column 0 and the tag name is in the
   type-1 set (`script`/`pre`/`style`/`textarea`), consume to the
@@ -318,7 +318,7 @@ Goal: 100/100/100 CM + GFM + MDX block coverage.
 
 Goal: spec-pinned test runners.
 
-### [ ] F1. CommonMark spec runner (T23)
+### [x] F1. CommonMark spec runner (T23)
 - Vendor `commonmark_spec.json` (652 examples) at
   `dmc-parser/tests/fixtures/commonmark_spec.json`.
 - `dmc-parser/tests/commonmark_spec.rs` runs `parse -> render_html`
@@ -384,16 +384,17 @@ Goal: spec-pinned test runners.
 ## Status snapshot
 
 - Total items: 47.
-- Done: 30.
-- Partial: 5 (B1, B4, B5, C6, C8).
+- Done: 32.
+- Partial: 6 (B1, B4, B5, C6, C8, E3).
 - Phase A (build): 12/12.
 - Phase B (parity): 3/6 done + 3 partial; tests green.
 - Phase C (wire): 11/13 done + 2 partial.
 - Phase D (refs): 4/4 -- ref links + footnotes complete.
-- Phase E (structural): 2/4 done (E1 link bracket depth via
-  recursive collector; E2 GFM tables in `table.rs`); E3 raw HTML
-  1/6/7 + E4 lazy continuation outstanding.
-- Phase F (validation): 0/4.
+- Phase E (structural): 3/4 (E1 + E2 done; E3 partial -- types 1+6
+  via JSX dispatch, type-7 intentionally skipped for MDX dialect;
+  E4 lazy continuation outstanding).
+- Phase F (validation): 1/4 -- CM spec runner landed at baseline
+  118/652.
 - Phase G (polish): 0/4.
 
 ## Coverage targets (after each phase)
