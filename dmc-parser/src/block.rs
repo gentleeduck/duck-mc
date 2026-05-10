@@ -423,6 +423,34 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       }
 
       items.push(item);
+
+      // CM 5.3 loose-list signal: a blank line between consecutive
+      // items at the same level marks the list as loose. Eat the
+      // blank line and keep iterating; the loose flag below promotes
+      // every item to a paragraph.
+      if matches!(self.peek_kind(), Some(TokenKind::BlankLine)) {
+        let saved = self.pos;
+        self.advance();
+        // Allow leading whitespace at the marker indent before next
+        // marker -- nested list at deeper indent will be picked up
+        // by the marker check on next iteration.
+        if matches!(self.peek_kind(), Some(TokenKind::Whitespace(_))) {
+          self.advance();
+        }
+        let next_is_marker = match self.peek_kind() {
+          Some(TokenKind::UnorderedListMarker) if !ordered => true,
+          Some(TokenKind::OrderedListMarker(_)) if ordered => true,
+          _ => false,
+        };
+        if !next_is_marker {
+          self.pos = saved;
+        } else {
+          // Mark current item as loose so the suite renders <p>.
+          if let Some(last) = items.last_mut() {
+            Self::ensure_loose_item(last, &span);
+          }
+        }
+      }
     }
 
     // Loose list: when any item has a Paragraph child, every item must

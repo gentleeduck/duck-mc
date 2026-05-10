@@ -143,7 +143,29 @@ impl HtmlEmitter {
         }
         self.out.push_str(">\n");
       },
-      Node::ListItem(_) => self.out.push_str("<li>"),
+      // CM emits `<li>\n` when the item has block children (loose
+      // list / contains a paragraph). Tight items hug the inline
+      // content directly after `<li>`.
+      Node::ListItem(li) => {
+        let has_block_child = li.children.first().is_some_and(|c| {
+          matches!(
+            c,
+            Node::Paragraph(_)
+              | Node::List(_)
+              | Node::Blockquote(_)
+              | Node::CodeBlock(_)
+              | Node::Heading(_)
+              | Node::HorizontalRule(_)
+              | Node::Table(_)
+              | Node::Html(_)
+          )
+        });
+        if has_block_child {
+          self.out.push_str("<li>\n");
+        } else {
+          self.out.push_str("<li>");
+        }
+      },
       Node::TaskListItem(t) => {
         // HTML5 self-closes void elements implicitly — match remark-gfm's
         // emitted markup which writes `<input type="checkbox" ...>` (no `/>`)
