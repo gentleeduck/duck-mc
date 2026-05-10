@@ -749,6 +749,9 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
               true
             },
             Some(TokenKind::LinkRefDef) => {
+              if let Some(last) = items.last_mut() {
+                Self::ensure_loose_item(last, &span);
+              }
               self.advance();
               true
             },
