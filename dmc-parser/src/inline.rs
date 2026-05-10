@@ -443,12 +443,15 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
               let body_start_ptr = self.peek().map(|t| t.raw.as_ptr() as usize).unwrap_or(0);
               // CM 6.3: bare destinations allow balanced parens. Track
               // depth so `[link](foo(and(bar)))` keeps both inner pairs
-              // before the matching outer close.
+              // before the matching outer close. Stop at blank lines
+              // and end-of-stream so an unbalanced run can't swallow
+              // following content.
               let mut depth = 0i32;
               while let Some(tok) = self.peek() {
                 match &tok.kind {
                   TokenKind::LinkTargetClose if depth == 0 => break,
-                  TokenKind::Eof => break,
+                  TokenKind::Eof | TokenKind::BlankLine => break,
+                  TokenKind::SoftBreak | TokenKind::HardBreak => break,
                   TokenKind::LinkTargetOpen => {
                     depth += 1;
                     self.advance();
@@ -498,7 +501,9 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
                   for n in inner {
                     out.push(n);
                   }
-                  out.push(Node::Text(Text { value: format!("]({})", paren_body), span }));
+                  let close_str = if has_close { ")" } else { "" };
+                  out
+                    .push(Node::Text(Text { value: format!("]({}{}", paren_body, close_str), span }));
                 },
               }
             },
