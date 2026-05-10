@@ -445,9 +445,32 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
               // depth so `[link](foo(and(bar)))` keeps both inner pairs
               // before the matching outer close. Stop at blank lines
               // and end-of-stream so an unbalanced run can't swallow
-              // following content.
+              // following content. A `<...>` bracketed destination is
+              // exempt: inside `<...>`, `(` and `)` are literal so the
+              // depth counter must skip them.
               let mut depth = 0i32;
+              let mut in_angle = false;
               while let Some(tok) = self.peek() {
+                if in_angle {
+                  // Walk until we see a token whose raw ends with `>`.
+                  let raw = tok.raw;
+                  if raw.contains('>') {
+                    in_angle = false;
+                  }
+                  match &tok.kind {
+                    TokenKind::Eof | TokenKind::BlankLine => break,
+                    TokenKind::SoftBreak | TokenKind::HardBreak => {
+                      // Newline inside `<...>` invalidates the bracketed
+                      // form; abort so the malformed branch fires.
+                      in_angle = false;
+                      self.advance();
+                    },
+                    _ => {
+                      self.advance();
+                    },
+                  }
+                  continue;
+                }
                 match &tok.kind {
                   TokenKind::LinkTargetClose if depth == 0 => break,
                   TokenKind::Eof | TokenKind::BlankLine => break,
@@ -461,6 +484,12 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
                     self.advance();
                   },
                   _ => {
+                    // Detect a `<` opener for a bracketed destination.
+                    // The lexer may emit it as Text or escape-pair; we
+                    // recognize the leading `<` byte in the raw lexeme.
+                    if tok.raw.starts_with('<') && depth == 0 && !tok.raw.contains('>') {
+                      in_angle = true;
+                    }
                     self.advance();
                   },
                 }
