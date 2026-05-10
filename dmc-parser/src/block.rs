@@ -1823,6 +1823,17 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
               self.advance();
             }
             if close_name == tag {
+              // CM 4.6 type-1: the block extends to the end of the line
+              // that contains the matching close tag (everything after
+              // `</tag>` on that line stays inside the block).
+              while let Some(t) = self.peek() {
+                match &t.kind {
+                  TokenKind::SoftBreak | TokenKind::HardBreak | TokenKind::BlankLine | TokenKind::Eof => break,
+                  _ => {
+                    self.advance();
+                  },
+                }
+              }
               break;
             }
           },
