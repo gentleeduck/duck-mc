@@ -252,8 +252,7 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
       }
       // Blank line ends the def -- no title.
       if k >= bytes.len() || bytes[k] == b'\n' {
-        // Definition ends at the original newline.
-        j = j;
+        // Definition ends at the original newline; leave `j` here.
         false
       } else {
         j = k;

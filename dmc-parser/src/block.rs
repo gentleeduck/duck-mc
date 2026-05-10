@@ -595,6 +595,28 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         children[top].push(list);
         continue;
       }
+      // ATX heading / thematic break / fenced code inside blockquote.
+      let block_node: Option<Node> = match after_marker_kind {
+        TokenKind::Heading(_) => Some(self.parse_heading()),
+        TokenKind::ThematicBreak => {
+          let hr_span = self.current_span();
+          self.advance();
+          Some(Node::HorizontalRule(HorizontalRule { span: hr_span }))
+        },
+        TokenKind::CodeFenceOpen(_, _) => Some(self.parse_code_block()),
+        _ => None,
+      };
+      if let Some(node) = block_node {
+        if !paragraphs[top].is_empty() {
+          let para = std::mem::take(&mut paragraphs[top]);
+          children[top].push(Node::Paragraph(Paragraph { children: para, span: para_span.clone() }));
+        }
+        children[top].push(node);
+        if matches!(self.peek_kind(), Some(TokenKind::SoftBreak) | Some(TokenKind::HardBreak)) {
+          self.advance();
+        }
+        continue;
+      }
 
       let inline = self.collect_inline_until_break();
       let break_kind = self.peek_kind().cloned();
@@ -840,14 +862,47 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       Some(HtmlBlockMode::Type1(lower))
     } else if HTML_BLOCK_TYPE6_TAGS.contains(&lower.as_str()) {
       Some(HtmlBlockMode::Type6)
-    } else if raw_name.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit()) {
-      // CM 4.6 Type-7: any tag at col 0 closes on next blank line.
+    } else if raw_name.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit()) && self.line_after_tag_is_blank() {
+      // CM 4.6 Type-7: any tag at col 0 closes on next blank line --
+      // BUT the start line itself must contain only the tag plus
+      // whitespace (no inline content after the closing `>`).
       // Restricted to plain lowercase names so MDX components like
       // `<MyComponent>` and namespaces like `<svg:circle>` stay JSX.
       Some(HtmlBlockMode::Type7)
     } else {
       None
     }
+  }
+
+  /// After the upcoming JSX tag's `>` / `/>`, is the rest of the line
+  /// whitespace-only? Required for CM 4.6 Type-7 trigger.
+  fn line_after_tag_is_blank(&self) -> bool {
+    // Skip over the open tag tokens until JsxOpenTagEnd / JsxSelfClosingEnd.
+    let mut i = self.pos;
+    let mut depth = 0i32;
+    while let Some(t) = self.tokens.get(i) {
+      match t.kind {
+        TokenKind::JsxOpenTagStart | TokenKind::JsxCloseTagStart => depth += 1,
+        TokenKind::JsxOpenTagEnd | TokenKind::JsxCloseTagEnd | TokenKind::JsxSelfClosingEnd => {
+          depth -= 1;
+          if depth == 0 {
+            i += 1;
+            break;
+          }
+        },
+        _ => {},
+      }
+      i += 1;
+    }
+    // Now scan to end-of-line; tolerate Whitespace, reject anything else.
+    while let Some(t) = self.tokens.get(i) {
+      match &t.kind {
+        TokenKind::SoftBreak | TokenKind::HardBreak | TokenKind::BlankLine | TokenKind::Eof => return true,
+        TokenKind::Whitespace(_) => i += 1,
+        _ => return false,
+      }
+    }
+    true
   }
 
   /// Reconstruct a raw HTML block from a JSX-tokenized stream. Type-1

@@ -192,21 +192,25 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
 
   /// True when the just-consumed marker char (`-` / `*` / `_` / `+`)
   /// is in a position where CM treats it as a block-level dispatch
-  /// candidate: column 0-3 with only whitespace before it on this
-  /// line. Lets `   ***` resolve to a thematic break rather than
-  /// inline emphasis.
+  /// candidate: column 0 with only whitespace before, or inside a
+  /// blockquote prefix (`>` chars + spaces) so `> # Foo` recognizes
+  /// the `#` as a heading.
   pub(crate) fn at_block_marker_position(&self) -> bool {
     if self.start_column == 0 {
       return true;
     }
-    if self.start_column > 3 {
-      return false;
-    }
-    // Verify that the bytes between the line start and `start` are
-    // all spaces / tabs.
     let bytes = self.source.as_bytes();
     let line_start = self.start - self.start_column;
-    bytes[line_start..self.start].iter().all(|&b| b == b' ' || b == b'\t')
+    let prefix = &bytes[line_start..self.start];
+    // Up to 3 leading spaces / tabs.
+    if self.start_column <= 3 && prefix.iter().all(|&b| b == b' ' || b == b'\t') {
+      return true;
+    }
+    // Blockquote prefix: any mix of `>` markers + spaces / tabs.
+    if prefix.iter().any(|&b| b == b'>') && prefix.iter().all(|&b| b == b'>' || b == b' ' || b == b'\t') {
+      return true;
+    }
+    false
   }
 
   /// CommonMark backslash-escapable set (appendix). The lexer consumes
