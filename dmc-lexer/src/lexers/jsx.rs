@@ -63,6 +63,31 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
       }
     }
 
+    // CM 6.6 raw HTML tagname: `[a-zA-Z][a-zA-Z0-9-]*`. JSX additionally
+    // permits `.` (member access) and `:` (namespace), but those forms
+    // are uppercase JSX components -- a lowercase first char combined
+    // with `.` or `:` (`<m:abc>`, `<foo.bar.baz>`) is neither a valid
+    // HTML element nor a valid React component, so reject them and let
+    // the dispatcher fall back to literal text.
+    {
+      let bytes = self.source.as_bytes();
+      let first = bytes[self.current];
+      if first.is_ascii_lowercase() {
+        let mut i = self.current;
+        while i < bytes.len() && (bytes[i].is_ascii_alphanumeric() || bytes[i] == b'-') {
+          i += 1;
+        }
+        if i < bytes.len() && matches!(bytes[i], b'.' | b':') {
+          // Make sure the next char after `.`/`:` is part of a tag-name
+          // continuation (alpha) -- if it's punctuation/whitespace we'd
+          // already terminate the name.
+          if matches!(bytes.get(i + 1), Some(c) if c.is_ascii_alphabetic()) {
+            return false;
+          }
+        }
+      }
+    }
+
     self.emit(if is_close { TokenKind::JsxCloseTagStart } else { TokenKind::JsxOpenTagStart });
 
     // Tag name: identifier chars + `.` (member) + `:` (namespace) + `-`.
