@@ -1,5 +1,6 @@
-/// HTML-escape text content. Replaces `&`, `<`, `>` with named entities.
-/// Use for node text - does NOT escape `"` (safe inside element body).
+/// HTML-escape text content per CommonMark reference output: `&`, `<`,
+/// `>`, and `"` map to named entities. CM's spec runner encodes `"` in
+/// text too so the diff stays clean.
 pub fn escape_text(s: &str) -> String {
   let mut out = String::with_capacity(s.len());
   for ch in s.chars() {
@@ -7,6 +8,7 @@ pub fn escape_text(s: &str) -> String {
       '&' => out.push_str("&amp;"),
       '<' => out.push_str("&lt;"),
       '>' => out.push_str("&gt;"),
+      '"' => out.push_str("&quot;"),
       _ => out.push(ch),
     }
   }
