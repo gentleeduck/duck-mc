@@ -6,14 +6,14 @@ Status legend: `[ ]` pending, `[~]` in progress, `[x]` done.
 
 ## Phase F4 — GFM spec runner
 
-- [ ] F4.1 Vendor GitHub Flavored Markdown spec JSON (gfm-spec 0.29 or latest).
+- [x] F4.1 Vendor GitHub Flavored Markdown spec JSON (gfm-spec 0.29 or latest).
   - Place at `dmc-parser/tests/fixtures/gfm_spec.json`.
   - Source: https://github.github.com/gfm/ — extract examples programmatically.
-- [ ] F4.2 Add `gfm_spec_no_regression` test mirroring `commonmark_spec_no_regression`.
+- [x] F4.2 Add `gfm_spec_no_regression` test mirroring `commonmark_spec_no_regression`.
   - Baseline file: `dmc-parser/tests/fixtures/gfm_baseline.txt`.
   - Initial baseline: 0; bump on first run.
-- [ ] F4.3 Triage GFM failures by section (tables / strike / tasklists / autolinks / footnotes / disallowed-raw-HTML).
-- [ ] F4.4 Push GFM baseline ≥95% (matches CM grind cadence — small commits).
+- [x] F4.3 Triage GFM failures by section (tables / strike / tasklists / autolinks / footnotes / disallowed-raw-HTML).
+- [x] F4.4 Push GFM baseline ≥95% — DONE: **656/670 (97.9%)**. Remaining 14 = spec-version (CM 0.29 vs 0.31 emphasis), email autolinks (needs new lexer arm), strike-across-blank, raw-HTML disallow on inline Html (needs codegen flag).
 
 ## Phase G1 — Bench
 
