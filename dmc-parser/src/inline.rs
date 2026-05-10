@@ -236,19 +236,31 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
           // whitespace. Underscore additionally can't close when
           // immediately followed by an alphanumeric char (intra-word
           // `_`).
-          let closed_kind = matches!(self.peek_kind(), Some(TokenKind::Emphasis(cc, m)) if *cc == open_c && *m == open_n);
+          let closed_kind =
+            matches!(self.peek_kind(), Some(TokenKind::Emphasis(cc, m)) if *cc == open_c && *m == open_n);
           // Char in source immediately before the would-be closer = last
           // char of the previously-consumed token.
-          let prev_at_close = self
-            .pos
-            .checked_sub(1)
-            .and_then(|i| self.tokens.get(i))
-            .and_then(|t| t.raw.chars().last());
+          let prev_at_close =
+            self.pos.checked_sub(1).and_then(|i| self.tokens.get(i)).and_then(|t| t.raw.chars().last());
           let after_closer_tok = self.tokens.get(self.pos + 1);
-          let after_alnum =
-            after_closer_tok.is_some_and(|t| t.raw.chars().next().is_some_and(|c| c.is_alphanumeric()));
+          let after_alnum = after_closer_tok.is_some_and(|t| t.raw.chars().next().is_some_and(|c| c.is_alphanumeric()));
           let prev_at_close_ws = prev_at_close.map(|c| c.is_whitespace()).unwrap_or(true);
+          let prev_at_close_punct = prev_at_close.is_some_and(is_unicode_punct);
+          let after_punct =
+            after_closer_tok.is_some_and(|t| t.raw.chars().next().is_some_and(is_unicode_punct));
+          let after_ws = match after_closer_tok.map(|t| &t.kind) {
+            Some(TokenKind::SoftBreak) | Some(TokenKind::HardBreak) | Some(TokenKind::BlankLine)
+            | Some(TokenKind::Eof) | None => true,
+            Some(TokenKind::Whitespace(_)) => true,
+            _ => after_closer_tok.is_some_and(|t| t.raw.chars().next().is_some_and(|c| c.is_whitespace())),
+          };
           let mut can_close = closed_kind && !prev_at_close_ws;
+          // CM 6.4 rule 4 for `*`: closer is right-flanking; if also
+          // left-flanking (preceded by punctuation), closer must be
+          // followed by whitespace / punct / EOF for the run to close.
+          if can_close && prev_at_close_punct && !(after_ws || after_punct) {
+            can_close = false;
+          }
           if open_c == EmphasisChar::Underscore && after_alnum {
             can_close = false;
           }
