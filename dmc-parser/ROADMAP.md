@@ -17,7 +17,7 @@ keeps the test suite green (or expands its baseline).
 
 Goal: `cargo build -p dmc-parser` clean. No spec gain yet.
 
-### [ ] A1. Brackets, parens, image marker
+### [x] A1. Brackets, parens, image marker
 - Replace `TokenKind::Bracket` with `LinkOpen` / `LinkClose` per
   position (open vs close).
 - Replace `TokenKind::Bang` with `ImageMarker`.
@@ -25,34 +25,34 @@ Goal: `cargo build -p dmc-parser` clean. No spec gain yet.
   `LinkTargetOpen` / `LinkTargetClose`.
 - Touch: `inline.rs`. Size: S.
 
-### [ ] A2. List markers
+### [x] A2. List markers
 - `TokenKind::UnorderedListItem` -> `UnorderedListMarker`.
 - `TokenKind::OrderedListItem` -> `OrderedListMarker(_)` (ignore the
   `OrderedSep` payload for now; render the same way).
 - Touch: `block.rs`. Size: S.
 
-### [ ] A3. Block quote marker
+### [x] A3. Block quote marker
 - `TokenKind::BlockQuote` -> `BlockQuoteMarker`.
 - Touch: `block.rs`. Size: S.
 
-### [ ] A4. Whitespace payload
+### [x] A4. Whitespace payload
 - `TokenKind::Whitespace` -> `TokenKind::Whitespace(_)` everywhere it
   is matched. Bind the byte length when the parser needs it (indent
   detection, list continuation).
 - Touch: `block.rs`, `inline.rs`. Size: S.
 
-### [ ] A5. Frontmatter dialect payload
+### [x] A5. Frontmatter dialect payload
 - `TokenKind::FrontmatterStart` -> `FrontmatterStart(_)`.
 - `TokenKind::FrontmatterEnd`   -> `FrontmatterEnd(_)`.
 - Stub: ignore the kind, still emit a single `Frontmatter` AST node.
 - Touch: `block.rs`. Size: S.
 
-### [ ] A6. Autolink payload
+### [x] A6. Autolink payload
 - `TokenKind::Autolink` -> `Autolink(_)`. Treat all kinds identically;
   C7 will branch on the variant.
 - Touch: `inline.rs`. Size: S.
 
-### [ ] A7. Code span split (block vs inline)
+### [x] A7. Code span split (block vs inline)
 - `TokenKind::CodeStart(n)` with `n >= 3` ->
   `CodeFenceOpen(FenceChar, n)`.
 - `TokenKind::CodeStart(n)` with `n <= 2` -> `CodeInlineOpen(n)`.
@@ -60,18 +60,18 @@ Goal: `cargo build -p dmc-parser` clean. No spec gain yet.
   matching close.
 - Touch: `block.rs` (fence), `inline.rs` (span). Size: M.
 
-### [ ] A8. Emphasis unification
+### [x] A8. Emphasis unification
 - Replace `Bold(n)` and `Italic(n)` matching with a single
   `Emphasis(EmphasisChar, n)` arm. Run length 3 = both italic + bold.
 - Pair logic identical to today's: a closing run of the same length
   closes the open run.
 - Touch: `inline.rs`. Size: S.
 
-### [ ] A9. Strikethrough payload drop
+### [x] A9. Strikethrough payload drop
 - `TokenKind::Strike(_)` -> `Strikethrough` (no payload).
 - Touch: `inline.rs`. Size: S.
 
-### [ ] A10. JSX attribute scaffolding
+### [x] A10. JSX attribute scaffolding
 - `TokenKind::String` -> `JsxAttrString`.
 - `TokenKind::Eq` -> `JsxAttrEq`.
 - `TokenKind::Quote` is gone; quote style is now on
@@ -79,12 +79,12 @@ Goal: `cargo build -p dmc-parser` clean. No spec gain yet.
 - Stub: drop quote info on the floor; C12 will preserve it.
 - Touch: `jsx.rs`. Size: S.
 
-### [ ] A11. Comment kind renames
+### [x] A11. Comment kind renames
 - `MarkdownCommentStart` / `End` -> `MdxCommentOpen` / `Close`.
 - `HTMLCommentStart` / `End` -> `HtmlCommentOpen` / `Close`.
 - Touch: `block.rs`, `jsx.rs`. Size: S.
 
-### [ ] A12. Newline drop + new-token catchall
+### [x] A12. Newline drop + new-token catchall
 - `TokenKind::Newline` no longer exists; collapse uses to `SoftBreak`.
 - Add `_ => self.consume_as_text()` in inline collector, `_ => skip`
   in block dispatch, so any unhandled new token (`IndentedCodeLine`,
@@ -104,7 +104,7 @@ fail.
 
 Goal: `cargo test -p dmc-parser` matches pre-rewrite outcomes.
 
-### [ ] B1. HardBreak / BlankLine semantic split
+### [~] B1. HardBreak / BlankLine semantic split
 - Old `HardBreak` was overloaded as paragraph separator. New
   semantics: `BlankLine` separates blocks; `HardBreak` is inline
   `<br>` (CM 6.7).
@@ -113,28 +113,28 @@ Goal: `cargo test -p dmc-parser` matches pre-rewrite outcomes.
   `<br>` -> keep `HardBreak`.
 - Touch: `block.rs`, `inline.rs`. Size: M.
 
-### [ ] B2. Emphasis pairing
+### [x] B2. Emphasis pairing
 - After A8 the kind matches but the pairing logic must compare
   `(EmphasisChar, run)` not just `run`.
 - Touch: `inline.rs`. Size: S.
 
-### [ ] B3. Code-fence pair validation
+### [x] B3. Code-fence pair validation
 - Match `CodeFenceClose(fc, m)` against `CodeFenceOpen(fc', n)` only
   when `fc == fc'` and `m >= n`. Mismatched fence char or shorter
   close = treat as content.
 - Touch: `block.rs`. Size: S.
 
-### [ ] B4. Ordered-list separator surface
+### [~] B4. Ordered-list separator surface
 - Add `OrderedSep` to the `List` AST so renderers can preserve `1.`
   vs `1)`. Default to `Period` if not surfaced today.
 - Touch: `ast/node.rs`, `block.rs`. Size: S.
 
-### [ ] B5. Frontmatter kind on the AST
+### [~] B5. Frontmatter kind on the AST
 - Add `kind: FrontmatterKind` to the `Frontmatter` AST node. Default
   to `Yaml` for backwards compat.
 - Touch: `ast/node.rs`, `block.rs`. Size: S.
 
-### [ ] B6. Test-suite triage
+### [x] B6. Test-suite triage
 - Run `cargo test -p dmc-parser`. Fix every failure that traces back
   to the rename or the semantic splits above.
 - Touch: existing tests as needed. Size: M.
@@ -147,7 +147,7 @@ Goal: `cargo test -p dmc-parser` matches pre-rewrite outcomes.
 
 Goal: parser handles every kind the lexer emits.
 
-### [ ] C1. SetextUnderline -> Heading retro-fold
+### [x] C1. SetextUnderline -> Heading retro-fold
 - Spec: CM 4.3.
 - On `SetextUnderline(level)`, fold the immediately-prior paragraph
   text into `Heading(1|2)`.
@@ -164,12 +164,12 @@ Goal: parser handles every kind the lexer emits.
   indented block stay attached.
 - Touch: `block.rs`, `ast/node.rs`. Size: M.
 
-### [ ] C4. CodeFenceInfo
+### [x] C4. CodeFenceInfo
 - Populate `CodeBlock.lang` and `CodeBlock.meta` from the info
   string (split on first whitespace).
 - Touch: `block.rs`, `ast/node.rs`. Size: S.
 
-### [ ] C5. CodeFenceContent
+### [x] C5. CodeFenceContent
 - Use the lexer-emitted single content token verbatim instead of
   re-collecting line by line.
 - Touch: `block.rs`. Size: S.
@@ -189,7 +189,7 @@ Goal: parser handles every kind the lexer emits.
 - `BareWww` -> `Link { url: format!("https://{}", body) }`.
 - Touch: `inline.rs`. Size: S.
 
-### [ ] C8. TaskMarker -> ListItem.checked
+### [~] C8. TaskMarker -> ListItem.checked
 - Spec: GFM 5.3.
 - Add `checked: Option<bool>` to `ListItem`. `TaskMarker(true)` ->
   `Some(true)`, `TaskMarker(false)` -> `Some(false)`, no marker ->
@@ -203,7 +203,7 @@ Goal: parser handles every kind the lexer emits.
   body Text tokens between Open and Close into `raw`.
 - Touch: `ast/node.rs`, `block.rs`. Size: M.
 
-### [ ] C10. JsxFragment open / close
+### [x] C10. JsxFragment open / close
 - Add `JsxFragment { children }` AST. Convert lexer's
   `JsxFragmentOpen` / `Close` to that node, with body children
   parsed as inline.
@@ -219,7 +219,7 @@ Goal: parser handles every kind the lexer emits.
   `JsxAttr::String`. Round-trip preserves `"x"` vs `'x'`.
 - Touch: `ast/jsx.rs`, `jsx.rs`. Size: S.
 
-### [ ] C13. BlankLine vs HardBreak verification
+### [x] C13. BlankLine vs HardBreak verification
 - B1 already split the semantics; this is the round-trip test that
   asserts a CM document with both flavors renders correctly.
 - Touch: `tests/breaks.rs`. Size: S.
@@ -384,10 +384,11 @@ Goal: spec-pinned test runners.
 ## Status snapshot
 
 - Total items: 47.
-- Done: 0.
-- Phase A (build): 0/12.
-- Phase B (parity): 0/6.
-- Phase C (wire): 0/13.
+- Done: 19.
+- Partial: 4 (B1, B4, B5, C8).
+- Phase A (build): 12/12.
+- Phase B (parity): 3/6 done + 3 partial; tests green.
+- Phase C (wire): 6/13 (C1, C4, C5, C10, C13 done; C8 partial).
 - Phase D (refs): 0/4.
 - Phase E (structural): 0/4.
 - Phase F (validation): 0/4.
