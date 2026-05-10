@@ -384,11 +384,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       let extra_ws = match self.peek() {
         Some(t) if matches!(t.kind, TokenKind::Whitespace(_)) => {
           let ws = t.raw.chars().count();
-          if !marker_raw_has_ws && marker_raw_width > 0 {
-            ws.saturating_sub(1)
-          } else {
-            ws
-          }
+          if !marker_raw_has_ws && marker_raw_width > 0 { ws.saturating_sub(1) } else { ws }
         },
         _ => 0,
       };
@@ -607,10 +603,16 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         let saved = self.pos;
         self.advance();
         let leading = self.peek_leading_indent();
+        let last_item_is_empty = items.last().is_some_and(|item| match item {
+          Node::ListItem(li) => li.children.is_empty(),
+          Node::TaskListItem(t) => t.children.is_empty(),
+          _ => false,
+        });
         // Indented continuation -- attach a new paragraph to the
         // current item (loose-list with continuation).
         let content_indent = content_floor;
         if let Some(n) = leading
+          && !last_item_is_empty
           && n >= content_indent
         {
           // CM 5.2: continuation indented >= content_indent + 4 is an
