@@ -54,7 +54,7 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
       '>' if self.at_block_marker_position() => self.lex_block_quote(),
 
       // Ordered list marker
-      '0'..='9' if self.start_column == 0 => {
+      '0'..='9' if self.at_block_marker_position() => {
         if !self.try_lex_ordered_list_marker() {
           self.lex_text();
         }

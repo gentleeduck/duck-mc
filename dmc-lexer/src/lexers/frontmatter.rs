@@ -36,6 +36,22 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
       return;
     }
 
+    // Heuristic: only commit to frontmatter when the body looks like
+    // YAML/TOML rather than CM thematic-break interspersed text. Empty
+    // body or one containing `:` (YAML key: value) / `=` (TOML
+    // assignment) qualifies; everything else falls through so the
+    // outer dispatch can emit a ThematicBreak.
+    let body = &bytes[after_open..close_abs];
+    let trimmed_empty = body.iter().all(|&b| matches!(b, b' ' | b'\t' | b'\n'));
+    let has_pair_marker = body.iter().any(|&b| match kind {
+      FrontmatterKind::Yaml => b == b':',
+      FrontmatterKind::Toml => b == b'=',
+      FrontmatterKind::Json => false,
+    });
+    if !trimmed_empty && !has_pair_marker {
+      return;
+    }
+
     for _ in 0..3 {
       self.advance();
     }

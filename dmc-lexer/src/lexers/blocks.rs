@@ -90,7 +90,7 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
   /// CM 5.2 ordered list marker: `<digits>.` or `<digits>)` followed by
   /// space/tab/EOL. The first digit is already consumed; max 9 digits.
   pub(crate) fn try_lex_ordered_list_marker(&mut self) -> bool {
-    if self.start_column != 0 {
+    if !self.at_block_marker_position() {
       return false;
     }
 
