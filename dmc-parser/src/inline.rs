@@ -520,11 +520,24 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
           };
           self.advance(); // consume the closing `]`
           // CommonMark 6.3: a link cannot contain another link. When
-          // inner already contains a `Link` node (or an autolink which
-          // we model as a Link), abandon the outer link parse and emit
-          // `[inner]...` as text -- keeping the inner link's nodes and
-          // letting whatever follows be re-tokenized.
-          let inner_has_link = inner.iter().any(|n| matches!(n, Node::Link(_)));
+          // inner contains a `Link` (recursively, e.g. wrapped in
+          // emphasis), abandon the outer link parse and emit
+          // `[inner]...` as text.
+          fn contains_link(nodes: &[Node]) -> bool {
+            for n in nodes {
+              match n {
+                Node::Link(_) => return true,
+                Node::Bold(i) | Node::Italic(i) | Node::Strikethrough(i) => {
+                  if contains_link(&i.children) {
+                    return true;
+                  }
+                },
+                _ => {},
+              }
+            }
+            false
+          }
+          let inner_has_link = contains_link(&inner);
           // CommonMark 6.3: classify the link form by what follows the
           // closing `]`.
           //   `(...)`     -> inline link
