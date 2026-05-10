@@ -95,14 +95,70 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
     }
 
     // Look ahead for a matching close (a run of exactly `open_count`
-    // backticks, no blank line between opener and candidate).
+    // backticks, no blank line between opener and candidate, and no
+    // line that starts with a block-construct marker -- list item,
+    // blockquote, ATX heading, fence, or thematic break).
+    fn line_starts_block(seg: &[u8]) -> bool {
+      let mut i = 0;
+      while i < seg.len() && seg[i] == b' ' && i < 3 {
+        i += 1;
+      }
+      if i >= seg.len() {
+        return false;
+      }
+      match seg[i] {
+        b'-' | b'+' | b'*' => {
+          let n = seg.get(i + 1).copied();
+          matches!(n, Some(b' ') | Some(b'\t') | Some(b'\n') | None)
+        },
+        b'>' => true,
+        b'#' => {
+          let mut j = i;
+          let mut hash_count = 0usize;
+          while j < seg.len() && seg[j] == b'#' && hash_count < 7 {
+            j += 1;
+            hash_count += 1;
+          }
+          hash_count <= 6 && matches!(seg.get(j).copied(), Some(b' ') | Some(b'\t') | Some(b'\n') | None)
+        },
+        b'0'..=b'9' => {
+          let mut j = i;
+          while j < seg.len() && seg[j].is_ascii_digit() {
+            j += 1;
+          }
+          matches!(seg.get(j).copied(), Some(b'.') | Some(b')'))
+            && matches!(seg.get(j + 1).copied(), Some(b' ') | Some(b'\t') | Some(b'\n') | None)
+        },
+        _ => false,
+      }
+    }
     let mut search = i;
     let close_start = loop {
       let Some(rel) = memchr::memchr(b'`', &bytes[search..]) else {
         return false;
       };
       let pos = search + rel;
-      if bytes[search..pos].windows(2).any(|w| w == b"\n\n") {
+      let segment = &bytes[search..pos];
+      if segment.windows(2).any(|w| w == b"\n\n") {
+        return false;
+      }
+      // Walk newlines inside `segment`; reject if a continuation line
+      // starts with a block-level marker (CM 6.1: code spans don't
+      // span block boundaries).
+      let mut nl = 0usize;
+      let mut blocked = false;
+      while let Some(rel) = memchr::memchr(b'\n', &segment[nl..]) {
+        let line_start = nl + rel + 1;
+        if line_start >= segment.len() {
+          break;
+        }
+        if line_starts_block(&segment[line_start..]) {
+          blocked = true;
+          break;
+        }
+        nl = line_start;
+      }
+      if blocked {
         return false;
       }
       let mut j = pos;
