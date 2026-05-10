@@ -153,11 +153,11 @@ Goal: parser handles every kind the lexer emits.
   text into `Heading(1|2)`.
 - Touch: `block.rs`. Size: S.
 
-### [ ] C2. HeadingTrailingHashes
+### [x] C2. HeadingTrailingHashes
 - Drop `# Title #` trailing run from heading text.
 - Touch: `block.rs`. Size: S.
 
-### [ ] C3. IndentedCodeLine
+### [x] C3. IndentedCodeLine
 - Spec: CM 4.4.
 - Concat consecutive `IndentedCodeLine` tokens into
   `CodeBlock { kind: Indented, body }`. Blank lines inside an
@@ -174,14 +174,14 @@ Goal: parser handles every kind the lexer emits.
   re-collecting line by line.
 - Touch: `block.rs`. Size: S.
 
-### [ ] C6. EntityRef decode
+### [~] C6. EntityRef decode
 - Spec: CM 6.6.
 - Replace `&amp;` / `&#9;` / `&#x2A;` with the decoded text. Use a
   small named-entity table (HTML5 minimal subset is fine; full HTML
   table can land later).
 - Touch: `inline.rs`, new `entity.rs`. Size: M.
 
-### [ ] C7. Autolink kind branching
+### [x] C7. Autolink kind branching
 - Spec: CM 6.5 + GFM bare URL.
 - `AngleUrl` -> `Link { url }`.
 - `AngleEmail` -> `Link { url: format!("mailto:{}", body) }`.
@@ -196,7 +196,7 @@ Goal: parser handles every kind the lexer emits.
   `None`.
 - Touch: `ast/node.rs`, `block.rs`. Size: S.
 
-### [ ] C9. HtmlBlockOpen / Close (types 2-5)
+### [x] C9. HtmlBlockOpen / Close (types 2-5)
 - Spec: CM 4.6 types 2 (comment), 3 (PI), 4 (declaration),
   5 (CDATA).
 - Add `Html { kind: HtmlBlockKind, raw: String }` AST. Pull lexer's
@@ -209,7 +209,7 @@ Goal: parser handles every kind the lexer emits.
   parsed as inline.
 - Touch: `ast/jsx.rs`, `jsx.rs`. Size: S.
 
-### [ ] C11. JsxAttributeSpread
+### [x] C11. JsxAttributeSpread
 - Add `JsxAttr::Spread(expression: String)` variant. Capture the
   expression body verbatim.
 - Touch: `ast/jsx.rs`, `jsx.rs`. Size: S.
@@ -384,11 +384,12 @@ Goal: spec-pinned test runners.
 ## Status snapshot
 
 - Total items: 47.
-- Done: 19.
-- Partial: 4 (B1, B4, B5, C8).
+- Done: 24.
+- Partial: 5 (B1, B4, B5, C6, C8).
 - Phase A (build): 12/12.
 - Phase B (parity): 3/6 done + 3 partial; tests green.
-- Phase C (wire): 6/13 (C1, C4, C5, C10, C13 done; C8 partial).
+- Phase C (wire): 11/13 done + 2 partial (C12 deferred until
+  JsxAttrValue::String quote-kind surface lands).
 - Phase D (refs): 0/4.
 - Phase E (structural): 0/4.
 - Phase F (validation): 0/4.
