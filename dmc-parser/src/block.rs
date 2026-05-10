@@ -194,13 +194,16 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
           self.advance();
           return Some(self.parse_html_comment_block());
         },
-        TokenKind::JsxOpenTagStart => {
+        TokenKind::JsxOpenTagStart | TokenKind::JsxCloseTagStart => {
           // Peek the JSX tag two tokens ahead (after the leading
           // whitespace) to see if it routes to a Type-1 / Type-6 raw
-          // HTML block.
+          // HTML block. Don't consume the Whitespace yet so the block's
+          // verbatim source slice includes the leading indent (CM 4.6
+          // preserves the original spaces in the rendered output).
           let saved = self.pos;
-          self.advance();
+          self.pos += 1;
           if let Some(mode) = self.jsx_html_block_mode() {
+            self.pos = saved;
             return Some(self.parse_html_block_from_jsx(mode));
           }
           self.pos = saved;
