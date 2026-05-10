@@ -2,6 +2,25 @@ use crate::ast::*;
 use crate::parser::Parser;
 use dmc_lexer::token::{AutolinkKind, EmphasisChar, TokenKind};
 
+/// CM 6.4 "Unicode punctuation": ASCII punctuation plus Unicode
+/// general categories Pc, Pd, Pe, Pf, Pi, Po, Ps. Approximated here as
+/// `c.is_ascii_punctuation()` plus a handful of common ranges; full
+/// Unicode classification would need a table.
+fn is_unicode_punct(c: char) -> bool {
+  if c.is_ascii_punctuation() {
+    return true;
+  }
+  matches!(
+    c,
+    '\u{00A1}'..='\u{00BF}'
+      | '\u{2010}'..='\u{205E}'
+      | '\u{2E00}'..='\u{2E7F}'
+      | '\u{3001}'..='\u{303F}'
+      | '\u{FE30}'..='\u{FE6F}'
+      | '\u{FF00}'..='\u{FF65}'
+  )
+}
+
 /// Flatten an inline node list to plain text. Used to build the lookup
 /// label for shortcut / collapsed / full reference links from the
 /// already-parsed inner content.
@@ -175,21 +194,32 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
           // (intra-word `_` rule). When can't open, surface the run as
           // text and let the closer's logic decide if anything still
           // pairs.
-          let next_kind = self.tokens.get(self.pos + 1).map(|t| &t.kind);
-          let next_is_break = matches!(
-            next_kind,
-            Some(TokenKind::Whitespace(_))
-              | Some(TokenKind::SoftBreak)
-              | Some(TokenKind::HardBreak)
-              | Some(TokenKind::BlankLine)
-              | Some(TokenKind::Eof)
-              | None
-          );
-          let prev_alnum = out.last().is_some_and(|n| match n {
-            Node::Text(t) => t.value.chars().last().is_some_and(|c| c.is_alphanumeric()),
-            _ => false,
-          });
-          let can_open = !next_is_break && !(open_c == EmphasisChar::Underscore && prev_alnum);
+          let next_tok = self.tokens.get(self.pos + 1);
+          let next_is_break = match next_tok.map(|t| &t.kind) {
+            Some(TokenKind::SoftBreak) | Some(TokenKind::HardBreak) | Some(TokenKind::BlankLine) | Some(TokenKind::Eof)
+            | None => true,
+            Some(TokenKind::Whitespace(_)) => true,
+            // Catch Unicode whitespace embedded in a Text token (e.g.
+            // NBSP `\xa0`) -- CM 6.4 left-flanking rule treats those
+            // as whitespace too.
+            _ => next_tok.is_some_and(|t| t.raw.chars().next().is_some_and(|c| c.is_whitespace())),
+          };
+          let next_punct = next_tok.is_some_and(|t| t.raw.chars().next().is_some_and(is_unicode_punct));
+          let prev_char: Option<char> = match out.last() {
+            Some(Node::Text(t)) => t.value.chars().last(),
+            _ => None,
+          };
+          let prev_is_ws_or_punct =
+            prev_char.is_none() || prev_char.is_some_and(|c| c.is_whitespace() || is_unicode_punct(c));
+          let prev_alnum = prev_char.is_some_and(|c| c.is_alphanumeric());
+          // CM 6.4 left-flanking-delimiter run.
+          let mut can_open = !next_is_break;
+          if can_open && next_punct {
+            can_open = prev_is_ws_or_punct;
+          }
+          if open_c == EmphasisChar::Underscore && prev_alnum {
+            can_open = false;
+          }
           if !can_open {
             self.advance();
             out.push(Node::Text(Text { value: raw, span }));
