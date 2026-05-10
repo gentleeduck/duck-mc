@@ -55,6 +55,16 @@ pub(crate) fn resolve_emphasis_delims(out: &mut Vec<Node>, delims: &mut [DelimRe
       let span = delims[open_idx].span.clone();
       let lo = open_out_idx + 1;
       let hi = close_out_idx;
+      // CM 6.4 process_emphasis: remove any delimiters between the
+      // opener and closer from the delimiter stack -- they are now
+      // inside the wrapped run and can no longer pair with anything
+      // outside it. Without this, an unmatched marker like the `_` in
+      // `*foo _bar* baz_` gets paired across the `<em>` boundary.
+      for d in delims.iter_mut().skip(open_idx + 1).take(i - open_idx - 1) {
+        d.run = 0;
+        d.can_open = false;
+        d.can_close = false;
+      }
       let inner: Vec<Node> = out.drain(lo..hi).collect();
       let node = if use_n == 1 {
         Node::Italic(Inline { children: inner, span })
