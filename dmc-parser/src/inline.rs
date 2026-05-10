@@ -429,6 +429,10 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         TokenKind::LinkOpen => {
           let start = self.pos;
           self.advance();
+          // Capture raw label text via pointer arithmetic on token raws
+          // so emphasis/inline markers survive for ref-def lookup
+          // (`[*foo* bar]: /url` matches `[*foo* bar]`).
+          let label_start_ptr = self.peek().map(|t| t.raw.as_ptr() as usize).unwrap_or(0);
           let inner = self.collect_inline(&|k| {
             matches!(k, TokenKind::LinkClose | TokenKind::BlankLine | TokenKind::SoftBreak | TokenKind::Eof)
           });
@@ -438,6 +442,19 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
             self.advance();
             continue;
           }
+          let label_end_ptr = self
+            .tokens
+            .get(self.pos.saturating_sub(1))
+            .map(|t| t.raw.as_ptr() as usize + t.raw.len())
+            .unwrap_or(label_start_ptr);
+          let raw_inner_label = if label_end_ptr > label_start_ptr {
+            let len = label_end_ptr - label_start_ptr;
+            // SAFETY: every Token.raw is a slice of the same source.
+            let slice = unsafe { std::slice::from_raw_parts(label_start_ptr as *const u8, len) };
+            std::str::from_utf8(slice).map(|s| s.to_string()).unwrap_or_default()
+          } else {
+            String::new()
+          };
           self.advance(); // consume the closing `]`
           // CommonMark 6.3: classify the link form by what follows the
           // closing `]`.
@@ -539,8 +556,10 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
                   // shortcut reference resolution -- if `[label]` matches
                   // a definition, render the link and leave the failed
                   // paren body as literal text after it.
-                  let label = plain_text(&inner);
-                  if let Some((href, title)) = self.refs.get(&label).cloned() {
+                  let label_raw = raw_inner_label.clone();
+                  let label_plain = plain_text(&inner);
+                  let resolved = self.refs.get(&label_raw).cloned().or_else(|| self.refs.get(&label_plain).cloned());
+                  if let Some((href, title)) = resolved {
                     out.push(Node::Link(Link { href, title, children: inner, span: span.clone() }));
                     let close_str = if has_close { ")" } else { "" };
                     out.push(Node::Text(Text { value: format!("({}{}", paren_body, close_str), span }));
@@ -562,8 +581,10 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
               self.advance(); // consume `[`
               if matches!(self.peek_kind(), Some(TokenKind::LinkClose)) {
                 self.advance();
-                let label = plain_text(&inner);
-                if let Some((href, title)) = self.refs.get(&label).cloned() {
+                let label_raw = raw_inner_label.clone();
+                let label_plain = plain_text(&inner);
+                let resolved = self.refs.get(&label_raw).cloned().or_else(|| self.refs.get(&label_plain).cloned());
+                if let Some((href, title)) = resolved {
                   out.push(Node::Link(Link { href, title, children: inner, span }));
                   continue;
                 }
@@ -581,8 +602,10 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
               if !matches!(self.peek_kind(), Some(TokenKind::LinkClose)) {
                 // Treat the trailing `[..` as text and fall through to
                 // shortcut behavior on the original inner.
-                let label = plain_text(&inner);
-                if let Some((href, title)) = self.refs.get(&label).cloned() {
+                let label_raw = raw_inner_label.clone();
+                let label_plain = plain_text(&inner);
+                let resolved = self.refs.get(&label_raw).cloned().or_else(|| self.refs.get(&label_plain).cloned());
+                if let Some((href, title)) = resolved {
                   out.push(Node::Link(Link { href, title, children: inner, span }));
                   continue;
                 }
@@ -607,7 +630,10 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
               // defined falls back -- the inner `[a]` is shortcut-tried,
               // and the second `[b]...` is left to be reparsed (it might
               // start a new shortcut/full reference).
-              if let Some((href, title)) = self.refs.get(&plain_text(&inner)).cloned() {
+              let label_raw = raw_inner_label.clone();
+              let label_plain = plain_text(&inner);
+              let resolved = self.refs.get(&label_raw).cloned().or_else(|| self.refs.get(&label_plain).cloned());
+              if let Some((href, title)) = resolved {
                 out.push(Node::Link(Link { href, title, children: inner, span: span.clone() }));
                 self.pos = second_bracket_pos;
                 continue;
@@ -624,8 +650,10 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
             _ => {
               // Shortcut `[label]`. Resolve via the ref-def map; falls
               // back to bracketed text when no matching definition.
-              let label = plain_text(&inner);
-              if let Some((href, title)) = self.refs.get(&label).cloned() {
+              let label_raw = raw_inner_label.clone();
+              let label_plain = plain_text(&inner);
+              let resolved = self.refs.get(&label_raw).cloned().or_else(|| self.refs.get(&label_plain).cloned());
+              if let Some((href, title)) = resolved {
                 out.push(Node::Link(Link { href, title, children: inner, span }));
                 continue;
               }
