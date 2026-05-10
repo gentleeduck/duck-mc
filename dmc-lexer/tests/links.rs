@@ -26,11 +26,12 @@ fn link_ref_definition() {
 
 #[test]
 fn indented_link_ref_is_not_def() {
-  // Column 1+ keeps `[` `]` as LinkOpen/LinkClose, not LinkRefDef.
-  let kinds = lex_kinds("  [label]: https://x.com\n");
-  assert!(!kinds.contains(&TokenKind::LinkRefDef), "got {:?}", kinds);
-  assert!(kinds.contains(&TokenKind::LinkOpen));
-  assert!(kinds.contains(&TokenKind::LinkClose));
+  // CM 4.7: 4+ leading spaces is indented code, so the line is no
+  // longer a ref-def. 1-3 spaces still counts as a ref-def per CM.
+  let kinds_4 = lex_kinds("    [label]: https://x.com\n");
+  assert!(!kinds_4.contains(&TokenKind::LinkRefDef), "got {:?}", kinds_4);
+  let kinds_2 = lex_kinds("  [label]: https://x.com\n");
+  assert!(kinds_2.contains(&TokenKind::LinkRefDef), "got {:?}", kinds_2);
 }
 
 #[test]

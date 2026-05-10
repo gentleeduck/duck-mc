@@ -149,7 +149,7 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
       '[' => {
         if self.try_lex_task_marker() {
         } else if self.try_lex_footnote() {
-        } else if self.start_column == 0 && self.try_lex_link_ref_def() {
+        } else if self.at_block_marker_position() && self.try_lex_link_ref_def() {
         } else {
           self.emit(TokenKind::LinkOpen);
         }

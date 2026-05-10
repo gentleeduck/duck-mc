@@ -144,6 +144,11 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
           }
           self.pos = saved;
         },
+        TokenKind::LinkRefDef => {
+          self.advance(); // skip whitespace
+          self.advance(); // skip the ref-def itself
+          return None;
+        },
         // Plain content with 1-3 leading spaces -- strip the indent and
         // dispatch normally so the resulting paragraph doesn't render
         // the leading whitespace.
