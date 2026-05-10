@@ -163,6 +163,16 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
           Some(self.parse_jsx())
         }
       },
+      TokenKind::JsxCloseTagStart => {
+        if let Some(mode) = self.jsx_html_block_mode() {
+          Some(self.parse_html_block_from_jsx(mode))
+        } else {
+          // Stray close tag at top level - treat as text by falling
+          // through to paragraph collection.
+          self.advance();
+          None
+        }
+      },
       TokenKind::JsxFragmentOpen => Some(self.parse_jsx_fragment()),
       TokenKind::HtmlBlockOpen(_) => Some(self.parse_html_block()),
       TokenKind::ExpressionStart => Some(self.parse_jsx_expression()),
@@ -236,11 +246,14 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     // (unordered) or separator (ordered) of the first item and break
     // out when the next marker mismatches.
     let bullet_char: Option<char> = if !ordered { self.peek().and_then(|t| t.raw.chars().next()) } else { None };
-    let ordered_sep: Option<dmc_lexer::token::OrderedSep> =
-      if ordered { self.peek().and_then(|t| match t.kind {
+    let ordered_sep: Option<dmc_lexer::token::OrderedSep> = if ordered {
+      self.peek().and_then(|t| match t.kind {
         TokenKind::OrderedListMarker(s) => Some(s),
         _ => None,
-      }) } else { None };
+      })
+    } else {
+      None
+    };
 
     let mut first = true;
     loop {
@@ -810,6 +823,9 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     if open.span.column > 4 {
       return None;
     }
+    if !matches!(open.kind, TokenKind::JsxOpenTagStart | TokenKind::JsxCloseTagStart) {
+      return None;
+    }
     let name_tok = self.tokens.get(self.pos + 1)?;
     if !matches!(name_tok.kind, TokenKind::JsxTagName) {
       return None;
@@ -868,11 +884,8 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         }
       },
     }
-    let end_ptr = self
-      .tokens
-      .get(self.pos.saturating_sub(1))
-      .map(|t| t.raw.as_ptr() as usize + t.raw.len())
-      .unwrap_or(start_ptr);
+    let end_ptr =
+      self.tokens.get(self.pos.saturating_sub(1)).map(|t| t.raw.as_ptr() as usize + t.raw.len()).unwrap_or(start_ptr);
     let value = if end_ptr > start_ptr {
       // SAFETY: every Token.raw borrows from the same `&'src str`
       // source; pointer subtraction stays within that buffer.
