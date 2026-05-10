@@ -1097,10 +1097,25 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       if !starts_indent {
         break;
       }
-      // Skip the leading whitespace; lexer already trimmed the indent
-      // off the body in the IndentedCodeLine token.
+      // The lexer's Whitespace covers the entire leading run; CM 4.4
+      // strips exactly 4 spaces (or 1 tab) and keeps the rest as part
+      // of the rendered body. Compute the leftover indent from the
+      // whitespace token's raw byte count (each space = 1 col, tab
+      // expands to next 4-stop; a single tab fully consumes the
+      // 4-space strip).
+      let extra = self
+        .peek()
+        .map(|t| {
+          if t.raw.starts_with('\t') {
+            // Tab fills first 4 cols. Remaining chars are extras.
+            t.raw.len() - 1
+          } else {
+            t.raw.len().saturating_sub(4)
+          }
+        })
+        .unwrap_or(0);
       self.advance();
-      let body = match self.peek() {
+      let mut body = match self.peek() {
         Some(t) if matches!(t.kind, TokenKind::IndentedCodeLine) => {
           let raw = t.raw.to_string();
           self.advance();
@@ -1123,6 +1138,12 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
           s
         },
       };
+      // Prefix any leftover indent (whitespace beyond the 4-space
+      // strip) so deeper-indented code lines render with the visible
+      // extra leading spaces.
+      if extra > 0 {
+        body = " ".repeat(extra) + &body;
+      }
       buf.push_str(&body);
       buf.push('\n');
       // Continue across a soft break only if the next line is also
