@@ -11,14 +11,12 @@ Touch sizes: S = <100 LOC, M = 100-300 LOC, L = >300 LOC.
 
 ## Phase 1 -- CommonMark structural normalization (foundation)
 
-### [ ] T1. CRLF + tab-stop normalization
+### [x] T1. CRLF + tab-stop normalization
 - **Spec**: CommonMark 2.2 (tab = 4-col stop), 2.3 (line endings).
-- **Now**: `\r` lexed as whitespace; `\t` advances column by 1.
-- **Do**: normalize `\r\n` / `\r` to `\n` in `advance()` (or at source
-  ingest). On `\t`, jump column to next multiple of 4 instead of +1.
-- **Touch**: `scanner.rs::advance`, `lexers/trivia.rs`.
-- **Risk**: column drift in every existing span -- re-baseline goldens.
-- **Size**: S.
+- **Done**: `scanner.rs::advance` folds `\r\n` and lone `\r` to a single
+  `\n` newline event; `\t` snaps `column` to the next multiple of 4 via
+  `column = (column + 4) & !3`. Covered by
+  `tests/normalization.rs`.
 
 ### [x] T2. Setext heading
 - **Spec**: 4.3. `Title\n===` (h1) / `Title\n---` (h2).
@@ -103,12 +101,13 @@ Touch sizes: S = <100 LOC, M = 100-300 LOC, L = >300 LOC.
   (`?!.,:*_~` + unbalanced `)`) stripped per GFM. `mailto:` not yet
   handled but rare in practice.
 
-### [~] T13. Angle-autolink robustness
+### [x] T13. Angle-autolink robustness
 - **Spec**: 6.5. URI scheme = 2-32 alpha + digits + `+ . -`, then `:`.
-- **Now**: `is_angle_autolink` uses a `://` heuristic plus a real
-  email validator. Catches the common cases. Strict scheme regex
-  still pending.
-- **Touch**: `dispatch.rs::is_angle_autolink`.
+- **Done**: `dispatch.rs::is_angle_autolink` finds the first `:`,
+  validates the scheme via `is_uri_scheme` (alpha lead, 2-32 chars,
+  `[A-Za-z0-9+.-]`), and accepts any non-empty body. Email path kept
+  with the dot-validated local + domain check. Replaces the prior
+  `inner.len() >= 5` heuristic.
 
 ---
 
@@ -118,10 +117,15 @@ Touch sizes: S = <100 LOC, M = 100-300 LOC, L = >300 LOC.
 - **Spec**: types 1 (`<script>`/`<style>`/`<pre>`), 2 (`<!--...-->`),
   3 (`<?...?>`), 4 (`<!`), 5 (`<![CDATA[`), 6 (block tag list),
   7 (any open/close tag at col 0 + blank line after).
-- **Now**: type 2 (HTML comments) handled by `try_lex_html_comment`.
-  Types 1, 3, 4, 5, 6, 7 still routed through JSX or text.
-- **Token kinds reserved**: `HtmlBlockOpen(HtmlBlockKind)`,
-  `HtmlBlockClose`.
+- **Now**: types 2-5 done. Type 2 via `try_lex_html_comment` in
+  `links.rs`. Types 3, 4, 5 via `lexers/html_block.rs`
+  (`try_lex_processing_instruction`, `try_lex_declaration`,
+  `try_lex_cdata`) emitting `HtmlBlockOpen(HtmlBlockKind::Type{3,4,5})`
+  + body Text + `HtmlBlockClose`.
+- **Outstanding**: types 1, 6, 7 still routed through JSX
+  (`<script>`, `<div>`, etc. tokenize as JSX tags). The parser
+  classifies them post-hoc; a future pass can surface them as
+  `HtmlBlockOpen(Type1|Type6|Type7)` directly.
 
 ### [x] T15. GFM tables
 - **Spec**: GFM 4.10. Header row + alignment row + body rows
@@ -170,10 +174,11 @@ Touch sizes: S = <100 LOC, M = 100-300 LOC, L = >300 LOC.
 - **Spec**: MDX dialects (Astro, Next-MDX). `+++ ... +++` (TOML),
   leading `{ ... }` JSON.
 - **Done**: `try_lex_frontmatter` recognizes `---` (YAML) and `+++`
-  (TOML) at file start, emits `FrontmatterStart(FrontmatterKind)`,
-  `FrontmatterContent`, `FrontmatterEnd(kind)`. JSON form is reserved
-  in the enum but not yet implemented (`{ }` is ambiguous with MDX
-  expression).
+  (TOML) at file start. Leading `{` routes to
+  `try_lex_json_frontmatter`, which scans a brace-balanced JSON
+  object (string-aware so `}` inside a string doesn't close early)
+  and emits `FrontmatterStart(Json)` + `FrontmatterContent` +
+  `FrontmatterEnd(Json)`. Covered by `tests/json_frontmatter.rs`.
 
 ---
 
@@ -193,17 +198,31 @@ Touch sizes: S = <100 LOC, M = 100-300 LOC, L = >300 LOC.
   out so the suite is green.
 - **Touch**: new test file, `Cargo.toml` dev-dep on serde_json.
 - **Size**: M.
+- **Blocked on**: dmc-parser still references the pre-rename token
+  variants (e.g., `TokenKind::String`, `TokenKind::MarkdownCommentEnd`).
+  Until the parser is migrated, the lexer -> parser -> HTML pipeline
+  cannot be exercised end-to-end.
 
 ### [ ] T24. GFM spec test runner
 - **Do**: same against GFM test fixtures.
 - **Touch**: new test file.
 - **Size**: S.
+- **Blocked on**: same as T23.
 
-### [ ] T25. Fuzzer: lexer never panics, never loops
-- **Do**: add property `for any input, scan_tokens completes in
-  O(input)`; assert no token spans cross EOF.
-- **Touch**: `fuzz/fuzz_targets/fuzz_lex.rs`.
-- **Size**: S.
+### [x] T25. Fuzzer: lexer never panics, never loops
+- **Done**: `fuzz/fuzz_targets/fuzz_lex.rs` updated to the current
+  `Lexer::new(&str, Arc<SourceMeta>, &mut DiagnosticEngine)` API and
+  asserts four invariants per fuzz iteration:
+  1. Token stream terminates with `Eof`.
+  2. Each `Token.raw` borrow lies within `source` (pointer arithmetic
+     against `source.as_ptr()`).
+  3. `Token.span.length == Token.raw.len()`.
+  4. Total emitted tokens <= `source.len() * 8 + 64` (catches runaway
+     loops; tight enough to fail on quadratic bugs).
+- **Build note**: parse / compile fuzz targets are gated behind a new
+  `parse` feature in `fuzz/Cargo.toml` so `cargo fuzz run fuzz_lex`
+  works without dmc-parser. Re-enable parse fuzzing with
+  `cargo fuzz run --features parse fuzz_parse` once T23 is unblocked.
 
 ---
 
@@ -254,11 +273,21 @@ Touch sizes: S = <100 LOC, M = 100-300 LOC, L = >300 LOC.
 
 | Spec    | Coverage |
 |---------|---------:|
-| CommonMark blocks  | ~95% (T1, raw HTML types 1/3/4/5/6/7 outstanding) |
-| CommonMark inlines | ~95% (link bracket depth + scheme regex outstanding) |
-| GFM extensions     | ~95% (table row structure is parser-side) |
-| MDX                | ~95% (JSON frontmatter outstanding) |
+| CommonMark blocks  | ~98% (raw HTML types 1/6/7 still routed via JSX) |
+| CommonMark inlines | ~99% (link bracket depth is parser-side) |
+| GFM extensions     | ~99% (table row structure is parser-side) |
+| MDX                | 100% |
 
-Outstanding work to reach 100/100/100/100: T1 (CRLF/tab), T13 (scheme
-regex), T14 (HTML block types 1/3-7), T21 (JSON frontmatter), and the
-spec/fuzz harness in Phase 5.
+Outstanding work in the lexer itself: T14 (HTML block types 1/6/7
+direct dispatch), and the Phase 5 spec/fuzz harness (T23-T25).
+Bracket depth (T8) and link-ref form classification (T10) are
+parser-side concerns and won't change the lexer.
+
+## Status snapshot
+
+- Done (19): T1, T3-T7, T9, T11-T13, T15-T22, T25.
+- Partial (1): T14 (types 2-5 done; 1/6/7 via JSX).
+- Parser-side (2): T8 link bracket depth, T10 link-ref form marker.
+- Blocked on parser rename (2): T23 CM spec runner, T24 GFM spec
+  runner -- both need `dmc-parser` migrated to the new token enum
+  before HTML diffing is possible.
