@@ -14,7 +14,17 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
       // Trivia
       '\n' => self.lex_newline(),
       ' ' | '\t' => self.lex_whitespace(),
-      '\\' if self.peek() == Some('\n') => self.lex_newline(),
+      '\\' if self.peek() == Some('\n') => {
+        // CM 6.7 hard line break via trailing `\`. The `\` was just
+        // consumed; reset the in-progress token so the emitted
+        // HardBreak's lexeme covers only the `\n`, then advance over
+        // the newline.
+        self.start = self.current;
+        self.start_line = self.line;
+        self.start_column = self.column;
+        self.advance();
+        self.emit(TokenKind::HardBreak);
+      },
       '\\' if self.peek().is_some_and(Self::is_escapable_punct) => {
         self.advance();
         self.lex_text();

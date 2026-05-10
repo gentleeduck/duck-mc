@@ -39,9 +39,45 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
     self.emit(TokenKind::Text);
   }
 
+  /// CM appendix escapable set. Same shape as the dispatch helper so
+  /// `\X` resolves uniformly whether dispatch or lex_text observed it
+  /// first.
   #[inline]
   fn is_escapable(c: char) -> bool {
-    matches!(c, '\\' | '*' | '_' | '`' | '<' | '>' | '{' | '}' | '[' | ']' | '(' | ')' | '!' | '#' | '-' | '|')
+    matches!(
+      c,
+      '!' | '"'
+        | '#'
+        | '$'
+        | '%'
+        | '&'
+        | '\''
+        | '('
+        | ')'
+        | '*'
+        | '+'
+        | ','
+        | '-'
+        | '.'
+        | '/'
+        | ':'
+        | ';'
+        | '<'
+        | '='
+        | '>'
+        | '?'
+        | '@'
+        | '['
+        | '\\'
+        | ']'
+        | '^'
+        | '_'
+        | '`'
+        | '{'
+        | '|'
+        | '}'
+        | '~'
+    )
   }
 
   /// CM 6.1 inline code span. The first backtick is already consumed.

@@ -153,13 +153,23 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         TokenKind::Emphasis(c, n) => {
           let open_c: EmphasisChar = *c;
           let open_n = *n;
+          let raw = t.raw.to_string();
           self.advance();
           let inner = self.collect_inline(&|k| {
             Self::is_top_level_break(k) || matches!(k, TokenKind::Emphasis(cc, m) if *cc == open_c && *m == open_n)
           });
-          if matches!(self.peek_kind(), Some(TokenKind::Emphasis(cc, m)) if *cc == open_c && *m == open_n) {
-            self.advance();
+          let closed = matches!(self.peek_kind(), Some(TokenKind::Emphasis(cc, m)) if *cc == open_c && *m == open_n);
+          if !closed {
+            // CM: an unmatched emphasis run is literal text. Surface the
+            // opener and the already-collected inner as siblings so the
+            // delimiters render verbatim.
+            out.push(Node::Text(Text { value: raw, span: span.clone() }));
+            for n in inner {
+              out.push(n);
+            }
+            continue;
           }
+          self.advance();
           // Run-length 1 = italic, 2 = bold, 3 = strong+em combined per
           // CommonMark: <em><strong>x</strong></em>.
           match open_n {
@@ -200,10 +210,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
           // resulting string both starts and ends with a single space
           // (and isn't all-spaces), strip one from each side.
           let value = value.replace('\n', " ");
-          let value = if value.starts_with(' ')
-            && value.ends_with(' ')
-            && value.chars().any(|c| c != ' ')
-          {
+          let value = if value.starts_with(' ') && value.ends_with(' ') && value.chars().any(|c| c != ' ') {
             value[1..value.len() - 1].to_string()
           } else {
             value
