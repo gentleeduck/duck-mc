@@ -2249,6 +2249,20 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         break;
       }
     }
+    // CM 4.8: trailing whitespace-only Text + SoftBreak runs at the end
+    // of a paragraph render as nothing. Strip them so blank-line padding
+    // before block boundaries doesn't leak into the rendered output.
+    loop {
+      match children.last() {
+        Some(Node::Text(t)) if t.value.chars().all(|c| c == ' ' || c == '\t') => {
+          children.pop();
+        },
+        Some(Node::SoftBreak(_)) => {
+          children.pop();
+        },
+        _ => break,
+      }
+    }
   }
 
   /// `Some(1)` for an `=` underline, `Some(2)` for a `-` underline, else
