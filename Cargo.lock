@@ -729,10 +729,6 @@ dependencies = [
  "duck-diagnostic",
  "memchr",
  "pretty_assertions",
- "serde",
- "serde_json",
- "serde_yaml",
- "unicode-segmentation",
 ]
 
 [[package]]

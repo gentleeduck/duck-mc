@@ -1,247 +1,232 @@
-use crate::{Lexer, token::TokenKind};
+//! JSX tag lexing: open/close tags, fragments, attributes (boolean,
+//! string-valued, expression-valued, spread).
+
+use crate::{
+  Lexer,
+  token::{QuoteKind, TokenKind},
+};
 
 impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
-  /// Entry for `<` followed by an alphabetic char or `/`. Emits the open/close
-  /// markers, tag name, attributes, and end marker (regular or self-closing).
-  pub(crate) fn lex_jsx_tag(&mut self) {
-    let mut is_close_tag = false;
-
-    if self.peek() == Some('/') {
+  /// Try lexing a JSX tag. The opening `<` is already consumed by the
+  /// dispatcher. Returns `true` on success.
+  pub(crate) fn try_lex_jsx_tag(&mut self) -> bool {
+    let is_close = self.peek() == Some('/');
+    if is_close {
       self.advance();
-      is_close_tag = true;
-      self.emit(TokenKind::JsxCloseTagStart);
-    } else {
-      self.emit(TokenKind::JsxOpenTagStart);
     }
 
-    self.consume_whitespaces();
-    self.skip_while_ascii(|b| b.is_ascii_alphanumeric() || b == b'.');
+    // Fragment open `<>` or close `</>`.
+    if self.peek() == Some('>') {
+      self.advance();
+      self.emit(if is_close { TokenKind::JsxFragmentClose } else { TokenKind::JsxFragmentOpen });
+      return true;
+    }
+
+    if !matches!(self.peek(), Some(c) if c.is_ascii_alphabetic()) {
+      return false;
+    }
+
+    self.emit(if is_close { TokenKind::JsxCloseTagStart } else { TokenKind::JsxOpenTagStart });
+
+    // Tag name: identifier chars + `.` (member) + `:` (namespace) + `-`.
+    while let Some(c) = self.peek() {
+      if c.is_ascii_alphanumeric() || c == '_' || c == '-' || c == '.' || c == ':' {
+        self.advance();
+      } else {
+        break;
+      }
+    }
     self.emit(TokenKind::JsxTagName);
 
-    self.skip_jsx_tag_ws();
-    while let Some(cc) = self.current_char()
-      && (cc.is_alphabetic() || cc == '_')
-    {
-      self.lex_jsx_attribute();
-      self.skip_jsx_tag_ws();
+    // Closing tags don't take attributes.
+    if is_close {
+      self.skip_jsx_whitespace();
+      return self.consume_jsx_close('>', TokenKind::JsxCloseTagEnd);
     }
 
-    if self.current_char() == Some('/') {
-      self.advance();
-      if self.current_char() == Some('>') {
-        self.advance();
+    // Attribute loop.
+    loop {
+      self.skip_jsx_whitespace();
+      match self.peek() {
+        Some('/') if self.peek_next() == Some('>') => {
+          self.advance();
+          self.advance();
+          self.emit(TokenKind::JsxSelfClosingEnd);
+          return true;
+        },
+        Some('>') => {
+          self.advance();
+          self.emit(TokenKind::JsxOpenTagEnd);
+          return true;
+        },
+        Some('{') => {
+          if !self.lex_jsx_spread() {
+            return false;
+          }
+        },
+        Some(c) if c.is_ascii_alphabetic() || c == '_' => {
+          if !self.lex_jsx_attribute() {
+            return false;
+          }
+        },
+        _ => return false,
       }
-      return self.emit(TokenKind::JsxSelfClosingEnd);
     }
-
-    self.advance();
-    if is_close_tag {
-      return self.emit(TokenKind::JsxCloseTagEnd);
-    }
-    self.emit(TokenKind::JsxOpenTagEnd)
   }
 
-  fn skip_jsx_tag_ws(&mut self) {
-    while let Some(c) = self.current_char() {
-      match c {
-        ' ' | '\t' => {
-          self.advance();
-        },
-        '\n' => {
-          self.advance();
-          self.line += 1;
-          self.column = 0;
-        },
-        _ => break,
-      }
-    }
+  /// Skip whitespace inside a tag and reset start (in-tag whitespace has
+  /// no semantic meaning).
+  fn skip_jsx_whitespace(&mut self) {
+    self.skip_while_ascii(|b| matches!(b, b' ' | b'\t' | b'\n' | b'\r'));
     self.start = self.current;
+    self.start_line = self.line;
+    self.start_column = self.column;
   }
 
-  /// Lex one `name`, `name=value` or `name={expr}` attribute inside a JSX tag.
-  pub(crate) fn lex_jsx_attribute(&mut self) {
-    self.skip_while_ascii(|b| b.is_ascii_alphanumeric() || b == b'-');
+  fn consume_jsx_close(&mut self, expect: char, kind: TokenKind) -> bool {
+    if self.peek() != Some(expect) {
+      return false;
+    }
+    self.advance();
+    self.emit(kind);
+    true
+  }
+
+  fn lex_jsx_attribute(&mut self) -> bool {
+    // Attribute name: ident chars + `-` + `:` (namespaced like xml:lang).
+    while let Some(c) = self.peek() {
+      if c.is_ascii_alphanumeric() || c == '_' || c == '-' || c == ':' {
+        self.advance();
+      } else {
+        break;
+      }
+    }
     self.emit(TokenKind::JsxAttributeName);
 
-    if self.current_char() != Some('=') {
-      return;
+    // Boolean attribute (no `=`).
+    if self.peek() != Some('=') {
+      return true;
     }
     self.advance();
-    self.emit(TokenKind::Eq);
+    self.emit(TokenKind::JsxAttrEq);
 
-    match self.current_char() {
-      Some(kind) if kind == '"' || kind == '\'' => {
+    match self.peek() {
+      Some(q @ ('"' | '\'')) => {
+        let kind = if q == '"' { QuoteKind::Double } else { QuoteKind::Single };
         self.advance();
-        self.emit(TokenKind::Quote);
-        self.consume_until(kind);
-        self.emit(TokenKind::String);
-        if let Some(c) = self.current_char()
-          && c == kind
-        {
-          self.advance();
-          self.emit(TokenKind::Quote);
-        }
-      },
-      Some('{') => {
-        self.advance();
-        self.emit(TokenKind::ExpressionStart);
-        let mut depth = 1usize;
-        let mut quote: Option<char> = None;
-        while let Some(c) = self.current_char() {
-          if let Some(q) = quote {
-            match c {
-              '\\' => {
-                self.advance();
-                if self.current_char().is_some() {
-                  self.advance();
-                }
-              },
-              c if c == q => {
-                quote = None;
-                self.advance();
-              },
-              '\n' => {
-                self.advance();
-                self.line += 1;
-                self.column = 0;
-              },
-              _ => {
-                self.advance();
-              },
-            }
-            continue;
-          }
-          match c {
-            '"' | '\'' | '`' => {
-              quote = Some(c);
-              self.advance();
-            },
-            '{' => {
-              self.advance();
-              depth += 1;
-            },
-            '}' => {
-              depth -= 1;
-              if depth == 0 {
-                self.emit(TokenKind::Text);
-                self.advance();
-                self.emit(TokenKind::ExpressionEnd);
-                break;
-              }
-              self.advance();
-            },
-            '\n' => {
-              break;
-            },
-            _ => {
-              self.advance();
-            },
-          }
-        }
-      },
-      _ => {},
-    }
-  }
+        self.emit(TokenKind::JsxAttrStringOpen(kind));
 
-  /// Lex an MDX-style comment `{/* ... */}`. Caller has consumed the opening `{`.
-  pub(crate) fn lex_md_comment(&mut self) {
-    self.emit(TokenKind::MarkdownCommentStart);
-    self.advance();
-    self.advance();
-    self.start = self.current;
-
-    loop {
-      if self.is_eof() {
-        self.emit(TokenKind::Text);
-        return;
-      }
-      if self.peek() == Some('*') && self.peek_next() == Some('/') {
-        let content_end = self.current;
-        self.advance();
-        self.advance();
-        if self.peek() == Some('}') {
-          self.advance();
-          let saved_current = self.current;
-          self.current = content_end;
-          self.emit(TokenKind::Text);
-          self.start = content_end;
-          self.current = saved_current;
-          self.emit(TokenKind::MarkdownCommentEnd);
-          return;
-        }
-        continue;
-      }
-      let c = self.advance();
-      if c == '\n' {
-        self.line += 1;
-        self.column = 0;
-      }
-    }
-  }
-
-  /// Lex a top-level `{ ... }` JSX expression node. Tracks brace depth so
-  /// nested object literals don't close the outer expression.
-  pub(crate) fn lex_expression(&mut self) {
-    self.emit(TokenKind::ExpressionStart);
-    let mut depth = 1usize;
-    let mut quote: Option<char> = None;
-
-    while !self.is_eof() {
-      if let Some(q) = quote {
-        match self.peek() {
-          Some('\\') => {
+        // Body until matching quote, handling `\` escapes.
+        while let Some(c) = self.peek() {
+          if c == '\\' {
             self.advance();
             if self.peek().is_some() {
               self.advance();
             }
             continue;
-          },
-          Some(c) if c == q => {
-            quote = None;
-            self.advance();
-            continue;
-          },
-          Some('\n') => {
-            self.advance();
-            self.line += 1;
-            self.column = 0;
-            continue;
-          },
-          Some(_) => {
-            self.advance();
-            continue;
-          },
-          None => break,
+          }
+          if c == q {
+            break;
+          }
+          self.advance();
         }
+        if self.current > self.start {
+          self.emit(TokenKind::JsxAttrString);
+        }
+        if self.peek() != Some(q) {
+          return false;
+        }
+        self.advance();
+        self.emit(TokenKind::JsxAttrStringClose(kind));
+        true
+      },
+      Some('{') => {
+        self.advance();
+        self.lex_mdx_expression();
+        true
+      },
+      _ => false,
+    }
+  }
+
+  /// Spread attribute `{...rest}`. Emits ExpressionStart, then the body
+  /// as JsxAttributeSpread, then ExpressionEnd.
+  fn lex_jsx_spread(&mut self) -> bool {
+    if self.peek() != Some('{') {
+      return false;
+    }
+    self.advance();
+    self.emit(TokenKind::ExpressionStart);
+
+    let mut depth = 1;
+    let mut in_string: Option<char> = None;
+    let mut in_template = false;
+    while let Some(c) = self.peek() {
+      if let Some(q) = in_string {
+        match c {
+          '\\' => {
+            self.advance();
+            self.advance();
+          },
+          _ if c == q => {
+            self.advance();
+            in_string = None;
+          },
+          _ => {
+            self.advance();
+          },
+        }
+        continue;
       }
-      match self.peek() {
-        Some('"') | Some('\'') | Some('`') => {
-          quote = self.peek();
+      if in_template {
+        match c {
+          '\\' => {
+            self.advance();
+            self.advance();
+          },
+          '`' => {
+            self.advance();
+            in_template = false;
+          },
+          _ => {
+            self.advance();
+          },
+        }
+        continue;
+      }
+      match c {
+        '"' | '\'' => {
+          in_string = Some(c);
           self.advance();
         },
-        Some('{') => {
+        '`' => {
+          in_template = true;
           self.advance();
+        },
+        '{' => {
           depth += 1;
+          self.advance();
         },
-        Some('}') => {
+        '}' => {
           depth -= 1;
           if depth == 0 {
-            self.emit(TokenKind::Text);
+            if self.current > self.start {
+              self.emit(TokenKind::JsxAttributeSpread);
+            }
             self.advance();
-            return self.emit(TokenKind::ExpressionEnd);
+            self.emit(TokenKind::ExpressionEnd);
+            return true;
           }
           self.advance();
         },
-        Some('\n') => {
-          self.advance();
-          self.line += 1;
-          self.column = 0;
-        },
-        Some(_) => {
+        _ => {
           self.advance();
         },
-        None => break,
       }
     }
+    if self.current > self.start {
+      self.emit(TokenKind::JsxAttributeSpread);
+    }
+    false
   }
 }

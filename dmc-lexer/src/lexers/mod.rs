@@ -1,7 +1,9 @@
-mod code;
-mod fontmatter;
+mod blocks;
+mod esm;
+mod expression;
+mod frontmatter;
+mod html_block;
+mod inline;
 mod jsx;
-mod lists;
-mod statements;
-mod typography;
-mod whitespaces;
+mod links;
+mod trivia;

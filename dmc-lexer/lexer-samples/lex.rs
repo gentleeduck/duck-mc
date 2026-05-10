@@ -6,8 +6,8 @@
 //!
 //! Output:
 //!   1. tokens (one per line: line:col, kind, raw lexeme)
-//!   2. diagnostics rendered via `print_all_smart` — each one shows the
-//!      source line + caret under the offending span.
+//!   2. diagnostics rendered via `print_all` -- each one shows the source
+//!      line + caret under the offending span.
 
 use std::path::PathBuf;
 use std::process::ExitCode;
@@ -43,7 +43,7 @@ fn main() -> ExitCode {
 
   println!("=== tokens ({}) ===", lexer.tokens.len());
   for t in &lexer.tokens {
-    println!("{:>4}:{:<3} {:<24} {:?}", t.span.line, t.span.column, format!("{:?}", t.kind), t.raw,);
+    println!("{:>4}:{:<3} {:<24} {:?}", t.span.line, t.span.column, format!("{:?}", t.kind), t.raw);
   }
 
   if engine.iter().len() > 0 {

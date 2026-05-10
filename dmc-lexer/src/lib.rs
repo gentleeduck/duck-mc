@@ -1,5 +1,6 @@
-//! User-facing walkthrough: ../../dmc-docs/dmc-lexer/
-//! Run `cargo doc --open -p dmc-lexer` for the inline rustdoc.
+//! MDX/MD lexer. Produces a flat token stream; the parser handles structure.
+//!
+//! Run `cargo doc --open -p dmc-lexer` for inline rustdoc.
 
 use std::sync::Arc;
 
@@ -8,24 +9,29 @@ use duck_diagnostic::{DiagnosticEngine, Span};
 
 use crate::token::{Token, TokenKind};
 
+mod dispatch;
 mod lexers;
+mod scanner;
 pub mod token;
-mod utils;
 
-/// Streaming lexer for MDX. `start` = current token's begin, `current` =
-/// scanner head, `line`/`column` track position for diagnostics.
-/// `frontmatter_reserved` flips to `true` once a YAML frontmatter block has
-/// been emitted so a later `---` line is unambiguously a thematic break.
+/// Streaming lexer for MDX.
+///
+/// `start`/`current` are byte offsets; `start_line`/`start_column` snapshot
+/// the position when the in-progress token began so `emit` can record an
+/// accurate span without recomputing from scratch.
 pub struct Lexer<'eng, 'src> {
   pub source: &'src str,
   pub meta: Arc<SourceMeta>,
   pub tokens: Vec<Token<'src>>,
+
   pub start: usize,
   pub current: usize,
   pub line: usize,
   pub column: usize,
+  pub start_line: usize,
+  pub start_column: usize,
+
   pub diag_engine: &'eng mut DiagnosticEngine<Code>,
-  pub frontmatter_reserved: bool,
 }
 
 impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
@@ -39,18 +45,22 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
       current: 0,
       line: 0,
       column: 0,
+      start_line: 0,
+      start_column: 0,
       diag_engine,
-      frontmatter_reserved: false,
     }
   }
 
-  /// Scan the entire source into `self.tokens`. Always succeeds; errors are
-  /// reported through the diagnostic engine, not the `Result`.
+  /// Scan the entire source into `self.tokens`. Always returns `Ok`; lexing
+  /// errors are reported through the diagnostic engine.
   pub fn scan_tokens(&mut self) -> Result<(), std::io::Error> {
+    self.try_lex_frontmatter();
+
     while !self.is_eof() {
       self.start = self.current;
+      self.start_line = self.line;
+      self.start_column = self.column;
       let c = self.advance();
-
       self.lex_tokens(c);
     }
 
@@ -58,19 +68,14 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
     Ok(())
   }
 
-  /// Emit a token spanning `[self.start, self.current)`. Inline whitespace
-  /// is kept as `Whitespace` tokens so the inline parser can preserve
-  /// spacing around block tokens (e.g. between `]( )` and the next text).
-  /// `Newline` and `Quote` trivia are still dropped.
-  fn emit(&mut self, kind: TokenKind) {
+  /// Emit a token spanning `[self.start, self.current)` and reset the
+  /// in-progress token bookkeeping.
+  pub(crate) fn emit(&mut self, kind: TokenKind) {
     let length = self.current - self.start;
-    if kind.is_trivia() && !matches!(kind, TokenKind::Whitespace) {
-      self.start = self.current;
-      return;
-    }
-
-    let span = Span::from_zero_based(self.meta.path.clone(), self.line, self.column, length);
+    let span = Span::from_zero_based(self.meta.path.clone(), self.start_line, self.start_column, length);
     self.tokens.push(Token::new(kind, span, self.current_lexeme()));
     self.start = self.current;
+    self.start_line = self.line;
+    self.start_column = self.column;
   }
 }

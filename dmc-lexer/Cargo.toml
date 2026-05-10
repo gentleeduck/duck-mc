@@ -15,10 +15,6 @@ readme = "README.md"
 [dependencies]
 duck-diagnostic.workspace = true
 dmc-diagnostic = { workspace = true, features = ["lexer"] }
-serde_yaml.workspace = true
-serde.workspace = true
-serde_json.workspace = true
-unicode-segmentation.workspace = true
 memchr = "2.8.0"
 
 [dev-dependencies]
@@ -26,5 +22,4 @@ pretty_assertions.workspace = true
 
 [[bin]]
 name = "lexer"
-# path = "./lexer-samples/lexer.rs"
 path = "./lexer-samples/lex.rs"

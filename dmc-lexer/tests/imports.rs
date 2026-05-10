@@ -23,8 +23,14 @@ fn multi_line_import_with_braces() {
 }
 
 #[test]
+fn export_function_with_template_literal() {
+  let src = "export function greet(name) {\n  return `hello ${name}`\n}\n";
+  let kinds = lex_kinds(src);
+  assert_eq!(kinds.first(), Some(&TokenKind::Export));
+}
+
+#[test]
 fn import_inside_paragraph_is_text() {
-  // 'import' not at column 0 (preceded by text) should not be a top-level import
   let kinds = lex_kinds("hello import x\n");
   assert!(!kinds.contains(&TokenKind::Import), "got {:?}", kinds);
 }
@@ -32,5 +38,11 @@ fn import_inside_paragraph_is_text() {
 #[test]
 fn important_word_not_import() {
   let kinds = lex_kinds("important: not an import\n");
+  assert!(!kinds.contains(&TokenKind::Import), "got {:?}", kinds);
+}
+
+#[test]
+fn indented_import_not_esm() {
+  let kinds = lex_kinds("  import x\n");
   assert!(!kinds.contains(&TokenKind::Import), "got {:?}", kinds);
 }
