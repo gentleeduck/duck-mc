@@ -117,7 +117,7 @@ impl HtmlEmitter {
       Node::Bold(_) => self.out.push_str("<strong>"),
       Node::Italic(_) => self.out.push_str("<em>"),
       Node::Strikethrough(_) => self.out.push_str("<del>"),
-      Node::Blockquote(_) => self.out.push_str("<blockquote>"),
+      Node::Blockquote(_) => self.out.push_str("<blockquote>\n"),
       Node::List(l) => {
         let tag = if l.ordered { "ol" } else { "ul" };
         self.out.push('<');
@@ -133,7 +133,7 @@ impl HtmlEmitter {
         {
           self.out.push_str(&format!(" start=\"{}\"", s));
         }
-        self.out.push('>');
+        self.out.push_str(">\n");
       },
       Node::ListItem(_) => self.out.push_str("<li>"),
       Node::TaskListItem(t) => {
