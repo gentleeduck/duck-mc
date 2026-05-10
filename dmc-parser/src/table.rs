@@ -53,6 +53,14 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         return None;
       },
     };
+    // GFM table rule: separator column count must match the header
+    // column count -- otherwise the construct is not a table and the
+    // lines fall through to a paragraph.
+    let header_cells_preview = split_cells(&line1);
+    if header_cells_preview.len() != aligns.len() {
+      self.pos = saved;
+      return None;
+    }
     self.pos += len2;
     if matches!(self.peek_kind(), Some(TokenKind::SoftBreak) | Some(TokenKind::HardBreak)) {
       self.advance();
