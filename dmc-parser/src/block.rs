@@ -617,6 +617,60 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
             }
             continue;
           }
+          // Sub-list nest: if the indented line opens with a list marker,
+          // recurse into a nested list at this indent. The line may have
+          // been pre-classified by the lexer as `Whitespace + IndentedCodeLine`
+          // because it sits at col >= 4; sniff the IndentedCodeLine raw
+          // for a marker prefix and synthesize the missing Marker token.
+          let next_after_ws = self.tokens.get(self.pos + 1).map(|t| t.kind.clone());
+          if matches!(next_after_ws, Some(TokenKind::UnorderedListMarker) | Some(TokenKind::OrderedListMarker(_))) {
+            self.advance(); // skip whitespace
+            let nested = match next_after_ws {
+              Some(TokenKind::OrderedListMarker(_)) => self.parse_list(true, n),
+              _ => self.parse_list(false, n),
+            };
+            if let Some(last) = items.last_mut() {
+              Self::ensure_loose_item(last, &span);
+              Self::append_to_item(last, nested);
+            }
+            continue;
+          }
+          if let Some(TokenKind::IndentedCodeLine) = next_after_ws.as_ref()
+            && let Some(raw) = self.tokens.get(self.pos + 1).map(|t| t.raw)
+            && let Some((_marker_char, _rest)) = raw
+              .strip_prefix(['-', '*', '+'])
+              .and_then(|r| r.strip_prefix([' ', '\t']))
+              .map(|r| (raw.as_bytes()[0] as char, r))
+          {
+            // Convert the IndentedCodeLine to UnorderedListMarker + content
+            // by rewriting the next two tokens. Cheap because we own the
+            // token slice.
+            let pos = self.pos + 1;
+            let original = self.tokens[pos].raw;
+            let marker_byte = original.as_bytes()[0];
+            let content = &original[2..];
+            self.tokens[pos].raw = match marker_byte {
+              b'-' => "-",
+              b'*' => "*",
+              b'+' => "+",
+              _ => "-",
+            };
+            self.tokens[pos].kind = TokenKind::UnorderedListMarker;
+            // Insert a Text token for the content, if any.
+            let text_tok = dmc_lexer::token::Token {
+              kind: TokenKind::Text,
+              raw: content,
+              span: self.tokens[pos].span.clone(),
+            };
+            self.tokens.insert(pos + 1, text_tok);
+            self.advance(); // skip whitespace
+            let nested = self.parse_list(false, n);
+            if let Some(last) = items.last_mut() {
+              Self::ensure_loose_item(last, &span);
+              Self::append_to_item(last, nested);
+            }
+            continue;
+          }
           self.advance(); // skip whitespace
           let para_span = self.current_span();
           let inline = self.collect_inline_until_break();
