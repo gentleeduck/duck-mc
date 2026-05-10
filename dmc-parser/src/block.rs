@@ -137,6 +137,10 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
           self.advance();
           return Some(self.parse_blockquote());
         },
+        TokenKind::HtmlCommentOpen => {
+          self.advance();
+          return Some(self.parse_html_comment_block());
+        },
         TokenKind::JsxOpenTagStart => {
           // Peek the JSX tag two tokens ahead (after the leading
           // whitespace) to see if it routes to a Type-1 / Type-6 raw
