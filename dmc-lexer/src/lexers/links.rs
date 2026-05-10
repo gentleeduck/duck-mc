@@ -37,12 +37,17 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
     // Validate prefix and find body start.
     let body_start = match kind {
       AutolinkKind::BareUrl => {
-        if self.source[self.start..].starts_with("https://") {
-          self.start + 8
-        } else if self.source[self.start..].starts_with("http://") {
-          self.start + 7
-        } else {
-          return false;
+        let prefixes = ["https://", "http://", "ftp://"];
+        let mut found = None;
+        for p in prefixes {
+          if self.source[self.start..].starts_with(p) {
+            found = Some(self.start + p.len());
+            break;
+          }
+        }
+        match found {
+          Some(b) => b,
+          None => return false,
         }
       },
       AutolinkKind::BareWww => {

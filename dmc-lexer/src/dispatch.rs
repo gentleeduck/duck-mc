@@ -114,6 +114,7 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
       // Bare autolinks (GFM)
       'w' if self.lexeme_starts_with("www.") && self.try_lex_bare_autolink(AutolinkKind::BareWww) => {},
       'h' if self.lexeme_starts_with("http") && self.try_lex_bare_autolink(AutolinkKind::BareUrl) => {},
+      'f' if self.lexeme_starts_with("ftp://") && self.try_lex_bare_autolink(AutolinkKind::BareUrl) => {},
 
       '<' if self.starts_cdata() => {
         if !self.try_lex_cdata() {
