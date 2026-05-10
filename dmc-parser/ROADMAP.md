@@ -393,9 +393,10 @@ Goal: spec-pinned test runners.
 - Phase E (structural): 3/4 (E1 + E2 done; E3 partial; E4 lazy
   continuation outstanding).
 - Phase F (validation): 1/4 done + F2 partial -- spec runner now
-  passes 294/652 (~45%, up from 118 at landing). Remaining gaps
-  concentrate in HTML-block edge cases, list-item interactions,
-  emphasis flanking rules, and tabs.
+  passes 352/652 (~54%, up from 118 at landing). Remaining gaps
+  concentrate in CM emphasis delimiter-stack pairing, lazy
+  continuation in list items / block quotes, multi-line link
+  ref-defs, and Type-7 raw HTML.
 - Phase G (polish): 0/4.
 
 ## Coverage targets (after each phase)
