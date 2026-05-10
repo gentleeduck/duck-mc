@@ -199,7 +199,10 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
         self.advance();
         self.emit(TokenKind::JsxAttrStringOpen(kind));
 
-        // Body until matching quote, handling `\` escapes.
+        // Body until matching quote, handling `\` escapes. Reject when
+        // the body would span a block-construct line (CM 6.6: raw HTML
+        // tags cannot cross block boundaries).
+        let bytes = self.source.as_bytes();
         while let Some(c) = self.peek() {
           if c == '\\' {
             self.advance();
@@ -210,6 +213,43 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
           }
           if c == q {
             break;
+          }
+          if c == '\n' {
+            // Peek the next line. If it's a thematic break or setext
+            // underline (3+ same `-`/`=`/`_`/`*` then end-of-line), the
+            // tag construct must abort so the block-level pass sees
+            // the underline.
+            let after = self.current + 1;
+            let mut p = after;
+            while p < bytes.len() && (bytes[p] == b' ' || bytes[p] == b'\t') {
+              p += 1;
+            }
+            if p < bytes.len() {
+              let marker = bytes[p];
+              if matches!(marker, b'-' | b'=' | b'_' | b'*') {
+                let mut q2 = p;
+                let mut count = 0usize;
+                while q2 < bytes.len() {
+                  match bytes[q2] {
+                    b if b == marker => {
+                      count += 1;
+                      q2 += 1;
+                    },
+                    b' ' | b'\t' => q2 += 1,
+                    b'\n' => break,
+                    _ => {
+                      count = 0;
+                      break;
+                    },
+                  }
+                }
+                if count >= 3 {
+                  return false;
+                }
+              }
+            }
+            self.advance();
+            continue;
           }
           self.advance();
         }
