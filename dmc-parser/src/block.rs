@@ -364,7 +364,17 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       if !want_marker {
         break;
       }
-      let marker_width = self.peek().map(|t| t.raw.chars().count()).unwrap_or(2);
+      let marker_raw = self.peek_raw().unwrap_or("");
+      let marker_raw_width = marker_raw.chars().count();
+      let marker_raw_has_ws = marker_raw.ends_with([' ', '\t']);
+      let following_ws = match self.tokens.get(self.pos + 1) {
+        Some(t) if matches!(t.kind, TokenKind::Whitespace(_)) => t.raw.chars().count(),
+        _ => 0,
+      };
+      // Promoted text markers (e.g. nested `-` recovered by the parser)
+      // keep the bare marker lexeme, so the first following space is part
+      // of the marker width rather than extra item indentation.
+      let marker_width = if !marker_raw_has_ws && following_ws > 0 { marker_raw_width + 1 } else { marker_raw_width };
       self.advance();
 
       // Track extra whitespace between the marker and the first non-blank
@@ -372,7 +382,14 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       // count; 5+ folds back to 1 (content becomes an indented code line
       // inside the item).
       let extra_ws = match self.peek() {
-        Some(t) if matches!(t.kind, TokenKind::Whitespace(_)) => t.raw.chars().count(),
+        Some(t) if matches!(t.kind, TokenKind::Whitespace(_)) => {
+          let ws = t.raw.chars().count();
+          if !marker_raw_has_ws && marker_raw_width > 0 {
+            ws.saturating_sub(1)
+          } else {
+            ws
+          }
+        },
         _ => 0,
       };
       let item_content_extra = if extra_ws >= 4 { 0 } else { extra_ws };
