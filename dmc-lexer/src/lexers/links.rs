@@ -304,14 +304,24 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
     }
 
     // CM 4.7: nothing other than whitespace may appear after the title
-    // (or the destination, if no title) on the same line. Reject so
-    // the surrounding line falls through as paragraph text.
-    let mut tail = j;
-    while tail < bytes.len() && matches!(bytes[tail], b' ' | b'\t') {
-      tail += 1;
-    }
-    if tail < bytes.len() && bytes[tail] != b'\n' {
-      return false;
+    // (or the destination, if no title) on the same line. If a title
+    // *was* matched but has trailing junk, fall back to the no-title
+    // form (rewind to before the title) so the def keeps just the
+    // destination. If even the no-title form has junk after the dest,
+    // reject so the surrounding line falls through as a paragraph.
+    let check_tail = |from: usize| -> bool {
+      let mut t = from;
+      while t < bytes.len() && matches!(bytes[t], b' ' | b'\t') {
+        t += 1;
+      }
+      t >= bytes.len() || bytes[t] == b'\n'
+    };
+    if !check_tail(j) {
+      if j != title_search_start && check_tail(title_search_start) {
+        j = title_search_start;
+      } else {
+        return false;
+      }
     }
 
     self.advance_bytes(j - self.current);
