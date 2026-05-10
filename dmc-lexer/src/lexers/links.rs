@@ -63,7 +63,9 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
       }
     }
 
-    // GFM trims trailing punctuation `?!.,:*_~` and unbalanced `)`.
+    // GFM trims trailing punctuation `?!.,:*_~` and unbalanced `)`. A
+    // trailing `&entity;` (`&...;`) is also stripped per GFM autolink
+    // because the entity ref renders as following text.
     while i > body_start {
       let c = bytes[i - 1];
       if matches!(c, b'?' | b'!' | b'.' | b',' | b':' | b'*' | b'_' | b'~') {
@@ -76,6 +78,16 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
         if closes > opens {
           i -= 1;
           continue;
+        }
+      }
+      if c == b';' {
+        let pre = &bytes[body_start..i - 1];
+        if let Some(amp_off) = pre.iter().rposition(|&b| b == b'&') {
+          let entity_body = &pre[amp_off + 1..];
+          if !entity_body.is_empty() && entity_body.iter().all(|&b| b.is_ascii_alphanumeric()) {
+            i = body_start + amp_off;
+            continue;
+          }
         }
       }
       break;
