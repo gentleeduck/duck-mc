@@ -219,6 +219,11 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
     if i >= bytes.len() || bytes[i] != b']' || i == self.current {
       return false;
     }
+    // CM 4.7: the label must contain at least one non-whitespace
+    // character. `[\n ]` is empty.
+    if bytes[self.current..i].iter().all(|&b| matches!(b, b' ' | b'\t' | b'\n')) {
+      return false;
+    }
     if bytes.get(i + 1) != Some(&b':') {
       return false;
     }

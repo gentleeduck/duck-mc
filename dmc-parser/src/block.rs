@@ -2145,8 +2145,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
             if !self.is_plain_html_jsx_tag() {
               true
             } else {
-              HTML_BLOCK_TYPE1_TAGS.contains(&lower.as_str())
-                || HTML_BLOCK_TYPE6_TAGS.contains(&lower.as_str())
+              HTML_BLOCK_TYPE1_TAGS.contains(&lower.as_str()) || HTML_BLOCK_TYPE6_TAGS.contains(&lower.as_str())
             }
           } else {
             true
