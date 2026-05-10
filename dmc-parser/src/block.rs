@@ -449,9 +449,10 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       // grows by that count; 5+ folds back to 1 (content becomes an indented
       // code line inside the item). Tabs snap to the 4-col stop, so use
       // visual cols rather than byte count.
-      let extra_ws = self.peek_leading_indent().map(|n| {
-        if !marker_raw_has_ws && marker_raw_width > 0 { n.saturating_sub(1) } else { n }
-      }).unwrap_or(0);
+      let extra_ws = self
+        .peek_leading_indent()
+        .map(|n| if !marker_raw_has_ws && marker_raw_width > 0 { n.saturating_sub(1) } else { n })
+        .unwrap_or(0);
       let item_content_extra = if extra_ws >= 4 { 0 } else { extra_ws };
 
       // Ordered-list items: trim the trailing `.` left in the first Text token.
@@ -2023,13 +2024,13 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       Some(HtmlBlockMode::Type1(lower))
     } else if HTML_BLOCK_TYPE6_TAGS.contains(&lower.as_str()) {
       Some(HtmlBlockMode::Type6)
-    } else if self.is_htmlish_jsx_tag() && self.jsx_raw_html_tag_is_valid_htmlish() && self.line_after_tag_is_blank() {
+    } else if self.is_plain_html_jsx_tag() && self.jsx_raw_html_tag_is_valid() && self.line_after_tag_is_blank() {
       // CM 4.6 Type-7: any tag at col 0 closes on next blank line --
       // BUT the start line itself must contain only the tag plus
       // whitespace (no inline content after the closing `>`).
-      // Keep namespaced / member-expression tags on the JSX path, but
-      // allow uppercase HTML-looking names here for CommonMark
-      // compliance (`<Warning>` blocks, etc.).
+      // Restricted to lowercase / kebab-case names so MDX components
+      // like `<MyComponent>` and namespaces like `<svg:circle>` stay
+      // on the JSX path and compile to component invocations.
       Some(HtmlBlockMode::Type7)
     } else {
       None
