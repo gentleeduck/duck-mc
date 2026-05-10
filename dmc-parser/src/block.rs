@@ -1448,7 +1448,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
             self.advance();
             Some(Node::HorizontalRule(HorizontalRule { span: hr_span }))
           },
-          TokenKind::CodeFenceOpen(_, _) => Some(self.parse_code_block()),
+          TokenKind::CodeFenceOpen(_, _) => Some(self.parse_code_block_in_blockquote(line_markers)),
           TokenKind::JsxOpenTagStart | TokenKind::JsxCloseTagStart => {
             self.jsx_html_block_mode().map(|m| self.parse_html_block_from_jsx(m))
           },
@@ -2527,10 +2527,19 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
   /// body is concatenated until the matching `CodeEnd(n)`. The info string
   /// splits at the first whitespace into `(lang, meta)`.
   fn parse_code_block(&mut self) -> Node {
+    self.parse_code_block_with_blockquote_prefix(0)
+  }
+
+  fn parse_code_block_in_blockquote(&mut self, bq_depth: usize) -> Node {
+    self.parse_code_block_with_blockquote_prefix(bq_depth)
+  }
+
+  fn parse_code_block_with_blockquote_prefix(&mut self, bq_depth: usize) -> Node {
     let span = self.current_span();
+    let open_line = self.peek().map(|t| t.span.line).unwrap_or(0);
     let (fence_char, fence_n, fence_indent) = match self.peek() {
       Some(t) => match t.kind {
-        TokenKind::CodeFenceOpen(c, n) => (c, n, t.span.column.saturating_sub(1)),
+        TokenKind::CodeFenceOpen(c, n) => (c, n, if bq_depth == 0 { t.span.column.saturating_sub(1) } else { 0 }),
         _ => (dmc_lexer::token::FenceChar::Backtick, 3, 0),
       },
       None => (dmc_lexer::token::FenceChar::Backtick, 3, 0),
@@ -2538,7 +2547,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     self.advance();
 
     let info = match self.peek() {
-      Some(t) if matches!(t.kind, TokenKind::CodeFenceInfo | TokenKind::Text) => {
+      Some(t) if t.span.line == open_line && matches!(t.kind, TokenKind::CodeFenceInfo | TokenKind::Text) => {
         let raw = t.raw.to_string();
         self.advance();
         raw
@@ -2562,21 +2571,33 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     };
 
     let mut value = String::new();
-    while let Some(t) = self.peek() {
-      match &t.kind {
-        TokenKind::CodeFenceClose(c, m) if *c == fence_char && *m >= fence_n => {
-          self.advance();
-          break;
-        },
-        TokenKind::Eof => break,
-        TokenKind::Text => {
-          value.push_str(t.raw);
-          self.advance();
-        },
-        _ => {
-          value.push_str(t.raw);
-          self.advance();
-        },
+    if bq_depth > 0 {
+      if let Some(t) = self.peek()
+        && matches!(t.kind, TokenKind::CodeFenceContent)
+      {
+        value.push_str(&Self::strip_blockquote_prefix_from_fence_content(t.raw, bq_depth));
+        self.advance();
+      }
+      if matches!(self.peek_kind(), Some(TokenKind::CodeFenceClose(c, m)) if *c == fence_char && *m >= fence_n) {
+        self.advance();
+      }
+    } else {
+      while let Some(t) = self.peek() {
+        match &t.kind {
+          TokenKind::CodeFenceClose(c, m) if *c == fence_char && *m >= fence_n => {
+            self.advance();
+            break;
+          },
+          TokenKind::Eof => break,
+          TokenKind::Text => {
+            value.push_str(t.raw);
+            self.advance();
+          },
+          _ => {
+            value.push_str(t.raw);
+            self.advance();
+          },
+        }
       }
     }
 
@@ -2604,5 +2625,34 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       value = stripped;
     }
     Node::CodeBlock(CodeBlock { lang, meta, value, span })
+  }
+
+  fn strip_blockquote_prefix_from_fence_content(raw: &str, depth: usize) -> String {
+    raw
+      .split_inclusive('\n')
+      .map(|line| {
+        let bytes = line.as_bytes();
+        let mut p = 0usize;
+        let mut leading = 0usize;
+        while p < bytes.len() && bytes[p] == b' ' && leading < 3 {
+          p += 1;
+          leading += 1;
+        }
+        for idx in 0..depth {
+          if p >= bytes.len() || bytes[p] != b'>' {
+            return line.to_string();
+          }
+          p += 1;
+          if idx + 1 < depth {
+            while p < bytes.len() && matches!(bytes[p], b' ' | b'\t') {
+              p += 1;
+            }
+          } else if p < bytes.len() && matches!(bytes[p], b' ' | b'\t') {
+            p += 1;
+          }
+        }
+        line[p..].to_string()
+      })
+      .collect()
   }
 }

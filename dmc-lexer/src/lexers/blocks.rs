@@ -157,6 +157,7 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
     }
     let fb = fence_char as u8;
     let kind = if fence_char == '`' { FenceChar::Backtick } else { FenceChar::Tilde };
+    let bq_depth = self.current_blockquote_depth();
 
     // Count opening fence run (1 already consumed).
     let bytes = self.source.as_bytes();
@@ -216,7 +217,7 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
       self.skip_bytes(1);
     }
 
-    let close_count = self.consume_fenced_content(fb, open_count);
+    let close_count = self.consume_fenced_content(fb, open_count, bq_depth);
     if close_count > 0 {
       self.emit(TokenKind::CodeFenceClose(kind, close_count));
     }
@@ -227,7 +228,7 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
   /// surrounded only by optional whitespace) or EOF. Emits one
   /// `CodeFenceContent` token; returns the closing fence's char count
   /// (0 if EOF reached without a closer).
-  fn consume_fenced_content(&mut self, fb: u8, min_count: usize) -> u8 {
+  fn consume_fenced_content(&mut self, fb: u8, min_count: usize, bq_depth: usize) -> u8 {
     let bytes = self.source.as_bytes();
     let mut i = self.current;
 
@@ -237,9 +238,25 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
         i += 1;
       }
       let line_end = i;
+      let content_start = if bq_depth > 0 {
+        match Self::blockquote_prefix_end(bytes, line_start, line_end, bq_depth) {
+          Some(p) => p,
+          None => {
+            let content_end =
+              if line_start > self.current && bytes[line_start - 1] == b'\n' { line_start - 1 } else { line_start };
+            if content_end > self.current {
+              self.advance_bytes(content_end - self.current);
+              self.emit(TokenKind::CodeFenceContent);
+            }
+            return 0;
+          },
+        }
+      } else {
+        line_start
+      };
 
       // Up to 3 leading spaces allowed on close fence.
-      let mut p = line_start;
+      let mut p = content_start;
       let mut leading = 0;
       while p < line_end && bytes[p] == b' ' && leading < 3 {
         p += 1;
@@ -268,6 +285,9 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
           if self.peek() == Some('\n') {
             self.skip_bytes(1);
           }
+          if content_start > line_start {
+            self.skip_bytes(content_start - line_start);
+          }
           if leading > 0 {
             self.skip_bytes(leading);
           }
@@ -286,5 +306,40 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
       }
       i += 1;
     }
+  }
+
+  fn current_blockquote_depth(&self) -> usize {
+    let mut depth = 0usize;
+    for tok in self.tokens.iter().rev() {
+      match tok.kind {
+        TokenKind::SoftBreak | TokenKind::HardBreak | TokenKind::BlankLine => break,
+        TokenKind::BlockQuoteMarker => depth += 1,
+        _ => {},
+      }
+    }
+    depth
+  }
+
+  fn blockquote_prefix_end(bytes: &[u8], line_start: usize, line_end: usize, depth: usize) -> Option<usize> {
+    let mut p = line_start;
+    let mut leading = 0usize;
+    while p < line_end && bytes[p] == b' ' && leading < 3 {
+      p += 1;
+      leading += 1;
+    }
+    for idx in 0..depth {
+      if p >= line_end || bytes[p] != b'>' {
+        return None;
+      }
+      p += 1;
+      if idx + 1 < depth {
+        while p < line_end && matches!(bytes[p], b' ' | b'\t') {
+          p += 1;
+        }
+      } else if p < line_end && matches!(bytes[p], b' ' | b'\t') {
+        p += 1;
+      }
+    }
+    Some(p)
   }
 }
