@@ -1275,6 +1275,18 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         let code = self.parse_code_block();
         return Node::ListItem(ListItem { children: vec![code], span });
       },
+      Some(TokenKind::Heading(_)) => {
+        let h = self.parse_heading();
+        return Node::ListItem(ListItem { children: vec![h], span });
+      },
+      Some(TokenKind::ThematicBreak) => {
+        let hr_span = self.current_span();
+        self.advance();
+        return Node::ListItem(ListItem {
+          children: vec![Node::HorizontalRule(HorizontalRule { span: hr_span })],
+          span,
+        });
+      },
       _ => {
         self.pos = content_start;
       },
@@ -1980,8 +1992,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       if blanks == 0 {
         break;
       }
-      let next_aligned =
-        matches!(self.peek(), Some(t) if matches!(t.kind, TokenKind::Whitespace(_)) && t.raw.chars().count() >= 4 && t.span.column == 1);
+      let next_aligned = matches!(self.peek(), Some(t) if matches!(t.kind, TokenKind::Whitespace(_)) && t.raw.chars().count() >= 4 && t.span.column == 1);
       if !next_aligned {
         self.pos = saved;
         break;
