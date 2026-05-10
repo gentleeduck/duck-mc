@@ -657,11 +657,8 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
             };
             self.tokens[pos].kind = TokenKind::UnorderedListMarker;
             // Insert a Text token for the content, if any.
-            let text_tok = dmc_lexer::token::Token {
-              kind: TokenKind::Text,
-              raw: content,
-              span: self.tokens[pos].span.clone(),
-            };
+            let text_tok =
+              dmc_lexer::token::Token { kind: TokenKind::Text, raw: content, span: self.tokens[pos].span.clone() };
             self.tokens.insert(pos + 1, text_tok);
             self.advance(); // skip whitespace
             let nested = self.parse_list(false, n);

@@ -240,10 +240,14 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
 
     // Optional title. Can be on the same line (after whitespace) or
     // on the next line (after exactly one newline + optional indent).
+    // CM 4.7 requires whitespace (or newline) between the destination
+    // and the title -- a glued opener like `<bar>(baz)` is not a title.
     let title_search_start = j;
+    let dest_end = j;
     while j < bytes.len() && matches!(bytes[j], b' ' | b'\t') {
       j += 1;
     }
+    let had_ws_after_dest = j > dest_end;
     let cross_newline = if j < bytes.len() && bytes[j] == b'\n' {
       let after_nl = j + 1;
       let mut k = after_nl;
@@ -261,7 +265,7 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
     } else {
       false
     };
-    if j < bytes.len() && matches!(bytes[j], b'"' | b'\'' | b'(') {
+    if j < bytes.len() && matches!(bytes[j], b'"' | b'\'' | b'(') && (had_ws_after_dest || cross_newline) {
       let open = bytes[j];
       let close = if open == b'(' { b')' } else { open };
       let mut p = j + 1;
@@ -297,10 +301,17 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
       // No title on next line; def ends at the prior newline.
       j = title_search_start;
     } else {
-      // Bare destination, eat trailing whitespace on the same line.
-      while j < bytes.len() && bytes[j] != b'\n' {
-        j += 1;
+      // Bare destination -- the rest of the line must be whitespace.
+      // Anything else (a glued non-title char like `(baz)` after `<bar>`)
+      // means the def is invalid and the whole line falls through.
+      let mut p = j;
+      while p < bytes.len() && matches!(bytes[p], b' ' | b'\t') {
+        p += 1;
       }
+      if p < bytes.len() && bytes[p] != b'\n' {
+        return false;
+      }
+      j = p;
     }
 
     // CM 4.7: nothing other than whitespace may appear after the title
