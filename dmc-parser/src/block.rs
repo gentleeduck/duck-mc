@@ -45,6 +45,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       TokenKind::Heading(_) => Some(self.parse_heading()),
       TokenKind::CodeFenceOpen(_, _) => Some(self.parse_code_block()),
       TokenKind::JsxOpenTagStart => Some(self.parse_jsx()),
+      TokenKind::JsxFragmentOpen => Some(self.parse_jsx_fragment()),
       TokenKind::ExpressionStart => Some(self.parse_jsx_expression()),
       TokenKind::MdxCommentOpen => {
         self.skip_md_comment();
@@ -96,8 +97,14 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
   fn parse_list(&mut self, ordered: bool, indent: usize) -> Node {
     let span = self.current_span();
     let mut items: Vec<Node> = Vec::new();
-    let start: Option<u32> =
-      if ordered { self.peek().and_then(|t| t.raw.trim_end_matches('.').parse::<u32>().ok()) } else { None };
+    let start: Option<u32> = if ordered {
+      self.peek().and_then(|t| {
+        let digits: String = t.raw.chars().take_while(|c| c.is_ascii_digit()).collect();
+        digits.parse::<u32>().ok()
+      })
+    } else {
+      None
+    };
 
     let mut first = true;
     loop {
@@ -107,14 +114,15 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       // before the next marker - a marker at a smaller indent belongs to
       // an outer list.
       if !first && indent > 0 {
-        let aligned =
-          matches!(self.peek(), Some(t) if matches!(t.kind, TokenKind::Whitespace(_)) && t.raw.chars().count() == indent);
+        let aligned = matches!(self.peek(), Some(t) if matches!(t.kind, TokenKind::Whitespace(_)) && t.raw.chars().count() == indent);
         if !aligned {
           break;
         }
         let next = self.tokens.get(self.pos + 1);
-        let next_is_marker =
-          matches!(next.map(|t| t.kind.clone()), Some(TokenKind::UnorderedListMarker) | Some(TokenKind::OrderedListMarker(_)));
+        let next_is_marker = matches!(
+          next.map(|t| t.kind.clone()),
+          Some(TokenKind::UnorderedListMarker) | Some(TokenKind::OrderedListMarker(_))
+        );
         if !next_is_marker {
           break;
         }
@@ -126,8 +134,11 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         Some(k) => k,
         None => break,
       };
-      let want_marker =
-        if ordered { matches!(kind, TokenKind::OrderedListMarker(_)) } else { matches!(kind, TokenKind::UnorderedListMarker) };
+      let want_marker = if ordered {
+        matches!(kind, TokenKind::OrderedListMarker(_))
+      } else {
+        matches!(kind, TokenKind::UnorderedListMarker)
+      };
       if !want_marker {
         break;
       }
@@ -464,8 +475,14 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
   /// `>` markers ourselves before reading the next list marker.
   fn parse_list_in_blockquote(&mut self, ordered: bool, bq_depth: usize) -> Node {
     let span = self.current_span();
-    let start: Option<u32> =
-      if ordered { self.peek().and_then(|t| t.raw.trim_end_matches('.').parse::<u32>().ok()) } else { None };
+    let start: Option<u32> = if ordered {
+      self.peek().and_then(|t| {
+        let digits: String = t.raw.chars().take_while(|c| c.is_ascii_digit()).collect();
+        digits.parse::<u32>().ok()
+      })
+    } else {
+      None
+    };
     let mut items: Vec<Node> = Vec::new();
     let mut first = true;
 
@@ -487,8 +504,11 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         Some(k) => k,
         None => break,
       };
-      let want_marker =
-        if ordered { matches!(kind, TokenKind::OrderedListMarker(_)) } else { matches!(kind, TokenKind::UnorderedListMarker) };
+      let want_marker = if ordered {
+        matches!(kind, TokenKind::OrderedListMarker(_))
+      } else {
+        matches!(kind, TokenKind::UnorderedListMarker)
+      };
       if !want_marker {
         break;
       }
@@ -778,7 +798,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     self.advance();
 
     let info = match self.peek() {
-      Some(t) if matches!(t.kind, TokenKind::Text) => {
+      Some(t) if matches!(t.kind, TokenKind::CodeFenceInfo | TokenKind::Text) => {
         let raw = t.raw.to_string();
         self.advance();
         raw

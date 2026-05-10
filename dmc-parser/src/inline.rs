@@ -176,14 +176,8 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
           out.push(Node::Link(Link { href, title, children: inner, span }));
         },
         TokenKind::ImageMarker => {
-          let start = self.pos;
-          self.advance();
-          if !matches!(self.peek_kind(), Some(TokenKind::LinkOpen)) {
-            self.pos = start;
-            out.push(Node::Text(Text { value: "!".into(), span }));
-            self.advance();
-            continue;
-          }
+          // Lexer's `ImageMarker` already covers `![`, so the cursor is on
+          // the alt-text body. Walk to the closing `]` (`LinkClose`).
           self.advance();
           let mut alt = String::new();
           while let Some(tok) = self.peek() {
@@ -221,6 +215,10 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         },
         TokenKind::JsxOpenTagStart => {
           out.push(self.parse_jsx());
+          continue;
+        },
+        TokenKind::JsxFragmentOpen => {
+          out.push(self.parse_jsx_fragment());
           continue;
         },
         TokenKind::ExpressionStart => {

@@ -147,6 +147,33 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     out
   }
 
+  /// JSX fragment `<>...</>`. Cursor at `JsxFragmentOpen`.
+  pub(crate) fn parse_jsx_fragment(&mut self) -> Node {
+    let span = self.current_span();
+    self.advance();
+    let mut children = Vec::new();
+    loop {
+      match self.peek_kind() {
+        Some(TokenKind::JsxFragmentClose) => {
+          self.advance();
+          break;
+        },
+        Some(TokenKind::Eof) | None => break,
+        _ => {
+          let before = self.pos;
+          if let Some(node) = self.parse_block() {
+            children.push(node);
+          }
+          if self.pos == before {
+            self.advance();
+          }
+        },
+      }
+    }
+    let children = unwrap_jsx_only_paragraphs(children);
+    Node::JsxFragment(JsxFragment { children, span })
+  }
+
   /// Standalone `{expr}`. Cursor at `ExpressionStart`.
   pub(crate) fn parse_jsx_expression(&mut self) -> Node {
     let span = self.current_span();
