@@ -328,7 +328,7 @@ Goal: spec-pinned test runners.
   asserts no regression.
 - Touch: new test, `Cargo.toml` dev-dep on `dmc-codegen`. Size: M.
 
-### [ ] F2. Codegen drift fixes
+### [~] F2. Codegen drift fixes
 - First spec run will fail on more than just parser bugs. Triage
   by category (entity escaping, attribute quoting, void elements,
   list-loose handling, etc.) and fix each in a separate commit.
@@ -385,16 +385,17 @@ Goal: spec-pinned test runners.
 
 - Total items: 47.
 - Done: 32.
-- Partial: 6 (B1, B4, B5, C6, C8, E3).
+- Partial: 7 (B1, B4, B5, C6, C8, E3, F2).
 - Phase A (build): 12/12.
 - Phase B (parity): 3/6 done + 3 partial; tests green.
 - Phase C (wire): 11/13 done + 2 partial.
 - Phase D (refs): 4/4 -- ref links + footnotes complete.
-- Phase E (structural): 3/4 (E1 + E2 done; E3 partial -- types 1+6
-  via JSX dispatch, type-7 intentionally skipped for MDX dialect;
-  E4 lazy continuation outstanding).
-- Phase F (validation): 1/4 -- CM spec runner landed at baseline
-  118/652.
+- Phase E (structural): 3/4 (E1 + E2 done; E3 partial; E4 lazy
+  continuation outstanding).
+- Phase F (validation): 1/4 done + F2 partial -- spec runner now
+  passes 294/652 (~45%, up from 118 at landing). Remaining gaps
+  concentrate in HTML-block edge cases, list-item interactions,
+  emphasis flanking rules, and tabs.
 - Phase G (polish): 0/4.
 
 ## Coverage targets (after each phase)
