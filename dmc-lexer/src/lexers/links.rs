@@ -110,6 +110,21 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
     self.advance();
     self.emit(TokenKind::HtmlCommentOpen);
 
+    // CM 4.6 empty-comment forms: `<!-->` and `<!--->`. The dangling
+    // `>` (or `->`) right after the opener acts as both content + close.
+    let b = self.source.as_bytes();
+    if b.get(self.current) == Some(&b'>') {
+      self.advance();
+      self.emit(TokenKind::HtmlCommentClose);
+      return true;
+    }
+    if b.get(self.current) == Some(&b'-') && b.get(self.current + 1) == Some(&b'>') {
+      self.advance();
+      self.advance();
+      self.emit(TokenKind::HtmlCommentClose);
+      return true;
+    }
+
     loop {
       match self.peek() {
         None => {

@@ -660,6 +660,35 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
           // Unresolved reference -- fall back to literal text.
           out.push(Node::Text(Text { value: format!("![{}]", alt), span }));
         },
+        TokenKind::HtmlCommentOpen | TokenKind::HtmlBlockOpen(_) => {
+          let close_kind = match kind {
+            TokenKind::HtmlCommentOpen => TokenKind::HtmlCommentClose,
+            _ => TokenKind::HtmlBlockClose,
+          };
+          let mut value = t.raw.to_string();
+          let html_span = span.clone();
+          self.advance();
+          loop {
+            match self.peek_kind() {
+              Some(k) if std::mem::discriminant(k) == std::mem::discriminant(&close_kind) => {
+                if let Some(t) = self.peek() {
+                  value.push_str(t.raw);
+                }
+                self.advance();
+                break;
+              },
+              Some(TokenKind::Eof) | None => break,
+              _ => {
+                if let Some(t) = self.peek() {
+                  value.push_str(t.raw);
+                }
+                self.advance();
+              },
+            }
+          }
+          out.push(Node::Html(Html { value, span: html_span }));
+          continue;
+        },
         TokenKind::JsxOpenTagStart => {
           out.push(self.parse_jsx());
           continue;
