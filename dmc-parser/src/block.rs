@@ -398,6 +398,69 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
             let sub = self.parse_list(true, child_indent);
             Self::append_to_item(&mut item, sub);
           },
+          Some(_) if child_indent >= content_floor + 4 => {
+            // CM 5.2: a continuation line indented >= content_floor + 4
+            // becomes an indented code block inside the item. Rewind so
+            // parse_indented_code can consume the leading whitespace it
+            // needs, but trim the item-content portion off the leading
+            // run by skipping past `content_floor` cols on each line.
+            self.pos = saved;
+            let extra = child_indent - content_floor;
+            let span = self.current_span();
+            let mut buf = String::new();
+            loop {
+              let aligned = matches!(self.peek(), Some(t) if matches!(t.kind, TokenKind::Whitespace(_)) && t.raw.chars().count() >= content_floor + 4);
+              if !aligned {
+                break;
+              }
+              let ws_len = self.peek().map(|t| t.raw.chars().count()).unwrap_or(0);
+              self.advance(); // whitespace
+              let visible = ws_len.saturating_sub(content_floor + 4);
+              if visible > 0 {
+                buf.push_str(&" ".repeat(visible));
+              }
+              while let Some(t) = self.peek() {
+                match &t.kind {
+                  TokenKind::SoftBreak | TokenKind::HardBreak | TokenKind::BlankLine | TokenKind::Eof => break,
+                  _ => {
+                    buf.push_str(t.raw);
+                    self.advance();
+                  },
+                }
+              }
+              buf.push('\n');
+              let saved2 = self.pos;
+              let mut blanks = 0usize;
+              loop {
+                match self.peek_kind() {
+                  Some(TokenKind::SoftBreak) => {
+                    self.advance();
+                    blanks += 1;
+                    break;
+                  },
+                  Some(TokenKind::BlankLine) => {
+                    self.advance();
+                    blanks += 2;
+                  },
+                  _ => break,
+                }
+              }
+              if blanks == 0 {
+                break;
+              }
+              let next_aligned = matches!(self.peek(), Some(t) if matches!(t.kind, TokenKind::Whitespace(_)) && t.raw.chars().count() >= content_floor + 4);
+              if !next_aligned {
+                self.pos = saved2;
+                break;
+              }
+              for _ in 1..blanks {
+                buf.push('\n');
+              }
+            }
+            let _ = extra;
+            Self::ensure_loose_item(&mut item, &span);
+            Self::append_to_item(&mut item, Node::CodeBlock(CodeBlock { lang: None, meta: None, value: buf, span }));
+          },
           Some(_) => {
             // Loose-list paragraph continuation. Wrap the item's existing
             // inline body as a `Paragraph` (so CommonMark-style loose
@@ -486,6 +549,68 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         if let Some(n) = leading
           && n >= content_indent
         {
+          // CM 5.2: continuation indented >= content_indent + 4 is an
+          // indented code block inside the item.
+          if n >= content_indent + 4 {
+            let span_code = self.current_span();
+            let mut buf = String::new();
+            loop {
+              let aligned = matches!(self.peek(), Some(t) if matches!(t.kind, TokenKind::Whitespace(_)) && t.raw.chars().count() >= content_indent + 4);
+              if !aligned {
+                break;
+              }
+              let ws_len = self.peek().map(|t| t.raw.chars().count()).unwrap_or(0);
+              self.advance();
+              let visible = ws_len.saturating_sub(content_indent + 4);
+              if visible > 0 {
+                buf.push_str(&" ".repeat(visible));
+              }
+              while let Some(t) = self.peek() {
+                match &t.kind {
+                  TokenKind::SoftBreak | TokenKind::HardBreak | TokenKind::BlankLine | TokenKind::Eof => break,
+                  _ => {
+                    buf.push_str(t.raw);
+                    self.advance();
+                  },
+                }
+              }
+              buf.push('\n');
+              let saved2 = self.pos;
+              let mut blanks = 0usize;
+              loop {
+                match self.peek_kind() {
+                  Some(TokenKind::SoftBreak) => {
+                    self.advance();
+                    blanks += 1;
+                    break;
+                  },
+                  Some(TokenKind::BlankLine) => {
+                    self.advance();
+                    blanks += 2;
+                  },
+                  _ => break,
+                }
+              }
+              if blanks == 0 {
+                break;
+              }
+              let next_aligned = matches!(self.peek(), Some(t) if matches!(t.kind, TokenKind::Whitespace(_)) && t.raw.chars().count() >= content_indent + 4);
+              if !next_aligned {
+                self.pos = saved2;
+                break;
+              }
+              for _ in 1..blanks {
+                buf.push('\n');
+              }
+            }
+            if !buf.is_empty()
+              && let Some(last) = items.last_mut()
+            {
+              Self::ensure_loose_item(last, &span);
+              Self::append_to_item(last, Node::CodeBlock(CodeBlock { lang: None, meta: None, value: buf, span: span_code }));
+            }
+            continue;
+          }
           self.advance(); // skip whitespace
           let para_span = self.current_span();
           let inline = self.collect_inline_until_break();
