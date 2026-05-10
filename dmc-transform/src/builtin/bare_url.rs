@@ -36,7 +36,11 @@ impl Apply {
     for n in nodes {
       if let Node::Text(t) = &n {
         let pieces = Self::split_by_url(&t.value);
-        if pieces.len() == 1 {
+        // No URL found if every piece is a Text (just the original
+        // string round-tripping). Otherwise rewrite into the
+        // text+link mix.
+        let any_url = pieces.iter().any(|p| matches!(p, Piece::Url(_)));
+        if !any_url {
           out.push(n.clone());
           continue;
         }

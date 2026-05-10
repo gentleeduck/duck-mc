@@ -55,8 +55,40 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
   /// (preceded by `  ` or trailing `\`), or `SoftBreak` (single `\n`).
   pub(crate) fn lex_newline(&mut self) {
     let nl_start = self.start;
-    self.skip_while_byte(b'\n');
-    let count = self.current - self.start;
+    // Absorb additional CRLF / LF / CR runs so the count reflects
+    // *line breaks*, not bytes (CRLF is one line break, not two).
+    loop {
+      let b = self.source.as_bytes().get(self.current).copied();
+      match b {
+        Some(b'\n') => {
+          self.advance();
+        },
+        Some(b'\r') => {
+          self.advance();
+        },
+        _ => break,
+      }
+    }
+    let bytes = self.source.as_bytes();
+    let mut count = 0usize;
+    let mut i = nl_start;
+    while i < self.current {
+      match bytes[i] {
+        b'\r' => {
+          count += 1;
+          if i + 1 < self.current && bytes[i + 1] == b'\n' {
+            i += 2;
+          } else {
+            i += 1;
+          }
+        },
+        b'\n' => {
+          count += 1;
+          i += 1;
+        },
+        _ => i += 1,
+      }
+    }
     if count >= 2 {
       self.emit(TokenKind::BlankLine);
       return;
