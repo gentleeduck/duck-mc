@@ -750,9 +750,11 @@ dependencies = [
 name = "dmc-parser"
 version = "0.2.1"
 dependencies = [
+ "dmc-codegen",
  "dmc-diagnostic",
  "dmc-lexer",
  "duck-diagnostic",
+ "htmlentity",
  "pretty_assertions",
  "serde",
  "serde_json",
@@ -1113,6 +1115,17 @@ name = "hermit-abi"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fc0fef456e4baa96da950455cd02c081ca953b141298e41db3fc7e36b1da849c"
+
+[[package]]
+name = "htmlentity"
+version = "1.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dd54ae4f69adcc1a43637dcff230852832c3ad50df31a90e0cb5f001dd441359"
+dependencies = [
+ "anyhow",
+ "lazy_static",
+ "thiserror 1.0.69",
+]
 
 [[package]]
 name = "id-arena"

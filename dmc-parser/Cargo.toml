@@ -19,6 +19,7 @@ duck-diagnostic.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 slug.workspace = true
+htmlentity = "1.3"
 
 [dev-dependencies]
 pretty_assertions.workspace = true

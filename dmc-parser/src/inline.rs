@@ -19,49 +19,64 @@ fn plain_text(nodes: &[Node]) -> String {
   s
 }
 
+/// Decode every `&...;` reference inside a string and return the
+/// resolved version. Numeric refs always succeed; named refs hit the
+/// HTML5 table via `htmlentity`. Unknown / malformed refs survive
+/// verbatim so nothing is lost.
+pub(crate) fn decode_entities_in(s: &str) -> String {
+  if !s.contains('&') {
+    return s.to_string();
+  }
+  let bytes = s.as_bytes();
+  let mut out = String::with_capacity(s.len());
+  let mut i = 0;
+  while i < bytes.len() {
+    if bytes[i] == b'&' {
+      // Find the next `;` within a reasonable window (CM caps named
+      // entities at 32 chars; numeric at ~10).
+      let mut j = i + 1;
+      let cap = (i + 33).min(bytes.len());
+      while j < cap && bytes[j] != b';' {
+        j += 1;
+      }
+      if j < cap && bytes[j] == b';' {
+        let raw = &s[i..=j];
+        if let Some(decoded) = decode_entity(raw) {
+          out.push_str(&decoded);
+          i = j + 1;
+          continue;
+        }
+      }
+    }
+    out.push(bytes[i] as char);
+    i += 1;
+  }
+  out
+}
+
 /// Decode a CommonMark entity reference (`&amp;`, `&#9;`, `&#x2A;`).
-/// Returns `None` when the form is malformed or the named entity is not in
-/// the small subset table; the caller falls back to the raw lexeme so
-/// rendering stays lossless.
+/// Returns `None` when the form is malformed or the named entity is
+/// not recognized; the caller falls back to the raw lexeme so the
+/// output stays lossless.
 fn decode_entity(raw: &str) -> Option<String> {
-  let inner = raw.strip_prefix('&')?.strip_suffix(';')?;
-  if let Some(rest) = inner.strip_prefix('#') {
+  // Numeric forms: handle ourselves so we can fold NUL -> U+FFFD per
+  // CM 6.6.
+  if let Some(inner) = raw.strip_prefix('&').and_then(|s| s.strip_suffix(';'))
+    && let Some(rest) = inner.strip_prefix('#')
+  {
     let cp: u32 = if let Some(hex) = rest.strip_prefix(['x', 'X']) {
       u32::from_str_radix(hex, 16).ok()?
     } else {
       rest.parse().ok()?
     };
-    // CM 6.6: NUL becomes U+FFFD.
     let cp = if cp == 0 { 0xFFFD } else { cp };
     return char::from_u32(cp).map(|c| c.to_string());
   }
-  // Small subset of HTML5 named entities — covers the common cases the
-  // CommonMark spec exercises (the full table is ~2000 entries; codegen
-  // can swap in a generated lookup later).
-  let s = match inner {
-    "amp" => "&",
-    "lt" => "<",
-    "gt" => ">",
-    "quot" => "\"",
-    "apos" => "'",
-    "nbsp" => "\u{00A0}",
-    "copy" => "\u{00A9}",
-    "reg" => "\u{00AE}",
-    "trade" => "\u{2122}",
-    "hellip" => "\u{2026}",
-    "mdash" => "\u{2014}",
-    "ndash" => "\u{2013}",
-    "lsquo" => "\u{2018}",
-    "rsquo" => "\u{2019}",
-    "ldquo" => "\u{201C}",
-    "rdquo" => "\u{201D}",
-    "laquo" => "\u{00AB}",
-    "raquo" => "\u{00BB}",
-    "middot" => "\u{00B7}",
-    "bull" => "\u{2022}",
-    _ => return None,
-  };
-  Some(s.to_string())
+  // Named forms via the full HTML5 entity table.
+  use htmlentity::entity::{ICodedDataTrait, decode};
+  let decoded = decode(raw.as_bytes());
+  let s: String = decoded.to_string().ok()?;
+  if s == raw { None } else { Some(s) }
 }
 
 fn utf8_char_len(b: u8) -> usize {
@@ -256,8 +271,8 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
                 }
               }
               let (href, title) = Self::split_destination_title(&paren_body);
-              let href = Self::unescape_markdown(&href);
-              let title = title.map(|t| Self::unescape_markdown(&t));
+              let href = decode_entities_in(&Self::unescape_markdown(&href));
+              let title = title.map(|t| decode_entities_in(&Self::unescape_markdown(&t)));
               out.push(Node::Link(Link { href, title, children: inner, span }));
             },
             Some(TokenKind::LinkOpen) => {

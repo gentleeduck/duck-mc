@@ -53,10 +53,11 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       if matches!(tok.kind, TokenKind::LinkRefDef)
         && let Some((label, url, title)) = parse_link_ref_def(tok.raw)
       {
-        // Unescape backslash sequences in url + title per CM 4.7 so
-        // `\*` in a definition becomes `*` at render time.
-        let url = unescape_link_part(&url);
-        let title = title.map(|t| unescape_link_part(&t));
+        // Unescape `\X` then decode `&...;` entity references in url +
+        // title per CM 4.7 + 6.6 so the rendered link uses the
+        // canonical destination text.
+        let url = crate::inline::decode_entities_in(&unescape_link_part(&url));
+        let title = title.map(|t| crate::inline::decode_entities_in(&unescape_link_part(&t)));
         self.refs.insert(&label, url, title);
       }
     }
@@ -129,7 +130,8 @@ fn unescape_link_part(s: &str) -> String {
       let nx = bytes[i + 1];
       if matches!(
         nx,
-        b'!' | b'"'
+        b'!'
+          | b'"'
           | b'#'
           | b'$'
           | b'%'
