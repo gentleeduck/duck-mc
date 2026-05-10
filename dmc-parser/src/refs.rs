@@ -83,9 +83,7 @@ pub fn normalize_label(s: &str) -> String {
         )
       {
         chars.next();
-        for low in nx.to_lowercase() {
-          out.push(low);
-        }
+        push_case_folded(&mut out, nx);
         prev_ws = false;
         continue;
       }
@@ -96,9 +94,7 @@ pub fn normalize_label(s: &str) -> String {
         prev_ws = true;
       }
     } else {
-      for low in c.to_lowercase() {
-        out.push(low);
-      }
+      push_case_folded(&mut out, c);
       prev_ws = false;
     }
   }
@@ -106,6 +102,21 @@ pub fn normalize_label(s: &str) -> String {
     out.pop();
   }
   out
+}
+
+/// CM 4.7 / 6.3: link reference labels are matched after Unicode
+/// case folding. `to_lowercase` matches that for most code points, but
+/// `ß` (U+00DF) folds to `ss` and capital `ẞ` (U+1E9E) lowercases to
+/// `ß` -- so a `[ẞ]` reference fails to match a `[SS]:` definition
+/// unless we explicitly fold `ß` → `ss` here.
+fn push_case_folded(out: &mut String, c: char) {
+  for low in c.to_lowercase() {
+    if low == '\u{00DF}' {
+      out.push_str("ss");
+    } else {
+      out.push(low);
+    }
+  }
 }
 
 /// Parse the raw lexeme of a `LinkRefDef` token into
