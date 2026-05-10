@@ -157,6 +157,60 @@ fn strip_inline_markers(s: &str) -> String {
   s.chars().filter(|c| !matches!(c, '*' | '_' | '`')).collect()
 }
 
+/// Flatten an inline node into a label string that preserves emphasis
+/// markers and link / image bracketing -- used to reconstruct the
+/// label string for ref-def lookup.
+fn push_node_label(out: &mut String, node: &Node) {
+  match node {
+    Node::Text(t) => out.push_str(&t.value),
+    Node::Bold(i) => {
+      out.push_str("**");
+      for c in &i.children {
+        push_node_label(out, c);
+      }
+      out.push_str("**");
+    },
+    Node::Italic(i) => {
+      out.push('*');
+      for c in &i.children {
+        push_node_label(out, c);
+      }
+      out.push('*');
+    },
+    Node::Strikethrough(i) => {
+      out.push_str("~~");
+      for c in &i.children {
+        push_node_label(out, c);
+      }
+      out.push_str("~~");
+    },
+    Node::Link(l) => {
+      out.push('[');
+      for c in &l.children {
+        push_node_label(out, c);
+      }
+      out.push(']');
+      out.push('(');
+      out.push_str(&l.href);
+      out.push(')');
+    },
+    Node::Image(img) => {
+      out.push_str("![");
+      out.push_str(&img.alt);
+      out.push(']');
+      out.push('(');
+      out.push_str(&img.src);
+      out.push(')');
+    },
+    Node::InlineCode(c) => {
+      out.push('`');
+      out.push_str(&c.value);
+      out.push('`');
+    },
+    _ => {},
+  }
+}
+
 /// Flatten an inline node list to plain text. Used to build the lookup
 /// label for shortcut / collapsed / full reference links from the
 /// already-parsed inner content.
@@ -167,6 +221,7 @@ fn plain_text(nodes: &[Node]) -> String {
       Node::Text(t) => s.push_str(&t.value),
       Node::Bold(i) | Node::Italic(i) | Node::Strikethrough(i) => s.push_str(&plain_text(&i.children)),
       Node::Link(l) => s.push_str(&plain_text(&l.children)),
+      Node::Image(img) => s.push_str(&img.alt),
       Node::InlineCode(c) => s.push_str(&c.value),
       _ => {},
     }
@@ -669,25 +724,27 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
           // Lexer's `ImageMarker` already covers `![`, so the cursor is on
           // the alt-text body. Walk to the closing `]` (`LinkClose`).
           self.advance();
-          let mut alt = String::new();
-          while let Some(tok) = self.peek() {
-            match &tok.kind {
-              TokenKind::LinkClose => {
-                self.advance();
-                break;
-              },
-              TokenKind::Eof | TokenKind::BlankLine | TokenKind::SoftBreak => break,
-              _ => {
-                alt.push_str(tok.raw);
-                self.advance();
-              },
+          // CM 6.4: image alt is parsed as an inline run -- nested
+          // `[link]` and `![image]` are recursively flattened, and the
+          // rendered alt is plain text (no markup). Parse the body
+          // then derive both a raw label (for ref lookups) and a
+          // plain-text alt.
+          let alt_inner = self.collect_inline(&|k| {
+            matches!(k, TokenKind::LinkClose | TokenKind::BlankLine | TokenKind::SoftBreak | TokenKind::Eof)
+          });
+          let mut alt_raw = String::new();
+          {
+            // Rebuild raw label by walking the original token range. We
+            // reuse the cursor; for simplicity, just stringify the inner
+            // tree. This is fine for ref-def lookup as labels normalize.
+            for n in &alt_inner {
+              push_node_label(&mut alt_raw, n);
             }
           }
-          // Keep the raw alt for ref-def lookup (label preserves
-          // emphasis markers); the rendered alt drops them to match
-          // CM's plain-text alt-attribute output.
-          let alt_raw = alt.clone();
-          let alt = strip_inline_markers(&alt);
+          if matches!(self.peek_kind(), Some(TokenKind::LinkClose)) {
+            self.advance();
+          }
+          let alt = plain_text(&alt_inner);
           // Inline form: `(...)` follows.
           if matches!(self.peek_kind(), Some(TokenKind::LinkTargetOpen)) {
             self.advance();
