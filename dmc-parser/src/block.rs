@@ -103,6 +103,21 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       return Some(self.parse_indented_code());
     }
 
+    // CM 4.8: a `Whitespace + SoftBreak | BlankLine | Eof` pair at col 0
+    // is a blank-with-whitespace line. It produces no block; advance
+    // and yield None so it acts like a normal blank line.
+    if matches!(self.peek_kind(), Some(TokenKind::Whitespace(_)))
+      && self.peek().is_some_and(|t| t.span.column == 1)
+      && matches!(
+        self.tokens.get(self.pos + 1).map(|t| &t.kind),
+        Some(TokenKind::SoftBreak) | Some(TokenKind::HardBreak) | Some(TokenKind::BlankLine) | Some(TokenKind::Eof) | None
+      )
+    {
+      self.advance();
+      self.advance();
+      return None;
+    }
+
     // Fallback indented code: lexer didn't classify (because the prev
     // token was inline content, eg a bq paragraph) but at top-level
     // dispatch we know we're between blocks. Whitespace(>=4) followed

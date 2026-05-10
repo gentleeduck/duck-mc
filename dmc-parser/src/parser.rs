@@ -59,9 +59,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     for tok in &self.tokens {
       match &tok.kind {
         TokenKind::LinkRefDef => {
-          if !in_paragraph
-            && let Some((label, url, title)) = parse_link_ref_def(tok.raw)
-          {
+          if !in_paragraph && let Some((label, url, title)) = parse_link_ref_def(tok.raw) {
             let url = crate::inline::decode_entities_in(&unescape_link_part(&url));
             let title = title.map(|t| crate::inline::decode_entities_in(&unescape_link_part(&t)));
             self.refs.insert(&label, url, title);
