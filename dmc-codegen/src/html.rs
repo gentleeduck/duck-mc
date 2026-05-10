@@ -222,10 +222,10 @@ impl HtmlEmitter {
     if let Some(title) = &i.title {
       self.out.push_str(&format!(" title=\"{}\"", escape_attr(title)));
     }
-    // HTML5 closes void elements implicitly; remark/rehype don't write the
-    // XHTML self-closing slash. Match that to keep diffs against velite
-    // output minimal.
-    self.out.push('>');
+    // CM reference output uses the XHTML self-closing slash on `<img>`
+    // (matches `<hr />` / `<br />` style). Browsers treat both forms
+    // identically.
+    self.out.push_str(" />");
   }
 
   fn jsx_self_closing(&mut self, s: &JsxSelfClosing) {
