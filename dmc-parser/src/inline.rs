@@ -50,15 +50,7 @@ fn resolve_emphasis_delims(out: &mut Vec<Node>, delims: &mut [DelimRecord]) {
     if let Some(open_idx) = j {
       let open_run = delims[open_idx].run;
       let close_run = delims[i].run;
-      // Pair only when both delim runs are fully consumed in one
-      // step. Mismatched lengths fall back to no-pair so we don't
-      // have to track partial-run placeholders. This loses CM
-      // mixed-run cases but keeps the algorithm tractable.
-      if open_run != close_run {
-        i += 1;
-        continue;
-      }
-      let use_n: u8 = if open_run >= 2 { 2 } else { 1 };
+      let use_n: u8 = if open_run >= 2 && close_run >= 2 { 2 } else { 1 };
       let open_out_idx = delims[open_idx].out_idx;
       let close_out_idx = delims[i].out_idx;
       let span = delims[open_idx].span.clone();
@@ -68,26 +60,58 @@ fn resolve_emphasis_delims(out: &mut Vec<Node>, delims: &mut [DelimRecord]) {
       let node = if use_n == 1 {
         Node::Italic(Inline { children: inner, span })
       } else {
-        // Run length 3 = strong+em combined.
-        if open_run == 3 {
-          let strong = Node::Bold(Inline { children: inner, span: span.clone() });
-          Node::Italic(Inline { children: vec![strong], span })
-        } else {
-          Node::Bold(Inline { children: inner, span })
-        }
+        Node::Bold(Inline { children: inner, span })
       };
       out[open_out_idx] = node;
-      out.remove(lo); // drop closer placeholder
-      let removed = (hi - lo) + 1;
-      // Mark both delim records consumed.
-      delims[open_idx].run = 0;
-      delims[i].run = 0;
-      delims[open_idx].can_open = false;
-      delims[i].can_close = false;
+      // Reduce both delim runs; keep placeholders for remaining
+      // chars by truncating raw, otherwise drop.
+      delims[open_idx].run -= use_n;
+      delims[i].run -= use_n;
+      let close_consumed = delims[i].run == 0;
+      let open_consumed = delims[open_idx].run == 0;
+      if close_consumed {
+        out.remove(lo);
+      } else {
+        // Shrink closer placeholder text to remaining run length.
+        let remaining = delims[i].run as usize;
+        let truncated_raw = match delims[i].c {
+          EmphasisChar::Asterisk => "*".repeat(remaining),
+          EmphasisChar::Underscore => "_".repeat(remaining),
+        };
+        if let Some(Node::Text(t)) = out.get_mut(lo) {
+          t.value = truncated_raw;
+        }
+      }
+      if open_consumed {
+        delims[open_idx].can_open = false;
+      } else {
+        // Truncate opener placeholder. (It now lives at open_out_idx
+        // again -- but we replaced it with `node`. Need to insert a
+        // new placeholder before the node.)
+        let remaining = delims[open_idx].run as usize;
+        let truncated_raw = match delims[open_idx].c {
+          EmphasisChar::Asterisk => "*".repeat(remaining),
+          EmphasisChar::Underscore => "_".repeat(remaining),
+        };
+        out.insert(
+          open_out_idx,
+          Node::Text(Text { value: truncated_raw, span: delims[open_idx].span.clone() }),
+        );
+      }
+      // Net removed slots = (drained inner) + (closer or 0) - (opener insert or 0).
+      let inserted = if open_consumed { 0i64 } else { 1 };
+      let removed_closer = if close_consumed { 1i64 } else { 0 };
+      let removed_total = (hi as i64 - lo as i64) + removed_closer - inserted;
       for d in delims.iter_mut() {
         if d.out_idx > open_out_idx {
-          d.out_idx = d.out_idx.saturating_sub(removed);
+          d.out_idx = (d.out_idx as i64 - removed_total).max(0) as usize;
         }
+      }
+      // If opener still has runs left, the next closer may pair with
+      // it (don't disable can_open). If closer still has runs, retry
+      // pairing at i.
+      if !close_consumed {
+        continue;
       }
       i += 1;
       continue;
@@ -307,11 +331,8 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
           };
           let next_punct = next_tok.is_some_and(|t| t.raw.chars().next().is_some_and(is_unicode_punct));
           let next_alnum = next_tok.is_some_and(|t| t.raw.chars().next().is_some_and(|c| c.is_alphanumeric()));
-          let prev_char: Option<char> = self
-            .pos
-            .checked_sub(1)
-            .and_then(|i| self.tokens.get(i))
-            .and_then(|t| t.raw.chars().last());
+          let prev_char: Option<char> =
+            self.pos.checked_sub(1).and_then(|i| self.tokens.get(i)).and_then(|t| t.raw.chars().last());
           let prev_ws = prev_char.map(|c| c.is_whitespace()).unwrap_or(true);
           let prev_punct = prev_char.is_some_and(is_unicode_punct);
           let prev_alnum = prev_char.is_some_and(|c| c.is_alphanumeric());
