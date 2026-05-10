@@ -53,6 +53,10 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       if matches!(tok.kind, TokenKind::LinkRefDef)
         && let Some((label, url, title)) = parse_link_ref_def(tok.raw)
       {
+        // Unescape backslash sequences in url + title per CM 4.7 so
+        // `\*` in a definition becomes `*` at render time.
+        let url = unescape_link_part(&url);
+        let title = title.map(|t| unescape_link_part(&t));
         self.refs.insert(&label, url, title);
       }
     }
@@ -109,6 +113,63 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
   pub(crate) fn is_eof(&self) -> bool {
     matches!(self.peek_kind(), Some(TokenKind::Eof) | None)
   }
+}
+
+/// CM-escape decoder for link destinations and titles harvested from
+/// `LinkRefDef` tokens. Mirrors the inline path's `unescape_markdown`.
+fn unescape_link_part(s: &str) -> String {
+  if !s.contains('\\') {
+    return s.to_string();
+  }
+  let mut out = String::with_capacity(s.len());
+  let bytes = s.as_bytes();
+  let mut i = 0;
+  while i < bytes.len() {
+    if bytes[i] == b'\\' && i + 1 < bytes.len() {
+      let nx = bytes[i + 1];
+      if matches!(
+        nx,
+        b'!' | b'"'
+          | b'#'
+          | b'$'
+          | b'%'
+          | b'&'
+          | b'\''
+          | b'('
+          | b')'
+          | b'*'
+          | b'+'
+          | b','
+          | b'-'
+          | b'.'
+          | b'/'
+          | b':'
+          | b';'
+          | b'<'
+          | b'='
+          | b'>'
+          | b'?'
+          | b'@'
+          | b'['
+          | b'\\'
+          | b']'
+          | b'^'
+          | b'_'
+          | b'`'
+          | b'{'
+          | b'|'
+          | b'}'
+          | b'~'
+      ) {
+        out.push(nx as char);
+        i += 2;
+        continue;
+      }
+    }
+    out.push(bytes[i] as char);
+    i += 1;
+  }
+  out
 }
 
 /// Lex + parse `source` in one shot, dropping all diagnostics. Convenience for

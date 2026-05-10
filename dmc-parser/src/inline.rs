@@ -256,6 +256,8 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
                 }
               }
               let (href, title) = Self::split_destination_title(&paren_body);
+              let href = Self::unescape_markdown(&href);
+              let title = title.map(|t| Self::unescape_markdown(&t));
               out.push(Node::Link(Link { href, title, children: inner, span }));
             },
             Some(TokenKind::LinkOpen) => {
@@ -381,6 +383,10 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         TokenKind::ExpressionStart => {
           out.push(self.parse_jsx_expression());
           continue;
+        },
+        TokenKind::HardBreak => {
+          self.advance();
+          out.push(Node::HardBreak(BreakNode { span }));
         },
         TokenKind::FootnoteRefOpen => {
           // Lexer emits a single token covering `[^id]`; pull the id out.

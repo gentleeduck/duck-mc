@@ -145,11 +145,12 @@ impl HtmlEmitter {
       },
       Node::Link(l) => {
         self.out.push_str(&format!("<a href=\"{}\"", escape_attr(&l.href)));
-        // The autolink-headings transformer surfaces its tooltip via the
-        // `aria_label` field. Emit it as `aria-label`, not `title`, so the
-        // attribute matches what rehype-autolink-headings would emit.
-        if let Some(label) = &l.title {
-          self.out.push_str(&format!(" aria-label=\"{}\"", escape_attr(label)));
+        // CM 6.3 / 4.7: link title becomes the `title` attribute on
+        // the anchor. (The autolink-headings transformer's tooltip
+        // currently borrows the same field; if it ever needs distinct
+        // semantics, route through a separate AST field.)
+        if let Some(title) = &l.title {
+          self.out.push_str(&format!(" title=\"{}\"", escape_attr(title)));
         }
         self.out.push('>');
       },
