@@ -1086,13 +1086,22 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         break;
       }
       // A block-starter token following the soft break also closes the
-      // paragraph — heading, list item, blockquote, code fence, JSX
+      // paragraph -- heading, list item, blockquote, code fence, JSX
       // root, frontmatter, etc.
+      // CM 5.2: an ordered list with start != 1 cannot interrupt a
+      // paragraph, so check the marker's start digit before treating
+      // it as a block boundary.
+      let next_is_ol_interrupting = match self.peek() {
+        Some(t) if matches!(t.kind, TokenKind::OrderedListMarker(_)) => {
+          let digits: String = t.raw.chars().take_while(|c| c.is_ascii_digit()).collect();
+          digits.parse::<u32>().map(|n| n == 1).unwrap_or(false)
+        },
+        _ => false,
+      };
       let next_is_block = matches!(
         self.peek_kind(),
         Some(TokenKind::Heading(_))
           | Some(TokenKind::UnorderedListMarker)
-          | Some(TokenKind::OrderedListMarker(_))
           | Some(TokenKind::BlockQuoteMarker)
           | Some(TokenKind::CodeFenceOpen(_, _))
           | Some(TokenKind::ThematicBreak)
@@ -1100,7 +1109,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
           | Some(TokenKind::FrontmatterStart(_))
           | Some(TokenKind::Import)
           | Some(TokenKind::Export)
-      );
+      ) || next_is_ol_interrupting;
       if next_is_block {
         self.pos = saved;
         break;
