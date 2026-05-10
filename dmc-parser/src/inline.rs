@@ -1,6 +1,6 @@
 use crate::ast::*;
 use crate::parser::Parser;
-use dmc_lexer::token::TokenKind;
+use dmc_lexer::token::{EmphasisChar, TokenKind};
 
 fn utf8_char_len(b: u8) -> usize {
   if b < 0x80 {
@@ -20,11 +20,11 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     self.collect_inline(&|kind| {
       matches!(
         kind,
-        TokenKind::HardBreak
+        TokenKind::BlankLine
           | TokenKind::SoftBreak
           | TokenKind::Eof
           | TokenKind::Heading(_)
-          | TokenKind::FrontmatterStart
+          | TokenKind::FrontmatterStart(_)
           | TokenKind::Import
           | TokenKind::Export
           | TokenKind::JsxCloseTagStart
@@ -36,7 +36,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
   /// `collect_inline_until_break`, but skips the single leading
   /// `Whitespace` token that follows the marker (`- foo` vs `-foo`).
   pub(crate) fn collect_inline_for_list_item(&mut self) -> Vec<Node> {
-    if matches!(self.peek_kind(), Some(TokenKind::Whitespace)) {
+    if matches!(self.peek_kind(), Some(TokenKind::Whitespace(_))) {
       self.advance();
     }
     self.collect_inline_until_break()
@@ -59,7 +59,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
           self.advance();
           out.push(Node::Text(Text { value: raw, span }));
         },
-        TokenKind::Autolink => {
+        TokenKind::Autolink(_) => {
           let raw = t.raw.to_string();
           self.advance();
           let inner = raw.trim_start_matches('<').trim_end_matches('>').to_string();
@@ -77,55 +77,47 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
             span,
           }));
         },
-        TokenKind::Whitespace => {
+        TokenKind::Whitespace(_) => {
           let raw = t.raw.to_string();
           self.advance();
           out.push(Node::Text(Text { value: raw, span }));
         },
-        TokenKind::Bold(n) => {
+        TokenKind::Emphasis(c, n) => {
+          let open_c: EmphasisChar = *c;
           let open_n = *n;
           self.advance();
-          let inner =
-            self.collect_inline(&|k| Self::is_top_level_break(k) || matches!(k, TokenKind::Bold(m) if *m == open_n));
-          if matches!(self.peek_kind(), Some(TokenKind::Bold(m)) if *m == open_n) {
+          let inner = self.collect_inline(&|k| {
+            Self::is_top_level_break(k) || matches!(k, TokenKind::Emphasis(cc, m) if *cc == open_c && *m == open_n)
+          });
+          if matches!(self.peek_kind(), Some(TokenKind::Emphasis(cc, m)) if *cc == open_c && *m == open_n) {
             self.advance();
           }
-          // `***x***` (Bold(3)) means strong+em combined per CommonMark:
-          // wrap as <em><strong>x</strong></em>.
-          if open_n == 3 {
-            let strong = Node::Bold(Inline { children: inner, span: span.clone() });
-            out.push(Node::Italic(Inline { children: vec![strong], span }));
-          } else {
-            out.push(Node::Bold(Inline { children: inner, span }));
+          // Run-length 1 = italic, 2 = bold, 3 = strong+em combined per
+          // CommonMark: <em><strong>x</strong></em>.
+          match open_n {
+            1 => out.push(Node::Italic(Inline { children: inner, span })),
+            2 => out.push(Node::Bold(Inline { children: inner, span })),
+            _ => {
+              let strong = Node::Bold(Inline { children: inner, span: span.clone() });
+              out.push(Node::Italic(Inline { children: vec![strong], span }));
+            },
           }
         },
-        TokenKind::Italic(n) => {
-          let open_n = *n;
+        TokenKind::Strikethrough => {
           self.advance();
-          let inner =
-            self.collect_inline(&|k| Self::is_top_level_break(k) || matches!(k, TokenKind::Italic(m) if *m == open_n));
-          if matches!(self.peek_kind(), Some(TokenKind::Italic(m)) if *m == open_n) {
-            self.advance();
-          }
-          out.push(Node::Italic(Inline { children: inner, span }));
-        },
-        TokenKind::Strike(n) => {
-          let open_n = *n;
-          self.advance();
-          let inner =
-            self.collect_inline(&|k| Self::is_top_level_break(k) || matches!(k, TokenKind::Strike(m) if *m == open_n));
-          if matches!(self.peek_kind(), Some(TokenKind::Strike(m)) if *m == open_n) {
+          let inner = self.collect_inline(&|k| Self::is_top_level_break(k) || matches!(k, TokenKind::Strikethrough));
+          if matches!(self.peek_kind(), Some(TokenKind::Strikethrough)) {
             self.advance();
           }
           out.push(Node::Strikethrough(Inline { children: inner, span }));
         },
-        TokenKind::CodeStart(n) => {
+        TokenKind::CodeInlineOpen(n) => {
           let open_n = *n;
           self.advance();
           let mut value = String::new();
           while let Some(tok) = self.peek() {
             match &tok.kind {
-              TokenKind::CodeEnd(m) if *m == open_n => {
+              TokenKind::CodeInlineClose(m) if *m == open_n => {
                 self.advance();
                 break;
               },
@@ -138,13 +130,13 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
           }
           out.push(Node::InlineCode(InlineCode { value, span }));
         },
-        TokenKind::Bracket => {
+        TokenKind::LinkOpen => {
           let start = self.pos;
           self.advance();
           let inner = self.collect_inline(&|k| {
-            matches!(k, TokenKind::Bracket | TokenKind::HardBreak | TokenKind::SoftBreak | TokenKind::Eof)
+            matches!(k, TokenKind::LinkClose | TokenKind::BlankLine | TokenKind::SoftBreak | TokenKind::Eof)
           });
-          if !matches!(self.peek_kind(), Some(TokenKind::Bracket)) {
+          if !matches!(self.peek_kind(), Some(TokenKind::LinkClose)) {
             self.pos = start;
             out.push(Node::Text(Text { value: "[".into(), span }));
             self.advance();
@@ -153,11 +145,11 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
           self.advance(); // consume the closing `]`
           // CommonMark / GFM: `[label]` is only a link when followed by
           // `(destination)` (inline link) or `[reference]` (reference
-          // link). A bare `[label]` is plain text — without this guard
+          // link). A bare `[label]` is plain text -- without this guard
           // `string[]` inside a code-adjacent run gets coerced into an
           // empty `<a href="">` because the parser unconditionally
           // emitted a Link node when no `(` followed.
-          if !matches!(self.peek_kind(), Some(TokenKind::ParenOpen)) {
+          if !matches!(self.peek_kind(), Some(TokenKind::LinkTargetOpen)) {
             out.push(Node::Text(Text { value: "[".into(), span: span.clone() }));
             for n in inner {
               out.push(n);
@@ -169,7 +161,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
           let mut paren_body = String::new();
           while let Some(tok) = self.peek() {
             match &tok.kind {
-              TokenKind::ParenClose => {
+              TokenKind::LinkTargetClose => {
                 self.advance();
                 break;
               },
@@ -183,10 +175,10 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
           let (href, title) = Self::split_destination_title(&paren_body);
           out.push(Node::Link(Link { href, title, children: inner, span }));
         },
-        TokenKind::Bang => {
+        TokenKind::ImageMarker => {
           let start = self.pos;
           self.advance();
-          if !matches!(self.peek_kind(), Some(TokenKind::Bracket)) {
+          if !matches!(self.peek_kind(), Some(TokenKind::LinkOpen)) {
             self.pos = start;
             out.push(Node::Text(Text { value: "!".into(), span }));
             self.advance();
@@ -196,11 +188,11 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
           let mut alt = String::new();
           while let Some(tok) = self.peek() {
             match &tok.kind {
-              TokenKind::Bracket => {
+              TokenKind::LinkClose => {
                 self.advance();
                 break;
               },
-              TokenKind::Eof | TokenKind::HardBreak | TokenKind::SoftBreak => break,
+              TokenKind::Eof | TokenKind::BlankLine | TokenKind::SoftBreak => break,
               _ => {
                 alt.push_str(tok.raw);
                 self.advance();
@@ -208,11 +200,11 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
             }
           }
           let mut paren_body = String::new();
-          if matches!(self.peek_kind(), Some(TokenKind::ParenOpen)) {
+          if matches!(self.peek_kind(), Some(TokenKind::LinkTargetOpen)) {
             self.advance();
             while let Some(tok) = self.peek() {
               match &tok.kind {
-                TokenKind::ParenClose => {
+                TokenKind::LinkTargetClose => {
                   self.advance();
                   break;
                 },
@@ -235,10 +227,10 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
           out.push(self.parse_jsx_expression());
           continue;
         },
-        TokenKind::MarkdownCommentStart => {
+        TokenKind::MdxCommentOpen => {
           while let Some(t) = self.peek() {
             match &t.kind {
-              TokenKind::MarkdownCommentEnd => {
+              TokenKind::MdxCommentClose => {
                 self.advance();
                 break;
               },
@@ -361,11 +353,11 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
   pub(crate) fn is_top_level_break(k: &TokenKind) -> bool {
     matches!(
       k,
-      TokenKind::HardBreak
+      TokenKind::BlankLine
         | TokenKind::SoftBreak
         | TokenKind::Eof
         | TokenKind::Heading(_)
-        | TokenKind::FrontmatterStart
+        | TokenKind::FrontmatterStart(_)
         | TokenKind::Import
         | TokenKind::Export
         | TokenKind::JsxCloseTagStart

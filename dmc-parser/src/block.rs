@@ -11,26 +11,26 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     // not a list marker (otherwise this is nested-list indentation).
     let is_indented = matches!(
         self.peek(),
-        Some(t) if matches!(t.kind, TokenKind::Whitespace) && t.raw.starts_with("    ")
+        Some(t) if matches!(t.kind, TokenKind::Whitespace(_)) && t.raw.starts_with("    ")
     );
 
     if is_indented {
       let next_kind = self.tokens.get(self.pos + 1).map(|t| t.kind.clone());
-      if !matches!(next_kind, Some(TokenKind::UnorderedListItem) | Some(TokenKind::OrderedListItem)) {
+      if !matches!(next_kind, Some(TokenKind::UnorderedListMarker) | Some(TokenKind::OrderedListMarker(_))) {
         return Some(self.parse_indented_code());
       }
     }
 
     // Whitespace-then-list-marker: nested list at top level.
-    if matches!(self.peek_kind(), Some(TokenKind::Whitespace))
+    if matches!(self.peek_kind(), Some(TokenKind::Whitespace(_)))
       && let Some(next) = self.tokens.get(self.pos + 1)
     {
       match next.kind {
-        TokenKind::UnorderedListItem => {
+        TokenKind::UnorderedListMarker => {
           self.advance();
           return Some(self.parse_list(false, 0));
         },
-        TokenKind::OrderedListItem => {
+        TokenKind::OrderedListMarker(_) => {
           self.advance();
           return Some(self.parse_list(true, 0));
         },
@@ -39,20 +39,20 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     }
 
     match self.peek_kind()? {
-      TokenKind::FrontmatterStart => Some(self.parse_frontmatter()),
+      TokenKind::FrontmatterStart(_) => Some(self.parse_frontmatter()),
       TokenKind::Import => Some(self.import_node()),
       TokenKind::Export => Some(self.export_node()),
       TokenKind::Heading(_) => Some(self.parse_heading()),
-      TokenKind::CodeStart(n) if *n >= 3 => Some(self.parse_code_block()),
+      TokenKind::CodeFenceOpen(_, _) => Some(self.parse_code_block()),
       TokenKind::JsxOpenTagStart => Some(self.parse_jsx()),
       TokenKind::ExpressionStart => Some(self.parse_jsx_expression()),
-      TokenKind::MarkdownCommentStart => {
+      TokenKind::MdxCommentOpen => {
         self.skip_md_comment();
         None
       },
-      TokenKind::UnorderedListItem => Some(self.parse_list(false, 0)),
-      TokenKind::OrderedListItem => Some(self.parse_list(true, 0)),
-      TokenKind::BlockQuote => Some(self.parse_blockquote()),
+      TokenKind::UnorderedListMarker => Some(self.parse_list(false, 0)),
+      TokenKind::OrderedListMarker(_) => Some(self.parse_list(true, 0)),
+      TokenKind::BlockQuoteMarker => Some(self.parse_blockquote()),
       TokenKind::ThematicBreak => {
         let span = self.current_span();
         self.advance();
@@ -84,7 +84,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       },
       _ => String::new(),
     };
-    if matches!(self.peek_kind(), Some(TokenKind::FrontmatterEnd)) {
+    if matches!(self.peek_kind(), Some(TokenKind::FrontmatterEnd(_))) {
       self.advance();
     }
     Node::Frontmatter(Frontmatter { raw, span })
@@ -108,13 +108,13 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       // an outer list.
       if !first && indent > 0 {
         let aligned =
-          matches!(self.peek(), Some(t) if matches!(t.kind, TokenKind::Whitespace) && t.raw.chars().count() == indent);
+          matches!(self.peek(), Some(t) if matches!(t.kind, TokenKind::Whitespace(_)) && t.raw.chars().count() == indent);
         if !aligned {
           break;
         }
         let next = self.tokens.get(self.pos + 1);
         let next_is_marker =
-          matches!(next.map(|t| t.kind.clone()), Some(TokenKind::UnorderedListItem) | Some(TokenKind::OrderedListItem));
+          matches!(next.map(|t| t.kind.clone()), Some(TokenKind::UnorderedListMarker) | Some(TokenKind::OrderedListMarker(_)));
         if !next_is_marker {
           break;
         }
@@ -127,7 +127,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         None => break,
       };
       let want_marker =
-        if ordered { matches!(kind, TokenKind::OrderedListItem) } else { matches!(kind, TokenKind::UnorderedListItem) };
+        if ordered { matches!(kind, TokenKind::OrderedListMarker(_)) } else { matches!(kind, TokenKind::UnorderedListMarker) };
       if !want_marker {
         break;
       }
@@ -166,11 +166,11 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         let saved = self.pos;
         self.advance();
         match self.peek_kind() {
-          Some(TokenKind::UnorderedListItem) => {
+          Some(TokenKind::UnorderedListMarker) => {
             let sub = self.parse_list(false, child_indent);
             Self::append_to_item(&mut item, sub);
           },
-          Some(TokenKind::OrderedListItem) => {
+          Some(TokenKind::OrderedListMarker(_)) => {
             let sub = self.parse_list(true, child_indent);
             Self::append_to_item(&mut item, sub);
           },
@@ -198,7 +198,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
               let sb_saved = self.pos;
               self.advance();
               let aligned_indent = match self.peek() {
-                Some(t) if matches!(t.kind, TokenKind::Whitespace) => {
+                Some(t) if matches!(t.kind, TokenKind::Whitespace(_)) => {
                   let n = t.raw.chars().count();
                   if n >= child_indent { Some(()) } else { None }
                 },
@@ -211,11 +211,11 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
               let after = self.tokens.get(self.pos + 1).map(|t| t.kind.clone());
               let next_is_block = matches!(
                 after,
-                Some(TokenKind::UnorderedListItem)
-                  | Some(TokenKind::OrderedListItem)
+                Some(TokenKind::UnorderedListMarker)
+                  | Some(TokenKind::OrderedListMarker(_))
                   | Some(TokenKind::Heading(_))
-                  | Some(TokenKind::BlockQuote)
-                  | Some(TokenKind::CodeStart(_))
+                  | Some(TokenKind::BlockQuoteMarker)
+                  | Some(TokenKind::CodeFenceOpen(_, _))
                   | Some(TokenKind::ThematicBreak)
                   | Some(TokenKind::SoftBreak)
                   | Some(TokenKind::HardBreak)
@@ -273,7 +273,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
   /// marker's indent. `None` when the cursor is not on a Whitespace token.
   fn peek_leading_indent(&self) -> Option<usize> {
     match self.peek() {
-      Some(t) if matches!(t.kind, TokenKind::Whitespace) => Some(t.raw.chars().count()),
+      Some(t) if matches!(t.kind, TokenKind::Whitespace(_)) => Some(t.raw.chars().count()),
       _ => None,
     }
   }
@@ -337,16 +337,26 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     // GFM task-list prefix `[ ]` / `[x]` / `[X]` for unordered lists.
     if !ordered {
       let pre = self.pos;
-      if matches!(self.peek_kind(), Some(TokenKind::Whitespace)) {
+      if matches!(self.peek_kind(), Some(TokenKind::Whitespace(_))) {
         self.advance();
       }
-      if matches!(self.peek_kind(), Some(TokenKind::Bracket)) {
+      // Lexer now emits `TaskMarker(bool)` directly. Phase C8 will wire
+      // it through; for Phase A we keep the legacy bracket-walk fallback
+      // so existing behavior holds when the lexer hasn't fired the
+      // dedicated marker (e.g. `[?]` in older fixtures).
+      if matches!(self.peek_kind(), Some(TokenKind::TaskMarker(_))) {
+        let checked = matches!(self.peek_kind(), Some(TokenKind::TaskMarker(true)));
+        self.advance();
+        let inline = self.collect_inline_for_list_item();
+        return Node::TaskListItem(TaskListItem { checked, children: inline, span });
+      }
+      if matches!(self.peek_kind(), Some(TokenKind::LinkOpen)) {
         self.advance();
         let text_raw = self.peek().map(|t| t.raw.to_string()).unwrap_or_default();
         let kind = self.peek_kind().cloned();
         if matches!(kind, Some(TokenKind::Text)) && (text_raw == " " || text_raw.eq_ignore_ascii_case("x")) {
           self.advance();
-          if matches!(self.peek_kind(), Some(TokenKind::Bracket)) {
+          if matches!(self.peek_kind(), Some(TokenKind::LinkClose)) {
             self.advance();
             let checked = text_raw.eq_ignore_ascii_case("x");
             let inline = self.collect_inline_for_list_item();
@@ -402,12 +412,12 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         Some(k) => k.clone(),
         None => break,
       };
-      if matches!(after_marker_kind, TokenKind::UnorderedListItem | TokenKind::OrderedListItem) {
+      if matches!(after_marker_kind, TokenKind::UnorderedListMarker | TokenKind::OrderedListMarker(_)) {
         if !paragraphs[top].is_empty() {
           let para = std::mem::take(&mut paragraphs[top]);
           children[top].push(Node::Paragraph(Paragraph { children: para, span: para_span.clone() }));
         }
-        let ordered = matches!(after_marker_kind, TokenKind::OrderedListItem);
+        let ordered = matches!(after_marker_kind, TokenKind::OrderedListMarker(_));
         let list = self.parse_list_in_blockquote(ordered, line_markers);
         children[top].push(list);
         continue;
@@ -478,7 +488,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         None => break,
       };
       let want_marker =
-        if ordered { matches!(kind, TokenKind::OrderedListItem) } else { matches!(kind, TokenKind::UnorderedListItem) };
+        if ordered { matches!(kind, TokenKind::OrderedListMarker(_)) } else { matches!(kind, TokenKind::UnorderedListMarker) };
       if !want_marker {
         break;
       }
@@ -534,11 +544,11 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     let mut i = self.pos;
     while let Some(t) = self.tokens.get(i) {
       match t.kind {
-        TokenKind::BlockQuote => {
+        TokenKind::BlockQuoteMarker => {
           count += 1;
           i += 1;
         },
-        TokenKind::Whitespace => {
+        TokenKind::Whitespace(_) => {
           i += 1;
         },
         _ => break,
@@ -552,16 +562,16 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
   fn consume_blockquote_markers(&mut self, n: usize) {
     let mut taken = 0usize;
     while taken < n {
-      if matches!(self.peek_kind(), Some(TokenKind::Whitespace)) {
+      if matches!(self.peek_kind(), Some(TokenKind::Whitespace(_))) {
         self.advance();
       }
-      if !matches!(self.peek_kind(), Some(TokenKind::BlockQuote)) {
+      if !matches!(self.peek_kind(), Some(TokenKind::BlockQuoteMarker)) {
         break;
       }
       self.advance();
       taken += 1;
     }
-    if matches!(self.peek_kind(), Some(TokenKind::Whitespace)) {
+    if matches!(self.peek_kind(), Some(TokenKind::Whitespace(_))) {
       self.advance();
     }
   }
@@ -621,7 +631,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     loop {
       let starts_indent = matches!(
           self.peek(),
-          Some(t) if matches!(t.kind, TokenKind::Whitespace) && t.raw.starts_with("    ")
+          Some(t) if matches!(t.kind, TokenKind::Whitespace(_)) && t.raw.starts_with("    ")
       );
       if !starts_indent {
         break;
@@ -648,7 +658,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
           self.advance();
           let next_is_indent = matches!(
               self.peek(),
-              Some(t) if matches!(t.kind, TokenKind::Whitespace) && t.raw.starts_with("    ")
+              Some(t) if matches!(t.kind, TokenKind::Whitespace(_)) && t.raw.starts_with("    ")
           );
           if !next_is_indent {
             self.pos = saved;
@@ -696,13 +706,13 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       let next_is_block = matches!(
         self.peek_kind(),
         Some(TokenKind::Heading(_))
-          | Some(TokenKind::UnorderedListItem)
-          | Some(TokenKind::OrderedListItem)
-          | Some(TokenKind::BlockQuote)
-          | Some(TokenKind::CodeStart(_))
+          | Some(TokenKind::UnorderedListMarker)
+          | Some(TokenKind::OrderedListMarker(_))
+          | Some(TokenKind::BlockQuoteMarker)
+          | Some(TokenKind::CodeFenceOpen(_, _))
           | Some(TokenKind::ThematicBreak)
           | Some(TokenKind::JsxOpenTagStart)
-          | Some(TokenKind::FrontmatterStart)
+          | Some(TokenKind::FrontmatterStart(_))
           | Some(TokenKind::Import)
           | Some(TokenKind::Export)
       );
@@ -732,22 +742,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
   fn setext_underline_level(&self) -> Option<u8> {
     let t = self.tokens.get(self.pos)?;
     match &t.kind {
-      TokenKind::Eq => {
-        let mut i = self.pos;
-        while let Some(tt) = self.tokens.get(i) {
-          if matches!(tt.kind, TokenKind::Eq) {
-            i += 1;
-          } else {
-            break;
-          }
-        }
-        let next = self.tokens.get(i).map(|t| &t.kind);
-        if matches!(next, Some(TokenKind::SoftBreak) | Some(TokenKind::HardBreak) | Some(TokenKind::Eof) | None) {
-          Some(1)
-        } else {
-          None
-        }
-      },
+      TokenKind::SetextUnderline(_) => Some(1),
       TokenKind::ThematicBreak => {
         if !t.raw.is_empty() && t.raw.chars().all(|c| c == '-') {
           Some(2)
@@ -763,12 +758,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
   fn eat_setext_underline(&mut self) {
     if let Some(t) = self.tokens.get(self.pos) {
       match t.kind {
-        TokenKind::Eq => {
-          while matches!(self.peek_kind(), Some(TokenKind::Eq)) {
-            self.advance();
-          }
-        },
-        TokenKind::ThematicBreak => {
+        TokenKind::SetextUnderline(_) | TokenKind::ThematicBreak => {
           self.advance();
         },
         _ => {},
@@ -781,9 +771,9 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
   /// splits at the first whitespace into `(lang, meta)`.
   fn parse_code_block(&mut self) -> Node {
     let span = self.current_span();
-    let fence_n = match self.peek_kind() {
-      Some(TokenKind::CodeStart(n)) => *n,
-      _ => 3,
+    let (fence_char, fence_n) = match self.peek_kind() {
+      Some(TokenKind::CodeFenceOpen(c, n)) => (*c, *n),
+      _ => (dmc_lexer::token::FenceChar::Backtick, 3),
     };
     self.advance();
 
@@ -811,7 +801,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     let mut value = String::new();
     while let Some(t) = self.peek() {
       match &t.kind {
-        TokenKind::CodeEnd(m) if *m == fence_n => {
+        TokenKind::CodeFenceClose(c, m) if *c == fence_char && *m >= fence_n => {
           self.advance();
           break;
         },

@@ -9,7 +9,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
   /// drops it so attribute / closing-tag tokens line up the way they did
   /// before whitespace tokens were preserved.
   fn skip_jsx_ws(&mut self) {
-    while matches!(self.peek_kind(), Some(TokenKind::Whitespace)) {
+    while matches!(self.peek_kind(), Some(TokenKind::Whitespace(_))) {
       self.advance();
     }
   }
@@ -101,13 +101,22 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       let name = self.peek().unwrap().raw.to_string();
       self.advance();
       self.skip_jsx_ws();
-      let value = if matches!(self.peek_kind(), Some(TokenKind::Eq)) {
+      let value = if matches!(self.peek_kind(), Some(TokenKind::JsxAttrEq)) {
         self.advance();
         self.skip_jsx_ws();
         match self.peek_kind() {
-          Some(TokenKind::String) => {
-            let s = self.peek().unwrap().raw.to_string();
+          Some(TokenKind::JsxAttrStringOpen(_)) => {
             self.advance();
+            let s = if matches!(self.peek_kind(), Some(TokenKind::JsxAttrString)) {
+              let s = self.peek().unwrap().raw.to_string();
+              self.advance();
+              s
+            } else {
+              String::new()
+            };
+            if matches!(self.peek_kind(), Some(TokenKind::JsxAttrStringClose(_))) {
+              self.advance();
+            }
             JsxAttrValue::String(s)
           },
           Some(TokenKind::ExpressionStart) => {
@@ -163,7 +172,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     self.advance();
     while let Some(t) = self.peek() {
       match &t.kind {
-        TokenKind::MarkdownCommentEnd => {
+        TokenKind::MdxCommentClose => {
           self.advance();
           break;
         },

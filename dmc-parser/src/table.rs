@@ -14,7 +14,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         | TokenKind::HardBreak
         | TokenKind::Eof
         | TokenKind::Heading(_)
-        | TokenKind::FrontmatterStart
+        | TokenKind::FrontmatterStart(_)
         | TokenKind::Import
         | TokenKind::Export => break,
         _ => {
