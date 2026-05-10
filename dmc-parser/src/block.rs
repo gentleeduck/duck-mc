@@ -753,11 +753,11 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
             let span_code = self.current_span();
             let mut buf = String::new();
             loop {
-              let aligned = matches!(self.peek(), Some(t) if matches!(t.kind, TokenKind::Whitespace(_)) && t.raw.chars().count() >= content_indent + 4);
+              let aligned = self.peek_leading_indent().is_some_and(|n| n >= content_indent + 4);
               if !aligned {
                 break;
               }
-              let ws_len = self.peek().map(|t| t.raw.chars().count()).unwrap_or(0);
+              let ws_len = self.peek_leading_indent().unwrap_or(0);
               self.advance();
               let visible = ws_len.saturating_sub(content_indent + 4);
               if visible > 0 {
@@ -792,7 +792,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
               if blanks == 0 {
                 break;
               }
-              let next_aligned = matches!(self.peek(), Some(t) if matches!(t.kind, TokenKind::Whitespace(_)) && t.raw.chars().count() >= content_indent + 4);
+              let next_aligned = self.peek_leading_indent().is_some_and(|n| n >= content_indent + 4);
               if !next_aligned {
                 self.pos = saved2;
                 break;
