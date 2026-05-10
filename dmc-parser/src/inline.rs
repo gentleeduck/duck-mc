@@ -11,7 +11,6 @@ struct DelimRecord {
   can_open: bool,
   can_close: bool,
   out_idx: usize,
-  raw: String,
   span: duck_diagnostic::Span,
 }
 
@@ -93,10 +92,7 @@ fn resolve_emphasis_delims(out: &mut Vec<Node>, delims: &mut [DelimRecord]) {
           EmphasisChar::Asterisk => "*".repeat(remaining),
           EmphasisChar::Underscore => "_".repeat(remaining),
         };
-        out.insert(
-          open_out_idx,
-          Node::Text(Text { value: truncated_raw, span: delims[open_idx].span.clone() }),
-        );
+        out.insert(open_out_idx, Node::Text(Text { value: truncated_raw, span: delims[open_idx].span.clone() }));
       }
       // Net removed slots = (drained inner) + (closer or 0) - (opener insert or 0).
       let inserted = if open_consumed { 0i64 } else { 1 };
@@ -359,8 +355,8 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
           }
           self.advance();
           let idx = out.len();
-          out.push(Node::Text(Text { value: raw.clone(), span: dspan.clone() }));
-          delims.push(DelimRecord { c: dc, run: dn, can_open, can_close, out_idx: idx, raw, span: dspan });
+          out.push(Node::Text(Text { value: raw, span: dspan.clone() }));
+          delims.push(DelimRecord { c: dc, run: dn, can_open, can_close, out_idx: idx, span: dspan });
         },
         TokenKind::Strikethrough => {
           self.advance();
