@@ -120,10 +120,8 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
       }
     }
     self.emit(TokenKind::JsxTagName);
-    let allow_unquoted_attr_values = self
-      .tokens
-      .last()
-      .is_some_and(|t| matches!(t.kind, TokenKind::JsxTagName) && Self::is_htmlish_tag_name(t.raw));
+    let allow_unquoted_attr_values =
+      self.tokens.last().is_some_and(|t| matches!(t.kind, TokenKind::JsxTagName) && Self::is_htmlish_tag_name(t.raw));
 
     // Closing tags don't take attributes.
     if is_close {
@@ -304,8 +302,7 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
 
   fn is_htmlish_tag_name(name: &str) -> bool {
     let mut chars = name.chars();
-    matches!(chars.next(), Some(c) if c.is_ascii_alphabetic())
-      && chars.all(|c| c.is_ascii_alphanumeric() || c == '-')
+    matches!(chars.next(), Some(c) if c.is_ascii_alphabetic()) && chars.all(|c| c.is_ascii_alphanumeric() || c == '-')
   }
 
   fn peek_jsx_attr_eq_after_ws(&self) -> bool {

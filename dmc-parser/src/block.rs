@@ -2434,6 +2434,16 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
             true
           }
         },
+        Some(TokenKind::JsxCloseTagStart) => {
+          if let Some(name_tok) = self.tokens.get(self.pos + 1)
+            && matches!(name_tok.kind, TokenKind::JsxTagName)
+          {
+            let lower = name_tok.raw.to_ascii_lowercase();
+            self.is_plain_html_jsx_tag() && HTML_BLOCK_TYPE6_TAGS.contains(&lower.as_str())
+          } else {
+            false
+          }
+        },
         _ => false,
       };
       let next_is_block = matches!(
