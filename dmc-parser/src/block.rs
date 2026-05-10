@@ -606,7 +606,36 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     loop {
       let line_markers = self.count_line_blockquote_markers();
       if line_markers == 0 {
-        break;
+        // CM 5.1 lazy continuation: a non-marker line continues the
+        // currently-open paragraph when the cursor sits on inline
+        // content (not a block-boundary token).
+        let top = children.len() - 1;
+        let lazy_eligible = !paragraphs[top].is_empty()
+          && matches!(
+            self.peek_kind(),
+            Some(TokenKind::Text)
+              | Some(TokenKind::Emphasis(_, _))
+              | Some(TokenKind::Strikethrough)
+              | Some(TokenKind::CodeInlineOpen(_))
+              | Some(TokenKind::Whitespace(_))
+              | Some(TokenKind::Autolink(_))
+              | Some(TokenKind::EntityRef)
+              | Some(TokenKind::LinkOpen)
+              | Some(TokenKind::ImageMarker)
+          );
+        if !lazy_eligible {
+          break;
+        }
+        let inline = self.collect_inline_until_break();
+        let break_kind = self.peek_kind().cloned();
+        if matches!(break_kind, Some(TokenKind::SoftBreak) | Some(TokenKind::HardBreak)) {
+          self.advance();
+        }
+        if !inline.is_empty() {
+          paragraphs[top].push(Node::Text(Text { value: " ".into(), span: para_span.clone() }));
+          paragraphs[top].extend(inline);
+        }
+        continue;
       }
       // Grow the stack to match this line's depth.
       while children.len() < line_markers {
