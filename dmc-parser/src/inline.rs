@@ -575,8 +575,10 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
               },
             }
           }
-          // Strip lexer-emitted markers from the captured alt so it
-          // renders as plain text (CM 6.3 image alt is the inner text).
+          // Keep the raw alt for ref-def lookup (label preserves
+          // emphasis markers); the rendered alt drops them to match
+          // CM's plain-text alt-attribute output.
+          let alt_raw = alt.clone();
           let alt = strip_inline_markers(&alt);
           // Inline form: `(...)` follows.
           if matches!(self.peek_kind(), Some(TokenKind::LinkTargetOpen)) {
@@ -608,7 +610,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
             continue;
           }
           // Reference forms: `[label]` (full / collapsed) or shortcut.
-          let mut label = alt.clone();
+          let mut label = alt_raw.clone();
           if matches!(self.peek_kind(), Some(TokenKind::LinkOpen)) {
             self.advance();
             let mut second = String::new();
@@ -628,9 +630,9 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
               }
             }
             if has_second && !second.is_empty() {
-              label = strip_inline_markers(&second);
+              label = second;
             }
-            // collapsed `[...][]` keeps `label = alt`.
+            // collapsed `[...][]` keeps `label = alt_raw`.
           }
           if let Some((href, title)) = self.refs.get(&label).cloned() {
             out.push(Node::Image(Image { src: href, alt, title, span }));
