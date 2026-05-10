@@ -12,6 +12,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       match &t.kind {
         TokenKind::SoftBreak
         | TokenKind::HardBreak
+        | TokenKind::BlankLine
         | TokenKind::Eof
         | TokenKind::Heading(_)
         | TokenKind::FrontmatterStart(_)
@@ -72,7 +73,13 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
 
     let col_count = aligns.len();
     while let Some((line, len)) = self.collect_line_text() {
-      if !looks_like_table_row(&line) {
+      let trimmed = line.trim();
+      if trimmed.is_empty() {
+        break;
+      }
+      // GFM 4.10: subsequent rows can omit all pipes ("bar" -> 1 cell
+      // padded to col_count). Block constructs still break out.
+      if line_starts_block_construct(trimmed) {
         break;
       }
       let mut cells = split_cells(&line);
@@ -104,6 +111,50 @@ fn looks_like_table_row(s: &str) -> bool {
     return false;
   }
   t.matches('|').count() >= 1
+}
+
+/// Detect lines that should break out of an open table even when they
+/// have no `|`: block-construct openers (heading, fence, list, bq,
+/// thematic break).
+fn line_starts_block_construct(t: &str) -> bool {
+  if t.starts_with('#') || t.starts_with('>') || t.starts_with("```") || t.starts_with("~~~") {
+    return true;
+  }
+  // Thematic break: 3+ of `-` / `*` / `_` optionally separated by ws.
+  let bytes = t.as_bytes();
+  if !bytes.is_empty() && matches!(bytes[0], b'-' | b'*' | b'_') {
+    let marker = bytes[0];
+    let mut count = 0usize;
+    let ok = bytes.iter().all(|&b| match b {
+      b' ' | b'\t' => true,
+      b if b == marker => {
+        count += 1;
+        true
+      },
+      _ => false,
+    });
+    if ok && count >= 3 {
+      return true;
+    }
+  }
+  // List marker: `-`/`*`/`+` + space, or digits + `.`/`)` + space.
+  if t.len() >= 2
+    && matches!(bytes[0], b'-' | b'*' | b'+')
+    && matches!(bytes.get(1).copied(), Some(b' ') | Some(b'\t'))
+  {
+    return true;
+  }
+  if bytes[0].is_ascii_digit() {
+    let digits = bytes.iter().take_while(|b| b.is_ascii_digit()).count();
+    if digits > 0
+      && digits < bytes.len()
+      && matches!(bytes[digits], b'.' | b')')
+      && matches!(bytes.get(digits + 1).copied(), Some(b' ') | Some(b'\t'))
+    {
+      return true;
+    }
+  }
+  false
 }
 
 /// Parse the `|:---|---:|:---:|` alignment row. Leading/trailing `|`
