@@ -2018,7 +2018,6 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
           | TokenKind::FrontmatterStart(_)
           | TokenKind::Import
           | TokenKind::Export
-          | TokenKind::JsxCloseTagStart
       )
     };
     self.collect_inline_into(&para_stop, &mut children, &mut delims);
