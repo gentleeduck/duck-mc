@@ -140,6 +140,12 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
           }
           self.pos = saved;
         },
+        // Plain content with 1-3 leading spaces -- strip the indent and
+        // dispatch normally so the resulting paragraph doesn't render
+        // the leading whitespace.
+        TokenKind::Text | TokenKind::ImageMarker | TokenKind::LinkOpen | TokenKind::Emphasis(_, _) => {
+          self.advance();
+        },
         _ => {},
       }
     }
@@ -973,6 +979,9 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       // Setext heading: `=`/`-` underline directly after the soft break.
       if let Some(lvl) = self.setext_underline_level() {
         self.eat_setext_underline();
+        while matches!(children.last(), Some(Node::HardBreak(_))) {
+          children.pop();
+        }
         return Node::Heading(Heading { level: lvl, children, span, id: None });
       }
       // Blank line (another break right away) closes the paragraph.
