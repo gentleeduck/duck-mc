@@ -434,10 +434,42 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         match self.peek_kind() {
           Some(TokenKind::UnorderedListMarker) if child_indent < content_floor => {
             self.pos = saved;
+            if indent == 0 && child_indent > 3 {
+              self.advance(); // skip the continuation indent
+              let para_span = self.current_span();
+              let mut inline = self.collect_inline_until_break();
+              if !inline.is_empty() {
+                if !Self::append_inline_continuation(&mut item, &mut inline, &para_span) {
+                  Self::ensure_loose_item(&mut item, &para_span);
+                  Self::append_to_item(&mut item, Node::Paragraph(Paragraph { children: inline, span: para_span }));
+                }
+                if matches!(self.peek_kind(), Some(TokenKind::SoftBreak) | Some(TokenKind::HardBreak)) {
+                  self.advance();
+                }
+                continue;
+              }
+              self.pos = saved;
+            }
             break;
           },
           Some(TokenKind::OrderedListMarker(_)) if child_indent < content_floor => {
             self.pos = saved;
+            if indent == 0 && child_indent > 3 {
+              self.advance(); // skip the continuation indent
+              let para_span = self.current_span();
+              let mut inline = self.collect_inline_until_break();
+              if !inline.is_empty() {
+                if !Self::append_inline_continuation(&mut item, &mut inline, &para_span) {
+                  Self::ensure_loose_item(&mut item, &para_span);
+                  Self::append_to_item(&mut item, Node::Paragraph(Paragraph { children: inline, span: para_span }));
+                }
+                if matches!(self.peek_kind(), Some(TokenKind::SoftBreak) | Some(TokenKind::HardBreak)) {
+                  self.advance();
+                }
+                continue;
+              }
+              self.pos = saved;
+            }
             break;
           },
           Some(TokenKind::UnorderedListMarker) => {
@@ -678,7 +710,13 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
                 Node::CodeBlock(CodeBlock { lang: None, meta: None, value: buf, span: span_code }),
               );
             }
-            self.try_continue_same_list_after_blankline(ordered, indent, &mut items, &span, &mut saw_blank_between_items);
+            self.try_continue_same_list_after_blankline(
+              ordered,
+              indent,
+              &mut items,
+              &span,
+              &mut saw_blank_between_items,
+            );
             continue;
           }
           // Sub-list nest: if the indented line opens with a list marker,
@@ -781,7 +819,13 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
             if matches!(self.peek_kind(), Some(TokenKind::SoftBreak) | Some(TokenKind::HardBreak)) {
               self.advance();
             }
-            self.try_continue_same_list_after_blankline(ordered, indent, &mut items, &span, &mut saw_blank_between_items);
+            self.try_continue_same_list_after_blankline(
+              ordered,
+              indent,
+              &mut items,
+              &span,
+              &mut saw_blank_between_items,
+            );
             continue;
           }
           let para_span = self.current_span();
@@ -794,7 +838,13 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
             if matches!(self.peek_kind(), Some(TokenKind::SoftBreak) | Some(TokenKind::HardBreak)) {
               self.advance();
             }
-            self.try_continue_same_list_after_blankline(ordered, indent, &mut items, &span, &mut saw_blank_between_items);
+            self.try_continue_same_list_after_blankline(
+              ordered,
+              indent,
+              &mut items,
+              &span,
+              &mut saw_blank_between_items,
+            );
             continue;
           } else {
             self.pos = saved;
@@ -1396,11 +1446,8 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       Some(TokenKind::OrderedListMarker(_)) if ordered => true,
       _ => false,
     };
-    let next_indent = if let Some(pos) = ws_pos {
-      self.tokens.get(pos).map(|t| t.raw.chars().count()).unwrap_or(0)
-    } else {
-      0
-    };
+    let next_indent =
+      if let Some(pos) = ws_pos { self.tokens.get(pos).map(|t| t.raw.chars().count()).unwrap_or(0) } else { 0 };
     let same_list_indent = if indent > 0 { next_indent == indent } else { next_indent <= 3 };
     if !next_is_marker || !same_list_indent {
       self.pos = blank_pos;
