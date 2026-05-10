@@ -789,11 +789,8 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
             Some(TokenKind::OrderedListMarker(_)) if ordered => true,
             _ => false,
           };
-          let next_indent = if ws_w.is_some() {
-            self.tokens.get(ws_pos).map(|t| t.raw.chars().count()).unwrap_or(0)
-          } else {
-            0
-          };
+          let next_indent =
+            if ws_w.is_some() { self.tokens.get(ws_pos).map(|t| t.raw.chars().count()).unwrap_or(0) } else { 0 };
           let same_list_indent = if indent > 0 { next_indent == indent } else { next_indent <= 3 };
           if !next_is_marker || !same_list_indent {
             self.pos = saved;

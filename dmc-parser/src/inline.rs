@@ -594,7 +594,9 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
                 match &tok.kind {
                   TokenKind::LinkTargetClose if depth == 0 => break,
                   TokenKind::Eof | TokenKind::BlankLine => break,
-                  TokenKind::SoftBreak | TokenKind::HardBreak => break,
+                  TokenKind::SoftBreak | TokenKind::HardBreak => {
+                    self.advance();
+                  },
                   TokenKind::LinkTargetOpen => {
                     depth += 1;
                     self.advance();
@@ -972,6 +974,54 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
   /// `"title"` / `'title'` / `(title)` separated from the destination
   /// by whitespace. Unterminated/missing title returns `(body, None)`.
   fn split_destination_title(body: &str) -> Option<(String, Option<String>)> {
+    fn is_link_space(c: char) -> bool {
+      matches!(c, ' ' | '\t' | '\n')
+    }
+
+    fn parse_link_title(rest: &str) -> Option<String> {
+      let bytes = rest.as_bytes();
+      let (open, close) = match bytes.first().copied()? {
+        b'"' => (b'"', b'"'),
+        b'\'' => (b'\'', b'\''),
+        b'(' => (b'(', b')'),
+        _ => return None,
+      };
+      if bytes.len() < 2 || *bytes.last()? != close {
+        return None;
+      }
+      let inner = &rest[1..rest.len() - 1];
+      let mut escaped = false;
+      let mut paren_depth = 0usize;
+      for ch in inner.bytes() {
+        if escaped {
+          escaped = false;
+          continue;
+        }
+        if ch == b'\\' {
+          escaped = true;
+          continue;
+        }
+        if open == b'(' {
+          match ch {
+            b'(' => paren_depth += 1,
+            b')' => {
+              if paren_depth == 0 {
+                return None;
+              }
+              paren_depth -= 1;
+            },
+            _ => {},
+          }
+        } else if ch == close {
+          return None;
+        }
+      }
+      if open == b'(' && paren_depth != 0 {
+        return None;
+      }
+      Some(inner.to_string())
+    }
+
     let trimmed = body.trim();
     if trimmed.is_empty() {
       return Some((String::new(), None));
@@ -989,23 +1039,20 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         return None;
       }
     } else {
-      // Bare destination: no whitespace allowed in the destination.
-      let dest_end = trimmed.find(char::is_whitespace).unwrap_or(trimmed.len());
+      // Bare destination: only ASCII space / tab / line endings split off
+      // an optional title. Other Unicode whitespace (e.g. NBSP) stays in
+      // the destination per CM 6.3.
+      let dest_end = trimmed.find(is_link_space).unwrap_or(trimmed.len());
       (dest_end, trimmed[..dest_end].to_string())
     };
-    let rest = trimmed[dest_end..].trim_start();
+    let rest = trimmed[dest_end..].trim_start_matches(is_link_space);
     if rest.is_empty() {
       return Some((raw_dest, None));
     }
     // Title: `"..."`, `'...'`, or `(...)`. Trailing junk after the
     // destination (without a valid title pair) makes the link
     // malformed per CM 6.3.
-    let bytes = rest.as_bytes();
-    let first = bytes[0];
-    let last = bytes[bytes.len() - 1];
-    let matches_pair =
-      (first == b'"' && last == b'"') || (first == b'\'' && last == b'\'') || (first == b'(' && last == b')');
-    if matches_pair && rest.len() >= 2 { Some((raw_dest, Some(rest[1..rest.len() - 1].to_string()))) } else { None }
+    parse_link_title(rest).map(|title| (raw_dest, Some(title)))
   }
 
   /// Strip `\X` -> `X` for the standard CommonMark escapable set so
