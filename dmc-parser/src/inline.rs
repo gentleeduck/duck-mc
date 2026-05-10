@@ -326,6 +326,14 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     if matches!(self.peek_kind(), Some(TokenKind::Whitespace(_))) {
       self.advance();
     }
+    // CM 5.2: a list item with only whitespace content (e.g. `-   \n`
+    // -> the trailing spaces produce a HardBreak token) is empty.
+    // Consume the line break so the item renders as `<li></li>` and
+    // the next marker on the following line is the next sibling item.
+    if matches!(self.peek_kind(), Some(TokenKind::HardBreak)) {
+      self.advance();
+      return Vec::new();
+    }
     self.collect_inline_until_break()
   }
 
