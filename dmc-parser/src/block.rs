@@ -1800,12 +1800,15 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     let (lang, meta) = if info_trimmed.is_empty() {
       (None, None)
     } else {
+      // CM 4.5: info-string entity references (`&ouml;`) decode before
+      // the value reaches the renderer; backslash escapes resolve too.
+      let decode = |s: &str| crate::inline::decode_entities_in(&Self::unescape_markdown(s));
       match info_trimmed.split_once(char::is_whitespace) {
         Some((l, rest)) => {
           let rest = rest.trim();
-          (Some(Self::unescape_markdown(l)), if rest.is_empty() { None } else { Some(Self::unescape_markdown(rest)) })
+          (Some(decode(l)), if rest.is_empty() { None } else { Some(decode(rest)) })
         },
-        None => (Some(Self::unescape_markdown(info_trimmed)), None),
+        None => (Some(decode(info_trimmed)), None),
       }
     };
 
