@@ -240,6 +240,7 @@ fn describe(node: &Node) -> (String, Vec<&Node>) {
     Node::JsxExpression(x) => (format!("JsxExpr      {:?}", trunc(&x.value, 80)), vec![]),
     Node::HardBreak(_) => ("HardBreak".to_string(), vec![]),
     Node::SoftBreak(_) => ("SoftBreak".to_string(), vec![]),
+    Node::Html(h) => (format!("Html         {:?}", trunc(&h.value, 80)), vec![]),
   }
 }
 
@@ -248,6 +249,7 @@ fn fmt_attr_value(v: &JsxAttrValue) -> String {
     JsxAttrValue::String(s) => format!("\"{}\"", s),
     JsxAttrValue::Expression(e) => format!("{{{}}}", trunc(e, 40)),
     JsxAttrValue::Boolean => "true".to_string(),
+    JsxAttrValue::Spread(e) => format!("{{...{}}}", trunc(e, 40)),
   }
 }
 

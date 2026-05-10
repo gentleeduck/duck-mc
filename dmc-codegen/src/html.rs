@@ -273,6 +273,12 @@ impl HtmlEmitter {
       JsxAttrValue::Boolean => self.out.push_str("=\"\""),
       JsxAttrValue::String(s) => self.out.push_str(&format!("=\"{}\"", escape_attr(s))),
       JsxAttrValue::Expression(e) => self.out.push_str(&format!("={{{}}}", e)),
+      // Spread attributes have no HTML representation; drop them. The
+      // leading space pushed before the (empty) name comes back when
+      // we pop it.
+      JsxAttrValue::Spread(_) => {
+        self.out.pop();
+      },
     }
   }
 

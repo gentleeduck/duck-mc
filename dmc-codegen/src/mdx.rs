@@ -360,12 +360,19 @@ impl MdxBodyEmitter {
     let mut parts = Vec::new();
     for a in attrs {
       let key = obj_key(&a.name);
+      // Spread attributes have no key/value -- emit `...expr` directly
+      // and skip the standard key/value path.
+      if let JsxAttrValue::Spread(e) = &a.value {
+        parts.push(format!("...{}", e.trim()));
+        continue;
+      }
       let v = match &a.value {
-        // React rejects `style="..."` strings — must be an object literal.
+        // React rejects `style="..."` strings -- must be an object literal.
         JsxAttrValue::String(s) if a.name == "style" => Self::style_attr_to_object(s),
         JsxAttrValue::String(s) => Self::js_string(s),
         JsxAttrValue::Expression(e) => Self::compile_attr_expression(self, e),
         JsxAttrValue::Boolean => "true".to_string(),
+        JsxAttrValue::Spread(_) => unreachable!(),
       };
       parts.push(format!("{}: {}", key, v));
     }
@@ -507,6 +514,13 @@ impl MdxBodyEmitter {
         format!("{}(Fragment, {{ children: {} }})", callee, kids_expr)
       },
       Node::Table(t) => self.table_expr(t),
+      // Raw HTML block: passed through verbatim via dangerouslySetInnerHTML
+      // so the renderer can emit it without JSX-encoding.
+      Node::Html(h) => format!(
+        "jsx({}, {{ dangerouslySetInnerHTML: {{ __html: {} }} }})",
+        self.jsx_tag_ref("div"),
+        Self::js_string(&h.value)
+      ),
       Node::Frontmatter(_)
       | Node::Import(_)
       | Node::Export(_)

@@ -31,6 +31,7 @@ pub enum Node {
   JsxExpression(JsxExpression),
   HardBreak(BreakNode),
   SoftBreak(BreakNode),
+  Html(Html),
 }
 
 impl Node {
@@ -273,5 +274,14 @@ pub struct JsxExpression {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct BreakNode {
+  pub span: Span,
+}
+
+/// Raw HTML block (CommonMark 4.6). Lexer classifies the type via
+/// `HtmlBlockKind`; the parser captures the body verbatim and the
+/// renderer emits it untouched per CM rules.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Html {
+  pub value: String,
   pub span: Span,
 }

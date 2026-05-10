@@ -96,7 +96,29 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
   fn parse_jsx_attrs(&mut self) -> Vec<JsxAttr> {
     let mut out = Vec::new();
     self.skip_jsx_ws();
-    while let Some(TokenKind::JsxAttributeName) = self.peek_kind() {
+    loop {
+      // Spread attribute `{...rest}` -- lexer wraps the body in
+      // ExpressionStart / JsxAttributeSpread / ExpressionEnd.
+      if matches!(self.peek_kind(), Some(TokenKind::ExpressionStart)) {
+        let span = self.current_span();
+        self.advance();
+        let body = if matches!(self.peek_kind(), Some(TokenKind::JsxAttributeSpread)) {
+          let s = self.peek().unwrap().raw.to_string();
+          self.advance();
+          s
+        } else {
+          String::new()
+        };
+        if matches!(self.peek_kind(), Some(TokenKind::ExpressionEnd)) {
+          self.advance();
+        }
+        out.push(JsxAttr { name: String::new(), value: JsxAttrValue::Spread(body), span });
+        self.skip_jsx_ws();
+        continue;
+      }
+      if !matches!(self.peek_kind(), Some(TokenKind::JsxAttributeName)) {
+        break;
+      }
       let span = self.current_span();
       let name = self.peek().unwrap().raw.to_string();
       self.advance();

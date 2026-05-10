@@ -409,6 +409,6 @@ fn extract_chart_attr(attrs: &[JsxAttr]) -> Option<String> {
         None
       }
     },
-    JsxAttrValue::Boolean => None,
+    JsxAttrValue::Boolean | JsxAttrValue::Spread(_) => None,
   }
 }

@@ -46,6 +46,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       TokenKind::CodeFenceOpen(_, _) => Some(self.parse_code_block()),
       TokenKind::JsxOpenTagStart => Some(self.parse_jsx()),
       TokenKind::JsxFragmentOpen => Some(self.parse_jsx_fragment()),
+      TokenKind::HtmlBlockOpen(_) => Some(self.parse_html_block()),
       TokenKind::ExpressionStart => Some(self.parse_jsx_expression()),
       TokenKind::MdxCommentOpen => {
         self.skip_md_comment();
@@ -643,8 +644,41 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     Node::Heading(Heading { level, children, span, id: None })
   }
 
-  /// 4-space indented code block. Strips the leading 4 spaces from each line
-  /// and joins with `\n`. Stops at the first non-indented line.
+  /// Raw HTML block (CM 4.6 types 2-5). Lexer flagged the open token
+  /// with the type discriminator; we capture the entire span verbatim
+  /// (open + body + close) into a single `Html` node.
+  fn parse_html_block(&mut self) -> Node {
+    let span = self.current_span();
+    let mut value = String::new();
+    if let Some(t) = self.peek() {
+      value.push_str(t.raw);
+    }
+    self.advance();
+    loop {
+      match self.peek_kind() {
+        Some(TokenKind::HtmlBlockClose) => {
+          if let Some(t) = self.peek() {
+            value.push_str(t.raw);
+          }
+          self.advance();
+          break;
+        },
+        Some(TokenKind::Eof) | None => break,
+        _ => {
+          if let Some(t) = self.peek() {
+            value.push_str(t.raw);
+          }
+          self.advance();
+        },
+      }
+    }
+    Node::Html(Html { value, span })
+  }
+
+  /// 4-space indented code block (CM 4.4). Lexer pre-classifies a valid
+  /// indent line as `Whitespace(>=4) + IndentedCodeLine`; this method
+  /// concatenates consecutive pairs, joining with `\n` and stopping at
+  /// the first non-indented line.
   fn parse_indented_code(&mut self) -> Node {
     let span = self.current_span();
     let mut buf = String::new();
@@ -656,36 +690,47 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       if !starts_indent {
         break;
       }
-      let leading = self.peek().map(|t| t.raw[4..].to_string()).unwrap_or_default();
+      // Skip the leading whitespace; lexer already trimmed the indent
+      // off the body in the IndentedCodeLine token.
       self.advance();
-      buf.push_str(&leading);
-      loop {
-        let next_kind = self.peek().map(|t| t.kind.clone());
-        match next_kind {
-          Some(TokenKind::SoftBreak) | Some(TokenKind::HardBreak) | None => break,
-          Some(_) => {
-            let raw = self.peek().map(|t| t.raw.to_string()).unwrap_or_default();
-            buf.push_str(&raw);
-            self.advance();
-          },
-        }
-      }
-      buf.push('\n');
-      let break_kind = self.peek().map(|t| t.kind.clone());
-      match break_kind {
-        Some(TokenKind::SoftBreak) => {
-          let saved = self.pos;
+      let body = match self.peek() {
+        Some(t) if matches!(t.kind, TokenKind::IndentedCodeLine) => {
+          let raw = t.raw.to_string();
           self.advance();
-          let next_is_indent = matches!(
-              self.peek(),
-              Some(t) if matches!(t.kind, TokenKind::Whitespace(_)) && t.raw.starts_with("    ")
-          );
-          if !next_is_indent {
-            self.pos = saved;
-            break;
-          }
+          raw
         },
-        _ => break,
+        // Fallback: pre-rewrite path where the lexer didn't pre-classify
+        // (paragraph context, mid-list, etc.). Walk inline tokens until
+        // the next break.
+        _ => {
+          let mut s = String::new();
+          while let Some(t) = self.peek() {
+            match &t.kind {
+              TokenKind::SoftBreak | TokenKind::HardBreak | TokenKind::BlankLine | TokenKind::Eof => break,
+              _ => {
+                s.push_str(t.raw);
+                self.advance();
+              },
+            }
+          }
+          s
+        },
+      };
+      buf.push_str(&body);
+      buf.push('\n');
+      // Continue across a soft break only if the next line is also indented.
+      let saved = self.pos;
+      if !matches!(self.peek_kind(), Some(TokenKind::SoftBreak)) {
+        break;
+      }
+      self.advance();
+      let next_is_indent = matches!(
+          self.peek(),
+          Some(t) if matches!(t.kind, TokenKind::Whitespace(_)) && t.raw.starts_with("    ")
+      );
+      if !next_is_indent {
+        self.pos = saved;
+        break;
       }
     }
     Node::CodeBlock(CodeBlock { lang: None, meta: None, value: buf, span })

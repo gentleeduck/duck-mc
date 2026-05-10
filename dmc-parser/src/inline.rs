@@ -1,6 +1,51 @@
 use crate::ast::*;
 use crate::parser::Parser;
-use dmc_lexer::token::{EmphasisChar, TokenKind};
+use dmc_lexer::token::{AutolinkKind, EmphasisChar, TokenKind};
+
+/// Decode a CommonMark entity reference (`&amp;`, `&#9;`, `&#x2A;`).
+/// Returns `None` when the form is malformed or the named entity is not in
+/// the small subset table; the caller falls back to the raw lexeme so
+/// rendering stays lossless.
+fn decode_entity(raw: &str) -> Option<String> {
+  let inner = raw.strip_prefix('&')?.strip_suffix(';')?;
+  if let Some(rest) = inner.strip_prefix('#') {
+    let cp: u32 = if let Some(hex) = rest.strip_prefix(['x', 'X']) {
+      u32::from_str_radix(hex, 16).ok()?
+    } else {
+      rest.parse().ok()?
+    };
+    // CM 6.6: NUL becomes U+FFFD.
+    let cp = if cp == 0 { 0xFFFD } else { cp };
+    return char::from_u32(cp).map(|c| c.to_string());
+  }
+  // Small subset of HTML5 named entities — covers the common cases the
+  // CommonMark spec exercises (the full table is ~2000 entries; codegen
+  // can swap in a generated lookup later).
+  let s = match inner {
+    "amp" => "&",
+    "lt" => "<",
+    "gt" => ">",
+    "quot" => "\"",
+    "apos" => "'",
+    "nbsp" => "\u{00A0}",
+    "copy" => "\u{00A9}",
+    "reg" => "\u{00AE}",
+    "trade" => "\u{2122}",
+    "hellip" => "\u{2026}",
+    "mdash" => "\u{2014}",
+    "ndash" => "\u{2013}",
+    "lsquo" => "\u{2018}",
+    "rsquo" => "\u{2019}",
+    "ldquo" => "\u{201C}",
+    "rdquo" => "\u{201D}",
+    "laquo" => "\u{00AB}",
+    "raquo" => "\u{00BB}",
+    "middot" => "\u{00B7}",
+    "bull" => "\u{2022}",
+    _ => return None,
+  };
+  Some(s.to_string())
+}
 
 fn utf8_char_len(b: u8) -> usize {
   if b < 0x80 {
@@ -59,21 +104,27 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
           self.advance();
           out.push(Node::Text(Text { value: raw, span }));
         },
-        TokenKind::Autolink(_) => {
+        TokenKind::Autolink(kind) => {
+          let kind = *kind;
           let raw = t.raw.to_string();
           self.advance();
-          let inner = raw.trim_start_matches('<').trim_end_matches('>').to_string();
-          let href = if inner.contains("://") {
-            inner.clone()
-          } else if inner.contains('@') {
-            format!("mailto:{inner}")
-          } else {
-            inner.clone()
+          // Resolve display vs href per autolink kind.
+          let (display, href) = match kind {
+            AutolinkKind::AngleUrl => {
+              let inner = raw.trim_start_matches('<').trim_end_matches('>').to_string();
+              (inner.clone(), inner)
+            },
+            AutolinkKind::AngleEmail => {
+              let inner = raw.trim_start_matches('<').trim_end_matches('>').to_string();
+              (inner.clone(), format!("mailto:{inner}"))
+            },
+            AutolinkKind::BareUrl => (raw.clone(), raw),
+            AutolinkKind::BareWww => (raw.clone(), format!("https://{raw}")),
           };
           out.push(Node::Link(Link {
             href,
             title: None,
-            children: vec![Node::Text(Text { value: inner, span: span.clone() })],
+            children: vec![Node::Text(Text { value: display, span: span.clone() })],
             span,
           }));
         },
@@ -223,6 +274,19 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         },
         TokenKind::ExpressionStart => {
           out.push(self.parse_jsx_expression());
+          continue;
+        },
+        TokenKind::EntityRef => {
+          let raw = t.raw.to_string();
+          self.advance();
+          let value = decode_entity(&raw).unwrap_or(raw);
+          out.push(Node::Text(Text { value, span }));
+        },
+        TokenKind::HeadingTrailingHashes => {
+          // Decoration only; lexer flags the trailing `#` run on an ATX
+          // heading so the parser can drop it. Surrounding whitespace
+          // gets trimmed by `parse_heading`'s end-trim pass.
+          self.advance();
           continue;
         },
         TokenKind::MdxCommentOpen => {
