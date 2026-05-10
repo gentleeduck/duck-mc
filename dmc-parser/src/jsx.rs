@@ -253,6 +253,15 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
 /// remainder is one or more JSX nodes only, splice them in as direct
 /// children. Otherwise the paragraph stays.
 fn unwrap_jsx_only_paragraphs(children: Vec<Node>) -> Vec<Node> {
+  // Single-paragraph children unwrap: a JSX element like `<del>*foo*</del>`
+  // (the only block child is one Paragraph) renders as raw HTML around
+  // inline content per CM 6.6 -- no nested `<p>`. Keeps multi-paragraph
+  // JSX bodies intact.
+  if children.len() == 1
+    && let Some(Node::Paragraph(p)) = children.first()
+  {
+    return p.children.clone();
+  }
   let mut out = Vec::with_capacity(children.len());
   for child in children {
     if let Node::Paragraph(p) = &child {

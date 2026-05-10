@@ -183,6 +183,10 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       TokenKind::JsxOpenTagStart => {
         if let Some(mode) = self.jsx_html_block_mode() {
           Some(self.parse_html_block_from_jsx(mode))
+        } else if self.is_lowercase_jsx_tag() {
+          // Lowercase HTML-ish tag that doesn't match any block type
+          // -- treat as inline raw HTML inside a paragraph.
+          Some(self.parse_paragraph())
         } else {
           Some(self.parse_jsx())
         }
@@ -1199,6 +1203,24 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
   /// CM 4.6 raw-HTML block detection, keyed off a JSX-style open tag at
   /// column 0. Returns `Some(mode)` when the upcoming tag belongs to
   /// the type-1 or type-6 set; cursor untouched.
+  /// Is the upcoming JSX open tag a lowercase HTML-ish tag (so the
+  /// surrounding paragraph wraps it as inline raw HTML)?
+  fn is_lowercase_jsx_tag(&self) -> bool {
+    let Some(open) = self.tokens.get(self.pos) else {
+      return false;
+    };
+    if !matches!(open.kind, TokenKind::JsxOpenTagStart) {
+      return false;
+    }
+    let Some(name_tok) = self.tokens.get(self.pos + 1) else {
+      return false;
+    };
+    if !matches!(name_tok.kind, TokenKind::JsxTagName) {
+      return false;
+    }
+    name_tok.raw.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit())
+  }
+
   fn jsx_html_block_mode(&self) -> Option<HtmlBlockMode> {
     let open = self.tokens.get(self.pos)?;
     // Span column is 1-based; accept 1-4 (col 0-3 in 0-based) per CM
