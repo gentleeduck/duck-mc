@@ -13,6 +13,35 @@ fn first_paragraph(d: &Document) -> &Paragraph {
 }
 
 #[test]
+fn nested_brackets_in_link_text() {
+  // CM 6.3: outer brackets pair correctly even when the link text
+  // contains its own `[..]` run. Inner `[b]` is plain text since no
+  // `(` follows it; outer `[...](u)` becomes the link.
+  let d = parse_doc("[a [b] c](https://x.dev)");
+  let p = first_paragraph(&d);
+  let link = p
+    .children
+    .iter()
+    .find_map(|n| match n {
+      Node::Link(l) => Some(l),
+      _ => None,
+    })
+    .expect("link");
+  assert_eq!(link.href, "https://x.dev");
+  let text: String = link
+    .children
+    .iter()
+    .map(|n| match n {
+      Node::Text(t) => t.value.clone(),
+      _ => String::new(),
+    })
+    .collect();
+  assert!(text.contains("a"), "got {:?}", link.children);
+  assert!(text.contains("b"), "got {:?}", link.children);
+  assert!(text.contains("c"), "got {:?}", link.children);
+}
+
+#[test]
 fn parses_bold() {
   let d = parse_doc("**hello**");
   let p = first_paragraph(&d);
