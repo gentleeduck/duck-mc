@@ -64,6 +64,12 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         self.advance();
         None
       },
+      // Link reference definitions are harvested in the pre-pass; the
+      // tokens themselves produce no output node.
+      TokenKind::LinkRefDef => {
+        self.advance();
+        None
+      },
       _ => {
         if let Some(n) = self.try_parse_table() {
           return Some(n);

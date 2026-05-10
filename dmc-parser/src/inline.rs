@@ -2,6 +2,23 @@ use crate::ast::*;
 use crate::parser::Parser;
 use dmc_lexer::token::{AutolinkKind, EmphasisChar, TokenKind};
 
+/// Flatten an inline node list to plain text. Used to build the lookup
+/// label for shortcut / collapsed / full reference links from the
+/// already-parsed inner content.
+fn plain_text(nodes: &[Node]) -> String {
+  let mut s = String::new();
+  for n in nodes {
+    match n {
+      Node::Text(t) => s.push_str(&t.value),
+      Node::Bold(i) | Node::Italic(i) | Node::Strikethrough(i) => s.push_str(&plain_text(&i.children)),
+      Node::Link(l) => s.push_str(&plain_text(&l.children)),
+      Node::InlineCode(c) => s.push_str(&c.value),
+      _ => {},
+    }
+  }
+  s
+}
+
 /// Decode a CommonMark entity reference (`&amp;`, `&#9;`, `&#x2A;`).
 /// Returns `None` when the form is malformed or the named entity is not in
 /// the small subset table; the caller falls back to the raw lexeme so
@@ -194,37 +211,107 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
             continue;
           }
           self.advance(); // consume the closing `]`
-          // CommonMark / GFM: `[label]` is only a link when followed by
-          // `(destination)` (inline link) or `[reference]` (reference
-          // link). A bare `[label]` is plain text -- without this guard
-          // `string[]` inside a code-adjacent run gets coerced into an
-          // empty `<a href="">` because the parser unconditionally
-          // emitted a Link node when no `(` followed.
-          if !matches!(self.peek_kind(), Some(TokenKind::LinkTargetOpen)) {
-            out.push(Node::Text(Text { value: "[".into(), span: span.clone() }));
-            for n in inner {
-              out.push(n);
-            }
-            out.push(Node::Text(Text { value: "]".into(), span }));
-            continue;
-          }
-          self.advance(); // consume `(`
-          let mut paren_body = String::new();
-          while let Some(tok) = self.peek() {
-            match &tok.kind {
-              TokenKind::LinkTargetClose => {
+          // CommonMark 6.3: classify the link form by what follows the
+          // closing `]`.
+          //   `(...)`     -> inline link
+          //   `[...]`     -> full reference `[text][label]` or
+          //                  collapsed `[label][]`
+          //   nothing     -> shortcut reference `[label]`
+          // Reference forms resolve against the ref-def map populated in
+          // the pre-pass; unresolved refs fall back to literal text.
+          match self.peek_kind() {
+            Some(TokenKind::LinkTargetOpen) => {
+              self.advance(); // consume `(`
+              let mut paren_body = String::new();
+              while let Some(tok) = self.peek() {
+                match &tok.kind {
+                  TokenKind::LinkTargetClose => {
+                    self.advance();
+                    break;
+                  },
+                  TokenKind::Eof => break,
+                  _ => {
+                    paren_body.push_str(tok.raw);
+                    self.advance();
+                  },
+                }
+              }
+              let (href, title) = Self::split_destination_title(&paren_body);
+              out.push(Node::Link(Link { href, title, children: inner, span }));
+            },
+            Some(TokenKind::LinkOpen) => {
+              // Reference form: peek the second `[..]` to distinguish
+              // collapsed (`[]`) from full (`[label]`).
+              self.advance(); // consume `[`
+              if matches!(self.peek_kind(), Some(TokenKind::LinkClose)) {
                 self.advance();
-                break;
-              },
-              TokenKind::Eof => break,
-              _ => {
-                paren_body.push_str(tok.raw);
-                self.advance();
-              },
-            }
+                let label = plain_text(&inner);
+                if let Some((href, title)) = self.refs.get(&label).cloned() {
+                  out.push(Node::Link(Link { href, title, children: inner, span }));
+                  continue;
+                }
+                // Unresolved -- emit literal `[text][]`.
+                out.push(Node::Text(Text { value: "[".into(), span: span.clone() }));
+                for n in inner {
+                  out.push(n);
+                }
+                out.push(Node::Text(Text { value: "][]".into(), span }));
+                continue;
+              }
+              let label_inner = self.collect_inline(&|k| {
+                matches!(k, TokenKind::LinkClose | TokenKind::BlankLine | TokenKind::SoftBreak | TokenKind::Eof)
+              });
+              if !matches!(self.peek_kind(), Some(TokenKind::LinkClose)) {
+                // Treat the trailing `[..` as text and fall through to
+                // shortcut behavior on the original inner.
+                let label = plain_text(&inner);
+                if let Some((href, title)) = self.refs.get(&label).cloned() {
+                  out.push(Node::Link(Link { href, title, children: inner, span }));
+                  continue;
+                }
+                out.push(Node::Text(Text { value: "[".into(), span: span.clone() }));
+                for n in inner {
+                  out.push(n);
+                }
+                out.push(Node::Text(Text { value: "]".into(), span: span.clone() }));
+                out.push(Node::Text(Text { value: "[".into(), span: span.clone() }));
+                for n in label_inner {
+                  out.push(n);
+                }
+                continue;
+              }
+              self.advance(); // consume label-side `]`
+              let label = plain_text(&label_inner);
+              if let Some((href, title)) = self.refs.get(&label).cloned() {
+                out.push(Node::Link(Link { href, title, children: inner, span }));
+                continue;
+              }
+              // Unresolved full ref -- emit `[inner][label]` as text.
+              out.push(Node::Text(Text { value: "[".into(), span: span.clone() }));
+              for n in inner {
+                out.push(n);
+              }
+              out.push(Node::Text(Text { value: "][".into(), span: span.clone() }));
+              for n in label_inner {
+                out.push(n);
+              }
+              out.push(Node::Text(Text { value: "]".into(), span }));
+            },
+            _ => {
+              // Shortcut `[label]`. Resolve via the ref-def map; falls
+              // back to bracketed text when no matching definition.
+              let label = plain_text(&inner);
+              if let Some((href, title)) = self.refs.get(&label).cloned() {
+                out.push(Node::Link(Link { href, title, children: inner, span }));
+                continue;
+              }
+              out.push(Node::Text(Text { value: "[".into(), span: span.clone() }));
+              for n in inner {
+                out.push(n);
+              }
+              out.push(Node::Text(Text { value: "]".into(), span }));
+            },
           }
-          let (href, title) = Self::split_destination_title(&paren_body);
-          out.push(Node::Link(Link { href, title, children: inner, span }));
         },
         TokenKind::ImageMarker => {
           // Lexer's `ImageMarker` already covers `![`, so the cursor is on

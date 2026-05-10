@@ -6,6 +6,7 @@ mod block;
 mod inline;
 mod jsx;
 pub mod parser;
+pub mod refs;
 pub mod slugger;
 mod table;
 

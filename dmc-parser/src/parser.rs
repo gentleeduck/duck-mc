@@ -1,4 +1,5 @@
 use crate::ast::*;
+use crate::refs::{RefMap, parse_link_ref_def};
 use dmc_diagnostic::Code;
 use dmc_diagnostic::metadata::{Origin, SourceMeta};
 use dmc_lexer::Lexer;
@@ -12,6 +13,7 @@ pub struct Parser<'eng, 'tokens> {
   pub tokens: Vec<Token<'tokens>>,
   pub meta: Arc<SourceMeta>,
   pub pos: usize,
+  pub refs: RefMap,
   pub diag_engine: &'eng mut DiagnosticEngine<Code>,
 }
 
@@ -22,12 +24,13 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     meta: Arc<SourceMeta>,
     diag_engine: &'eng mut DiagnosticEngine<Code>,
   ) -> Self {
-    Self { tokens, meta, pos: 0, diag_engine }
+    Self { tokens, meta, pos: 0, refs: RefMap::new(), diag_engine }
   }
 
   /// Drive the top-level loop until EOF. Force-advances on no-progress so a
   /// malformed token cannot wedge the parser.
   pub fn parse(&mut self) -> Document {
+    self.collect_refs();
     let span = self.tokens.first().map(|t| t.span.clone()).unwrap_or_else(default_span);
     let mut children = Vec::new();
     while !self.is_eof() {
@@ -40,6 +43,19 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       }
     }
     Document { children, span }
+  }
+
+  /// First pass: harvest every `LinkRefDef` token's `[label]: url "title"`
+  /// payload into `self.refs`. Cursor is left untouched; the main parse
+  /// loop then resolves shortcut / full / collapsed refs against the map.
+  fn collect_refs(&mut self) {
+    for tok in &self.tokens {
+      if matches!(tok.kind, TokenKind::LinkRefDef)
+        && let Some((label, url, title)) = parse_link_ref_def(tok.raw)
+      {
+        self.refs.insert(&label, url, title);
+      }
+    }
   }
 
   /// Forward a fully-built diagnostic to the engine.
