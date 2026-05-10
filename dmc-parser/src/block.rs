@@ -1643,7 +1643,18 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       let next_is_ol_interrupting = match self.peek() {
         Some(t) if matches!(t.kind, TokenKind::OrderedListMarker(_)) => {
           let digits: String = t.raw.chars().take_while(|c| c.is_ascii_digit()).collect();
-          digits.parse::<u32>().map(|n| n == 1).unwrap_or(false)
+          let starts_at_one = digits.parse::<u32>().map(|n| n == 1).unwrap_or(false);
+          // CM 5.2: a list item with no content after the marker
+          // cannot interrupt a paragraph (matches the unordered rule).
+          let has_content = !matches!(
+            self.tokens.get(self.pos + 1).map(|t| &t.kind),
+            Some(TokenKind::SoftBreak)
+              | Some(TokenKind::HardBreak)
+              | Some(TokenKind::BlankLine)
+              | Some(TokenKind::Eof)
+              | None
+          );
+          starts_at_one && has_content
         },
         _ => false,
       };
