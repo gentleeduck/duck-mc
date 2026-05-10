@@ -2,6 +2,88 @@ use crate::ast::*;
 use crate::parser::Parser;
 use dmc_lexer::token::TokenKind;
 
+/// CommonMark 4.6 type-1: closes on the matching `</tag>`. Tag names
+/// here force the surrounding source into a raw HTML block even when
+/// the lexer routed them through JSX.
+const HTML_BLOCK_TYPE1_TAGS: &[&str] = &["script", "pre", "style", "textarea"];
+
+/// CommonMark 4.6 type-6: block-level HTML tag set. Closes on the next
+/// blank line. Type-7 ("any other tag at column 0") is intentionally
+/// not handled -- in MDX the same shape means a JSX component, and
+/// reclassifying every capital-or-namespaced tag as HTML would break
+/// the dialect.
+const HTML_BLOCK_TYPE6_TAGS: &[&str] = &[
+  "address",
+  "article",
+  "aside",
+  "base",
+  "basefont",
+  "blockquote",
+  "body",
+  "caption",
+  "center",
+  "col",
+  "colgroup",
+  "dd",
+  "details",
+  "dialog",
+  "dir",
+  "div",
+  "dl",
+  "dt",
+  "fieldset",
+  "figcaption",
+  "figure",
+  "footer",
+  "form",
+  "frame",
+  "frameset",
+  "h1",
+  "h2",
+  "h3",
+  "h4",
+  "h5",
+  "h6",
+  "head",
+  "header",
+  "hr",
+  "html",
+  "iframe",
+  "legend",
+  "li",
+  "link",
+  "main",
+  "menu",
+  "menuitem",
+  "nav",
+  "noframes",
+  "ol",
+  "optgroup",
+  "option",
+  "p",
+  "param",
+  "search",
+  "section",
+  "summary",
+  "table",
+  "tbody",
+  "td",
+  "tfoot",
+  "th",
+  "thead",
+  "title",
+  "tr",
+  "track",
+  "ul",
+];
+
+enum HtmlBlockMode {
+  /// Closes on matching `</tag>`. Carries the lowercased tag name.
+  Type1(String),
+  /// Closes on blank line.
+  Type6,
+}
+
 impl<'eng, 'tokens> Parser<'eng, 'tokens> {
   /// Top-down dispatch: peek one token, route to the matching block parser.
   /// `None` means the cursor advanced but emitted no node (e.g. a stray break
@@ -44,7 +126,13 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       TokenKind::Export => Some(self.export_node()),
       TokenKind::Heading(_) => Some(self.parse_heading()),
       TokenKind::CodeFenceOpen(_, _) => Some(self.parse_code_block()),
-      TokenKind::JsxOpenTagStart => Some(self.parse_jsx()),
+      TokenKind::JsxOpenTagStart => {
+        if let Some(mode) = self.jsx_html_block_mode() {
+          Some(self.parse_html_block_from_jsx(mode))
+        } else {
+          Some(self.parse_jsx())
+        }
+      },
       TokenKind::JsxFragmentOpen => Some(self.parse_jsx_fragment()),
       TokenKind::HtmlBlockOpen(_) => Some(self.parse_html_block()),
       TokenKind::ExpressionStart => Some(self.parse_jsx_expression()),
@@ -651,6 +739,88 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     Node::Heading(Heading { level, children, span, id: None })
   }
 
+  /// CM 4.6 raw-HTML block detection, keyed off a JSX-style open tag at
+  /// column 0. Returns `Some(mode)` when the upcoming tag belongs to
+  /// the type-1 or type-6 set; cursor untouched.
+  fn jsx_html_block_mode(&self) -> Option<HtmlBlockMode> {
+    let open = self.tokens.get(self.pos)?;
+    if open.span.column != 1 {
+      return None;
+    }
+    let name_tok = self.tokens.get(self.pos + 1)?;
+    if !matches!(name_tok.kind, TokenKind::JsxTagName) {
+      return None;
+    }
+    let lower = name_tok.raw.to_ascii_lowercase();
+    if HTML_BLOCK_TYPE1_TAGS.contains(&lower.as_str()) {
+      Some(HtmlBlockMode::Type1(lower))
+    } else if HTML_BLOCK_TYPE6_TAGS.contains(&lower.as_str()) {
+      Some(HtmlBlockMode::Type6)
+    } else {
+      None
+    }
+  }
+
+  /// Reconstruct a raw HTML block from a JSX-tokenized stream. Type-1
+  /// closes on the matching `</tag>`; Type-6 closes on the next blank
+  /// line. The captured `value` is the verbatim source slice covering
+  /// every token between (and including) the open and the closer.
+  fn parse_html_block_from_jsx(&mut self, mode: HtmlBlockMode) -> Node {
+    let span = self.current_span();
+    let mut value = String::new();
+    match mode {
+      HtmlBlockMode::Type1(tag) => loop {
+        match self.peek_kind() {
+          Some(TokenKind::JsxCloseTagStart) => {
+            // Capture `</`, the name, and `>` so the matching closer
+            // ends up in the verbatim block value.
+            if let Some(t) = self.peek() {
+              value.push_str(t.raw);
+            }
+            self.advance();
+            let close_name = match self.peek() {
+              Some(t) if matches!(t.kind, TokenKind::JsxTagName) => {
+                let n = t.raw.to_ascii_lowercase();
+                value.push_str(t.raw);
+                self.advance();
+                n
+              },
+              _ => String::new(),
+            };
+            if matches!(self.peek_kind(), Some(TokenKind::JsxCloseTagEnd)) {
+              if let Some(t) = self.peek() {
+                value.push_str(t.raw);
+              }
+              self.advance();
+            }
+            if close_name == tag {
+              break;
+            }
+          },
+          Some(TokenKind::Eof) | None => break,
+          _ => {
+            if let Some(t) = self.peek() {
+              value.push_str(t.raw);
+            }
+            self.advance();
+          },
+        }
+      },
+      HtmlBlockMode::Type6 => loop {
+        match self.peek_kind() {
+          Some(TokenKind::BlankLine) | Some(TokenKind::Eof) | None => break,
+          _ => {
+            if let Some(t) = self.peek() {
+              value.push_str(t.raw);
+            }
+            self.advance();
+          },
+        }
+      },
+    }
+    Node::Html(Html { value, span })
+  }
+
   /// GFM footnote definition: cursor at `FootnoteDefMarker`. The marker
   /// token's raw lexeme is `[^id]: ` (trailing space included by the
   /// lexer); body is the inline run that follows up to the next break.
@@ -658,13 +828,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     let span = self.current_span();
     let raw = self.peek().map(|t| t.raw.to_string()).unwrap_or_default();
     self.advance();
-    let id = raw
-      .trim_start_matches('[')
-      .trim_start_matches('^')
-      .split(']')
-      .next()
-      .unwrap_or("")
-      .to_string();
+    let id = raw.trim_start_matches('[').trim_start_matches('^').split(']').next().unwrap_or("").to_string();
     let children = self.collect_inline_until_break();
     Node::FootnoteDef(FootnoteDef { id, children, span })
   }
