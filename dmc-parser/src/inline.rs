@@ -196,7 +196,10 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
           // pairs.
           let next_tok = self.tokens.get(self.pos + 1);
           let next_is_break = match next_tok.map(|t| &t.kind) {
-            Some(TokenKind::SoftBreak) | Some(TokenKind::HardBreak) | Some(TokenKind::BlankLine) | Some(TokenKind::Eof)
+            Some(TokenKind::SoftBreak)
+            | Some(TokenKind::HardBreak)
+            | Some(TokenKind::BlankLine)
+            | Some(TokenKind::Eof)
             | None => true,
             Some(TokenKind::Whitespace(_)) => true,
             // Catch Unicode whitespace embedded in a Text token (e.g.
@@ -229,7 +232,27 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
           let inner = self.collect_inline(&|k| {
             Self::is_top_level_break(k) || matches!(k, TokenKind::Emphasis(cc, m) if *cc == open_c && *m == open_n)
           });
-          let closed = matches!(self.peek_kind(), Some(TokenKind::Emphasis(cc, m)) if *cc == open_c && *m == open_n);
+          // CM 6.4 right-flanking: closer must not be preceded by
+          // whitespace. Underscore additionally can't close when
+          // immediately followed by an alphanumeric char (intra-word
+          // `_`).
+          let closed_kind = matches!(self.peek_kind(), Some(TokenKind::Emphasis(cc, m)) if *cc == open_c && *m == open_n);
+          // Char in source immediately before the would-be closer = last
+          // char of the previously-consumed token.
+          let prev_at_close = self
+            .pos
+            .checked_sub(1)
+            .and_then(|i| self.tokens.get(i))
+            .and_then(|t| t.raw.chars().last());
+          let after_closer_tok = self.tokens.get(self.pos + 1);
+          let after_alnum =
+            after_closer_tok.is_some_and(|t| t.raw.chars().next().is_some_and(|c| c.is_alphanumeric()));
+          let prev_at_close_ws = prev_at_close.map(|c| c.is_whitespace()).unwrap_or(true);
+          let mut can_close = closed_kind && !prev_at_close_ws;
+          if open_c == EmphasisChar::Underscore && after_alnum {
+            can_close = false;
+          }
+          let closed = closed_kind && can_close;
           if !closed {
             // CM: an unmatched emphasis run is literal text. Surface the
             // opener and the already-collected inner as siblings so the
