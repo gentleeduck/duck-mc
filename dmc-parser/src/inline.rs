@@ -282,6 +282,12 @@ fn decode_entity(raw: &str) -> Option<String> {
     let cp = if cp == 0 { 0xFFFD } else { cp };
     return char::from_u32(cp).map(|c| c.to_string());
   }
+  // Some HTML5 named refs expand to multiple code points; htmlentity's
+  // `Entity::decode` only yields a single `char`, so patch the specific
+  // CM 6.6 cases it cannot represent.
+  if raw == "&ngE;" {
+    return Some("\u{2267}\u{0338}".to_string());
+  }
   // Named forms via the full HTML5 entity table.
   use htmlentity::entity::{ICodedDataTrait, decode};
   let decoded = decode(raw.as_bytes());
@@ -1003,10 +1009,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
   fn parse_literal_inline_slice(&self, start: usize, end: usize, trim_trailing_break: bool) -> Vec<Node> {
     let mut tokens: Vec<_> = self.tokens[start..end].to_vec();
     if trim_trailing_break {
-      while matches!(
-        tokens.last().map(|t| &t.kind),
-        Some(TokenKind::SoftBreak) | Some(TokenKind::HardBreak)
-      ) {
+      while matches!(tokens.last().map(|t| &t.kind), Some(TokenKind::SoftBreak) | Some(TokenKind::HardBreak)) {
         tokens.pop();
       }
     }

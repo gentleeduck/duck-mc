@@ -23,13 +23,39 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     name_tok.raw.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
   }
 
+  pub(crate) fn is_htmlish_jsx_tag(&self) -> bool {
+    let Some(open) = self.tokens.get(self.pos) else {
+      return false;
+    };
+    if !matches!(open.kind, TokenKind::JsxOpenTagStart | TokenKind::JsxCloseTagStart) {
+      return false;
+    }
+    let Some(name_tok) = self.tokens.get(self.pos + 1) else {
+      return false;
+    };
+    if !matches!(name_tok.kind, TokenKind::JsxTagName) {
+      return false;
+    }
+    let mut chars = name_tok.raw.chars();
+    matches!(chars.next(), Some(c) if c.is_ascii_alphabetic())
+      && chars.all(|c| c.is_ascii_alphanumeric() || c == '-')
+  }
+
   /// CommonMark raw HTML does not use JS-style quote escaping inside
   /// attribute strings. Reject those cases so malformed tags stay text.
   pub(crate) fn jsx_raw_html_tag_is_valid(&self) -> bool {
+    self.jsx_raw_html_tag_is_valid_with(self.is_plain_html_jsx_tag())
+  }
+
+  pub(crate) fn jsx_raw_html_tag_is_valid_htmlish(&self) -> bool {
+    self.jsx_raw_html_tag_is_valid_with(self.is_htmlish_jsx_tag())
+  }
+
+  fn jsx_raw_html_tag_is_valid_with(&self, allowed_tag: bool) -> bool {
     let Some(kind) = self.peek_kind() else {
       return false;
     };
-    if !self.is_plain_html_jsx_tag() {
+    if !allowed_tag {
       return false;
     }
     let is_close = matches!(kind, TokenKind::JsxCloseTagStart);

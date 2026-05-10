@@ -1801,12 +1801,13 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       Some(HtmlBlockMode::Type1(lower))
     } else if HTML_BLOCK_TYPE6_TAGS.contains(&lower.as_str()) {
       Some(HtmlBlockMode::Type6)
-    } else if self.is_plain_html_jsx_tag() && self.jsx_raw_html_tag_is_valid() && self.line_after_tag_is_blank() {
+    } else if self.is_htmlish_jsx_tag() && self.jsx_raw_html_tag_is_valid_htmlish() && self.line_after_tag_is_blank() {
       // CM 4.6 Type-7: any tag at col 0 closes on next blank line --
       // BUT the start line itself must contain only the tag plus
       // whitespace (no inline content after the closing `>`).
-      // Restricted to plain lowercase names so MDX components like
-      // `<MyComponent>` and namespaces like `<svg:circle>` stay JSX.
+      // Keep namespaced / member-expression tags on the JSX path, but
+      // allow uppercase HTML-looking names here for CommonMark
+      // compliance (`<Warning>` blocks, etc.).
       Some(HtmlBlockMode::Type7)
     } else {
       None
