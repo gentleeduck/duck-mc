@@ -70,11 +70,19 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     let mut rows = Vec::new();
     rows.push(make_row(&header_cells, &span));
 
+    let col_count = aligns.len();
     while let Some((line, len)) = self.collect_line_text() {
       if !looks_like_table_row(&line) {
         break;
       }
-      let cells = split_cells(&line);
+      let mut cells = split_cells(&line);
+      // GFM 4.10: pad rows that have fewer cells than the header with
+      // empty trailing cells; truncate rows that have more.
+      if cells.len() < col_count {
+        cells.resize(col_count, String::new());
+      } else if cells.len() > col_count {
+        cells.truncate(col_count);
+      }
       let row_span = self.current_span();
       rows.push(make_row(&cells, &row_span));
       self.pos += len;
