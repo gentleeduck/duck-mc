@@ -112,20 +112,12 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     {
       match next.kind {
         TokenKind::UnorderedListMarker => {
-          let w = match self.peek_kind() {
-            Some(TokenKind::Whitespace(w)) => *w as usize,
-            _ => 0,
-          };
           self.advance();
-          return Some(self.parse_list(false, w));
+          return Some(self.parse_list(false, 0));
         },
         TokenKind::OrderedListMarker(_) => {
-          let w = match self.peek_kind() {
-            Some(TokenKind::Whitespace(w)) => *w as usize,
-            _ => 0,
-          };
           self.advance();
-          return Some(self.parse_list(true, w));
+          return Some(self.parse_list(true, 0));
         },
         TokenKind::ThematicBreak => {
           self.advance();
@@ -297,7 +289,18 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       // nested lists (indent > 0) require a `Whitespace` of width `indent`
       // before the next marker - a marker at a smaller indent belongs to
       // an outer list.
-      let mut item_indent = indent;
+      let mut item_indent = if first {
+        // Capture the leading whitespace (if any) consumed by the
+        // caller right before the marker. parse_block's leading-ws
+        // dispatch advances past the Whitespace token before calling
+        // parse_list, so tokens[pos-1] holds the actual indent.
+        match self.pos.checked_sub(1).and_then(|i| self.tokens.get(i)) {
+          Some(t) if matches!(t.kind, TokenKind::Whitespace(_)) => t.raw.chars().count(),
+          _ => indent,
+        }
+      } else {
+        indent
+      };
       if !first {
         if indent > 0 {
           let aligned = matches!(self.peek(), Some(t) if matches!(t.kind, TokenKind::Whitespace(_)) && t.raw.chars().count() == indent);
@@ -708,8 +711,15 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
             self.pos = saved;
           }
         } else {
-          // Allow optional leading whitespace before the next marker.
-          if matches!(self.peek_kind(), Some(TokenKind::Whitespace(_))) {
+          // Peek leading whitespace before the next marker without
+          // consuming it: the outer loop's leading-ws check will use
+          // that width as the next item's item_indent (for content_floor).
+          let ws_pos = self.pos;
+          let ws_w = match self.peek_kind() {
+            Some(TokenKind::Whitespace(_)) => Some(self.pos),
+            _ => None,
+          };
+          if ws_w.is_some() {
             self.advance();
           }
           let next_is_marker = match self.peek_kind() {
@@ -719,8 +729,15 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
           };
           if !next_is_marker {
             self.pos = saved;
-          } else if let Some(last) = items.last_mut() {
-            Self::ensure_loose_item(last, &span);
+          } else {
+            // Rewind to the leading-whitespace position so the next
+            // outer-loop iteration captures it as item_indent.
+            if ws_w.is_some() {
+              self.pos = ws_pos;
+            }
+            if let Some(last) = items.last_mut() {
+              Self::ensure_loose_item(last, &span);
+            }
           }
         }
       }
