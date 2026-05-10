@@ -220,7 +220,14 @@ impl HtmlEmitter {
           self.diag(Code::MalformedJsxTagName, "html: JSX element has empty name; skipped".to_string());
           return;
         }
-        self.out.push('<');
+        // GFM Disallowed Raw HTML extension: a fixed set of tag names
+        // get their leading `<` escaped (the tag wouldn't render
+        // safely in a browser). Affects open + close tags.
+        if is_disallowed_raw_html(&e.name) {
+          self.out.push_str("&lt;");
+        } else {
+          self.out.push('<');
+        }
         self.out.push_str(&e.name);
         for a in &e.attrs {
           self.jsx_attr(a);
@@ -250,7 +257,11 @@ impl HtmlEmitter {
       Node::ListItem(_) | Node::TaskListItem(_) => self.out.push_str("</li>\n"),
       Node::Link(_) => self.out.push_str("</a>"),
       Node::JsxElement(e) if !e.name.is_empty() => {
-        self.out.push_str(&format!("</{}>", e.name));
+        if is_disallowed_raw_html(&e.name) {
+          self.out.push_str(&format!("&lt;/{}>", e.name));
+        } else {
+          self.out.push_str(&format!("</{}>", e.name));
+        }
       },
       Node::JsxFragment(_) => {},
       _ => {},
@@ -451,6 +462,49 @@ impl HtmlEmitter {
 }
 
 /// Convenience: render `doc` to HTML with a throwaway diagnostic engine.
+/// GFM Disallowed Raw HTML extension: these tag names get their `<`
+/// escaped to `&lt;` so they don't render in the browser. Comparison
+/// is ASCII case-insensitive (`<XMP>` and `<xmp>` both match).
+fn is_disallowed_raw_html(name: &str) -> bool {
+  matches!(
+    name.to_ascii_lowercase().as_str(),
+    "title" | "textarea" | "style" | "xmp" | "iframe" | "noembed" | "noframes" | "script" | "plaintext"
+  )
+}
+
+/// Walk a raw-HTML string and escape the leading `<` of any tag whose
+/// name matches the GFM disallowed-raw-HTML set.
+fn escape_disallowed_raw_html(s: &str) -> String {
+  let bytes = s.as_bytes();
+  let mut out = String::with_capacity(s.len());
+  let mut i = 0;
+  while i < bytes.len() {
+    if bytes[i] == b'<' {
+      let close = bytes.get(i + 1).copied() == Some(b'/');
+      let name_start = if close { i + 2 } else { i + 1 };
+      let mut j = name_start;
+      while j < bytes.len() && (bytes[j].is_ascii_alphanumeric() || bytes[j] == b'-') {
+        j += 1;
+      }
+      if j > name_start {
+        let name = std::str::from_utf8(&bytes[name_start..j]).unwrap_or("");
+        if is_disallowed_raw_html(name) {
+          out.push_str("&lt;");
+          if close {
+            out.push('/');
+          }
+          out.push_str(name);
+          i = j;
+          continue;
+        }
+      }
+    }
+    out.push(bytes[i] as char);
+    i += 1;
+  }
+  out
+}
+
 pub fn render_html(doc: &Document) -> String {
   let mut e = HtmlEmitter::new();
   Walker::new(doc).walk(&mut [&mut e]);

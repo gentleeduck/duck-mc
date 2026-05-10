@@ -138,9 +138,7 @@ fn line_starts_block_construct(t: &str) -> bool {
     }
   }
   // List marker: `-`/`*`/`+` + space, or digits + `.`/`)` + space.
-  if t.len() >= 2
-    && matches!(bytes[0], b'-' | b'*' | b'+')
-    && matches!(bytes.get(1).copied(), Some(b' ') | Some(b'\t'))
+  if t.len() >= 2 && matches!(bytes[0], b'-' | b'*' | b'+') && matches!(bytes.get(1).copied(), Some(b' ') | Some(b'\t'))
   {
     return true;
   }
