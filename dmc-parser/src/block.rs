@@ -1283,11 +1283,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         // CM 4.3: setext H2 = run of `-` plus optional trailing
         // whitespace. Trim trailing ws then verify all-dashes.
         let trimmed = t.raw.trim_end_matches([' ', '\t']);
-        if !trimmed.is_empty() && trimmed.chars().all(|c| c == '-') {
-          Some(2)
-        } else {
-          None
-        }
+        if !trimmed.is_empty() && trimmed.chars().all(|c| c == '-') { Some(2) } else { None }
       },
       _ => None,
     }
@@ -1310,9 +1306,12 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
   /// splits at the first whitespace into `(lang, meta)`.
   fn parse_code_block(&mut self) -> Node {
     let span = self.current_span();
-    let (fence_char, fence_n) = match self.peek_kind() {
-      Some(TokenKind::CodeFenceOpen(c, n)) => (*c, *n),
-      _ => (dmc_lexer::token::FenceChar::Backtick, 3),
+    let (fence_char, fence_n, fence_indent) = match self.peek() {
+      Some(t) => match t.kind {
+        TokenKind::CodeFenceOpen(c, n) => (c, n, t.span.column.saturating_sub(1)),
+        _ => (dmc_lexer::token::FenceChar::Backtick, 3, 0),
+      },
+      None => (dmc_lexer::token::FenceChar::Backtick, 3, 0),
     };
     self.advance();
 
@@ -1361,6 +1360,23 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     // so renderers emit `<pre><code>...\n</code></pre>` per spec.
     if !value.is_empty() && !value.ends_with('\n') {
       value.push('\n');
+    }
+    // CM 4.5: a fence with N leading spaces strips up to N spaces of
+    // leading indent from every content line (capped at the actual
+    // run, never deeper than the line's own leading whitespace).
+    if fence_indent > 0 {
+      let stripped = value
+        .split_inclusive('\n')
+        .map(|line| {
+          let mut consumed = 0usize;
+          let bytes = line.as_bytes();
+          while consumed < fence_indent && consumed < bytes.len() && bytes[consumed] == b' ' {
+            consumed += 1;
+          }
+          &line[consumed..]
+        })
+        .collect::<String>();
+      value = stripped;
     }
     Node::CodeBlock(CodeBlock { lang, meta, value, span })
   }
