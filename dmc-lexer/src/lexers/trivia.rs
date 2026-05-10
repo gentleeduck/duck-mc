@@ -65,10 +65,13 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
       // whitespace was at column 1, which is the start of an indented
       // code block / blank-ish line inside one.
       Some(Token { kind: TokenKind::Whitespace(n), span, .. }) if *n >= 2 && span.column != 1 => TokenKind::HardBreak,
-      // Trailing backslash on a Text token -> hard break, trim the `\`.
+      // Trailing backslash on a Text token -> hard break, trim the `\`
+      // off both the span and the borrowed lexeme so downstream emit
+      // doesn't render the literal `\`.
       Some(Token { kind: TokenKind::Text, .. }) if prev_byte == Some(b'\\') => {
         let prev = self.tokens.last_mut().unwrap();
         prev.span.length -= 1;
+        prev.raw = &prev.raw[..prev.raw.len() - 1];
         TokenKind::HardBreak
       },
       _ => TokenKind::SoftBreak,

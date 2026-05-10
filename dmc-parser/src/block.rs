@@ -1071,6 +1071,12 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       }
     }
 
+    // CM 4.5: fenced code-block content ends with a newline. The lexer
+    // strips the newline that precedes the closing fence; restore it
+    // so renderers emit `<pre><code>...\n</code></pre>` per spec.
+    if !value.is_empty() && !value.ends_with('\n') {
+      value.push('\n');
+    }
     Node::CodeBlock(CodeBlock { lang, meta, value, span })
   }
 }

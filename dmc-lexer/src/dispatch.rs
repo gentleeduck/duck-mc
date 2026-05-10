@@ -173,11 +173,47 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
     }
   }
 
-  /// CM-escapable punctuation set excluding `\n` (handled as line break)
-  /// and `\\` itself (handled by `lex_text`'s pair arm).
+  /// CommonMark backslash-escapable set (appendix). The lexer consumes
+  /// `\X` as a single Text token when `X` is one of these so emphasis /
+  /// entity / autolink dispatch never sees the escaped delimiter.
+  /// `\n` is intentionally excluded (handled by hard-break detection).
   #[inline]
   pub(crate) fn is_escapable_punct(c: char) -> bool {
-    matches!(c, '*' | '_' | '`' | '<' | '>' | '{' | '}' | '[' | ']' | '(' | ')' | '!' | '#' | '-' | '|' | '~')
+    matches!(
+      c,
+      '!'
+        | '"'
+        | '#'
+        | '$'
+        | '%'
+        | '&'
+        | '\''
+        | '('
+        | ')'
+        | '*'
+        | '+'
+        | ','
+        | '-'
+        | '.'
+        | '/'
+        | ':'
+        | ';'
+        | '<'
+        | '='
+        | '>'
+        | '?'
+        | '@'
+        | '['
+        | '\\'
+        | ']'
+        | '^'
+        | '_'
+        | '`'
+        | '{'
+        | '|'
+        | '}'
+        | '~'
+    )
   }
 
   /// Whether the next char looks like the start of a JSX tag.
