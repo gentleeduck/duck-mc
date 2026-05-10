@@ -236,7 +236,9 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
           }
           self.advance();
           let inner = self.collect_inline(&|k| {
-            Self::is_top_level_break(k) || matches!(k, TokenKind::Emphasis(cc, m) if *cc == open_c && *m == open_n)
+            Self::is_top_level_break(k)
+              || matches!(k, TokenKind::Emphasis(cc, m) if *cc == open_c && *m == open_n)
+              || matches!(k, TokenKind::LinkClose)
           });
           // CM 6.4 right-flanking: closer must not be preceded by
           // whitespace. Underscore additionally can't close when
