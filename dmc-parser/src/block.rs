@@ -1648,9 +1648,14 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
   /// whitespace-only? Required for CM 4.6 Type-7 trigger.
   fn line_after_tag_is_blank(&self) -> bool {
     // Skip over the open tag tokens until JsxOpenTagEnd / JsxSelfClosingEnd.
+    // CM 4.6 type-7 requires the open tag to be a single complete tag on
+    // the start line, so reject if any tag-internal token spans a newline.
     let mut i = self.pos;
     let mut depth = 0i32;
     while let Some(t) = self.tokens.get(i) {
+      if t.raw.contains('\n') {
+        return false;
+      }
       match t.kind {
         TokenKind::JsxOpenTagStart | TokenKind::JsxCloseTagStart => depth += 1,
         TokenKind::JsxOpenTagEnd | TokenKind::JsxCloseTagEnd | TokenKind::JsxSelfClosingEnd => {
