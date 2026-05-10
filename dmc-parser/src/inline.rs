@@ -699,6 +699,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
                 out.push(Node::Text(Text { value: "][]".into(), span }));
                 continue;
               }
+              let label2_start_ptr = self.peek().map(|t| t.raw.as_ptr() as usize).unwrap_or(0);
               let label_inner = self.collect_inline(&|k| {
                 matches!(k, TokenKind::LinkClose | TokenKind::BlankLine | TokenKind::SoftBreak | TokenKind::Eof)
               });
@@ -723,9 +724,25 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
                 }
                 continue;
               }
+              let label2_end_ptr = self
+                .tokens
+                .get(self.pos.saturating_sub(1))
+                .map(|t| t.raw.as_ptr() as usize + t.raw.len())
+                .unwrap_or(label2_start_ptr);
               self.advance(); // consume label-side `]`
-              let label = plain_text(&label_inner);
-              if let Some((href, title)) = self.refs.get(&label).cloned() {
+              let label_raw_2 = if label2_end_ptr > label2_start_ptr {
+                let len = label2_end_ptr - label2_start_ptr;
+                // SAFETY: every Token.raw is a slice of the same source.
+                let slice = unsafe { std::slice::from_raw_parts(label2_start_ptr as *const u8, len) };
+                std::str::from_utf8(slice).map(|s| s.to_string()).unwrap_or_default()
+              } else {
+                String::new()
+              };
+              // CM 4.7: label matching is case-fold + ws-collapse only.
+              // Use the raw source slice (with backslash escapes intact)
+              // so `[foo\!]` does NOT match `[foo!]: /url` per spec.
+              let resolved = self.refs.get(&label_raw_2).cloned();
+              if let Some((href, title)) = resolved {
                 out.push(Node::Link(Link { href, title, children: inner, span }));
                 continue;
               }
@@ -743,8 +760,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
               // Shortcut `[label]`. Resolve via the ref-def map; falls
               // back to bracketed text when no matching definition.
               let label_raw = raw_inner_label.clone();
-              let label_plain = plain_text(&inner);
-              let resolved = self.refs.get(&label_raw).cloned().or_else(|| self.refs.get(&label_plain).cloned());
+              let resolved = self.refs.get(&label_raw).cloned();
               if let Some((href, title)) = resolved {
                 out.push(Node::Link(Link { href, title, children: inner, span }));
                 continue;

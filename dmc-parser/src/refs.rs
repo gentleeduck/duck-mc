@@ -40,54 +40,12 @@ impl RefMap {
 /// to single spaces, leading/trailing whitespace trimmed. Backslash
 /// escapes resolve before comparison so `[Foo\]]` and `Foo]` match.
 pub fn normalize_label(s: &str) -> String {
+  // CM 4.7: normalize by case-fold + ws-collapse only. Backslash
+  // escapes are NOT unescaped during label matching, so `[foo\!]` and
+  // `[foo!]` match different labels.
   let mut out = String::with_capacity(s.len());
   let mut prev_ws = true;
-  let mut chars = s.chars().peekable();
-  while let Some(c) = chars.next() {
-    if c == '\\' {
-      if let Some(&nx) = chars.peek()
-        && matches!(
-          nx,
-          '!'
-            | '"'
-            | '#'
-            | '$'
-            | '%'
-            | '&'
-            | '\''
-            | '('
-            | ')'
-            | '*'
-            | '+'
-            | ','
-            | '-'
-            | '.'
-            | '/'
-            | ':'
-            | ';'
-            | '<'
-            | '='
-            | '>'
-            | '?'
-            | '@'
-            | '['
-            | '\\'
-            | ']'
-            | '^'
-            | '_'
-            | '`'
-            | '{'
-            | '|'
-            | '}'
-            | '~'
-        )
-      {
-        chars.next();
-        push_case_folded(&mut out, nx);
-        prev_ws = false;
-        continue;
-      }
-    }
+  for c in s.chars() {
     if c.is_whitespace() {
       if !prev_ws {
         out.push(' ');
