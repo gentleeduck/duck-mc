@@ -35,11 +35,14 @@ impl NodeSink for HtmlEmitter {
       Node::Image(i) => self.image(i),
       Node::HorizontalRule(_) => self.out.push_str("<hr />\n"),
       Node::HardBreak(_) => self.out.push_str("<br />\n"),
-      // Raw HTML block: emit verbatim. Trailing `\n` keeps spacing
-      // consistent with other block-level closes.
+      // Raw HTML: at block level we add a trailing `\n` to match the
+      // CM reference layout (each block sits on its own line). Inside
+      // a paragraph the same Html node represents an inline raw HTML
+      // span and must NOT inject a newline before `</p>`.
       Node::Html(h) => {
         self.out.push_str(&h.value);
-        if !h.value.ends_with('\n') {
+        let inline_context = matches!(_ctx.parent, Some(Node::Paragraph(_)) | Some(Node::Heading(_)));
+        if !inline_context && !h.value.ends_with('\n') {
           self.out.push('\n');
         }
       },
