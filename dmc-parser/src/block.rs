@@ -1521,6 +1521,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     let mut first = true;
 
     loop {
+      let line_start = self.pos;
       if !first {
         // Already advanced past softbreak from previous iter; skip
         // the next line's `>` markers, then check for another marker.
@@ -1544,6 +1545,12 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         matches!(kind, TokenKind::UnorderedListMarker)
       };
       if !want_marker {
+        if !first {
+          // This line still belongs to the surrounding blockquote, but
+          // not to this sibling list sequence. Rewind so the outer bq
+          // parser can see the original `>` markers / blank line.
+          self.pos = line_start;
+        }
         break;
       }
       self.advance();
