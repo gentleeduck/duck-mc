@@ -22,6 +22,7 @@ slug.workspace = true
 
 [dev-dependencies]
 pretty_assertions.workspace = true
+dmc-codegen = { version = "0.2.1", path = "../dmc-codegen" }
 
 [[bin]]
 name = "parse"
