@@ -33,7 +33,7 @@ impl NodeSink for HtmlEmitter {
       },
       Node::CodeBlock(cb) => self.code_block(cb),
       Node::Image(i) => self.image(i),
-      Node::HorizontalRule(_) => self.out.push_str("<hr />"),
+      Node::HorizontalRule(_) => self.out.push_str("<hr />\n"),
       Node::HardBreak(_) => self.out.push_str("<br />\n"),
       Node::SoftBreak(_) => self.out.push('\n'),
       Node::JsxSelfClosing(s) => self.jsx_self_closing(s),
@@ -172,19 +172,21 @@ impl HtmlEmitter {
   }
 
   /// Write the closing tag for a container node opened by `open_tag`.
+  /// Block-level closes get a trailing `\n` so the output matches the
+  /// CommonMark reference renderer's line-per-block layout.
   fn close_tag(&mut self, node: &Node) {
     match node {
-      Node::Heading(h) => self.out.push_str(&format!("</h{}>", h.level)),
-      Node::Paragraph(_) => self.out.push_str("</p>"),
+      Node::Heading(h) => self.out.push_str(&format!("</h{}>\n", h.level)),
+      Node::Paragraph(_) => self.out.push_str("</p>\n"),
       Node::Bold(_) => self.out.push_str("</strong>"),
       Node::Italic(_) => self.out.push_str("</em>"),
       Node::Strikethrough(_) => self.out.push_str("</del>"),
-      Node::Blockquote(_) => self.out.push_str("</blockquote>"),
+      Node::Blockquote(_) => self.out.push_str("</blockquote>\n"),
       Node::List(l) => {
         let tag = if l.ordered { "ol" } else { "ul" };
-        self.out.push_str(&format!("</{}>", tag));
+        self.out.push_str(&format!("</{}>\n", tag));
       },
-      Node::ListItem(_) | Node::TaskListItem(_) => self.out.push_str("</li>"),
+      Node::ListItem(_) | Node::TaskListItem(_) => self.out.push_str("</li>\n"),
       Node::Link(_) => self.out.push_str("</a>"),
       Node::JsxElement(e) if !e.name.is_empty() => {
         self.out.push_str(&format!("</{}>", e.name));
@@ -204,7 +206,7 @@ impl HtmlEmitter {
     }
     self.out.push('>');
     self.out.push_str(&escape_text(&cb.value));
-    self.out.push_str("</code></pre>");
+    self.out.push_str("</code></pre>\n");
   }
 
   fn image(&mut self, i: &Image) {

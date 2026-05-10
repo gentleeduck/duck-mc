@@ -22,7 +22,7 @@ fn h1_with_id() {
     })],
   };
   let html = dmc_codegen::render_html(&doc);
-  assert_eq!(html, "<h1 id=\"hello\">Hello</h1>");
+  assert_eq!(html, "<h1 id=\"hello\">Hello</h1>\n");
 }
 
 #[test]
@@ -38,12 +38,12 @@ fn h1_without_id_omits_attribute() {
     })],
   };
   let html = dmc_codegen::render_html(&doc);
-  assert_eq!(html, "<h1>Hi</h1>");
+  assert_eq!(html, "<h1>Hi</h1>\n");
 }
 
 #[test]
 fn paragraph_with_bold() {
-  assert_eq!(html("**hi**"), "<p><strong>hi</strong></p>");
+  assert_eq!(html("**hi**"), "<p><strong>hi</strong></p>\n");
 }
 
 #[test]
