@@ -348,7 +348,18 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       if !want_marker {
         break;
       }
+      let marker_width = self.peek().map(|t| t.raw.chars().count()).unwrap_or(2);
       self.advance();
+
+      // Track extra whitespace between the marker and the first non-blank
+      // content. CM 5.2: when 0-4 extras, content_indent grows by that
+      // count; 5+ folds back to 1 (content becomes an indented code line
+      // inside the item).
+      let extra_ws = match self.peek() {
+        Some(t) if matches!(t.kind, TokenKind::Whitespace(_)) => t.raw.chars().count(),
+        _ => 0,
+      };
+      let item_content_extra = if extra_ws >= 4 { 0 } else { extra_ws };
 
       // Ordered-list items: trim the trailing `.` left in the first Text token.
       if ordered {
@@ -381,7 +392,8 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       // `indent + 2` (unordered) / `indent + 3` (ordered, 1-digit). A
       // marker at a shallower column breaks out so the outer loop can
       // continue the same list.
-      let content_floor = item_indent + if ordered { 3 } else { 2 };
+      let content_floor =
+        item_indent + (if ordered { marker_width.max(3) } else { marker_width.max(2) }) + item_content_extra;
       while let Some(child_indent) = self.peek_leading_indent() {
         if child_indent <= indent {
           break;
@@ -552,7 +564,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         let leading = self.peek_leading_indent();
         // Indented continuation -- attach a new paragraph to the
         // current item (loose-list with continuation).
-        let content_indent = indent + 2;
+        let content_indent = content_floor;
         if let Some(n) = leading
           && n >= content_indent
         {
