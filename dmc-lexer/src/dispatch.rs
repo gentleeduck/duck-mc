@@ -68,11 +68,15 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
       },
 
       // Code fences and inline code
-      '`' if self.start_column == 0 => {
+      '`' if self.at_block_marker_position() => {
         if self.try_lex_fenced_code('`') {
         } else if self.try_lex_inline_code() {
         } else {
-          self.lex_text();
+          // Consume the entire run of backticks as one Text token so a
+          // later run can't accidentally pair across it (CM 6.1: an
+          // unmatched backtick run renders verbatim).
+          self.skip_while_byte(b'`');
+          self.emit(TokenKind::Text);
         }
       },
       '`' => {
@@ -83,7 +87,7 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
       },
 
       // Tilde fence and strikethrough
-      '~' if self.start_column == 0 => {
+      '~' if self.at_block_marker_position() => {
         if self.try_lex_fenced_code('~') {
         } else if self.try_lex_strikethrough() {
         } else {

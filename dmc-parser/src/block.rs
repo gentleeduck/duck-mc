@@ -125,6 +125,10 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
           self.advance();
           return Some(self.parse_heading());
         },
+        TokenKind::CodeFenceOpen(_, _) => {
+          self.advance();
+          return Some(self.parse_code_block());
+        },
         _ => {},
       }
     }

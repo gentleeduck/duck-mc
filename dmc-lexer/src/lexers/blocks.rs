@@ -152,7 +152,7 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
   /// Emits opener, optional info string, content (verbatim), and closer
   /// (or none, if EOF reached before a matching close).
   pub(crate) fn try_lex_fenced_code(&mut self, fence_char: char) -> bool {
-    if self.start_column != 0 {
+    if !self.at_block_marker_position() {
       return false;
     }
     let fb = fence_char as u8;
