@@ -1330,6 +1330,8 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
               | Some(TokenKind::EntityRef)
               | Some(TokenKind::LinkOpen)
               | Some(TokenKind::ImageMarker)
+              | Some(TokenKind::SetextUnderline(_))
+              | Some(TokenKind::ThematicBreak)
           );
         if !lazy_eligible {
           break;
