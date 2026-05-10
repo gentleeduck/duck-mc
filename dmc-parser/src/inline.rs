@@ -118,9 +118,9 @@ pub(crate) fn resolve_emphasis_delims(out: &mut Vec<Node>, delims: &mut [DelimRe
 }
 
 /// CM 6.4 "Unicode punctuation": ASCII punctuation plus Unicode
-/// general categories Pc, Pd, Pe, Pf, Pi, Po, Ps. Approximated here as
-/// `c.is_ascii_punctuation()` plus a handful of common ranges; full
-/// Unicode classification would need a table.
+/// general categories Pc, Pd, Pe, Pf, Pi, Po, Ps and Sc, Sk, Sm, So.
+/// Approximated with common ranges; full Unicode classification would
+/// need a table.
 fn is_unicode_punct(c: char) -> bool {
   if c.is_ascii_punctuation() {
     return true;
@@ -129,6 +129,11 @@ fn is_unicode_punct(c: char) -> bool {
     c,
     '\u{00A1}'..='\u{00BF}'
       | '\u{2010}'..='\u{205E}'
+      | '\u{20A0}'..='\u{20CF}'
+      | '\u{2200}'..='\u{22FF}'
+      | '\u{2300}'..='\u{23FF}'
+      | '\u{2600}'..='\u{26FF}'
+      | '\u{2700}'..='\u{27BF}'
       | '\u{2E00}'..='\u{2E7F}'
       | '\u{3001}'..='\u{303F}'
       | '\u{FE30}'..='\u{FE6F}'
