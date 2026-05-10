@@ -519,6 +519,12 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
             String::new()
           };
           self.advance(); // consume the closing `]`
+          // CommonMark 6.3: a link cannot contain another link. When
+          // inner already contains a `Link` node (or an autolink which
+          // we model as a Link), abandon the outer link parse and emit
+          // `[inner]...` as text -- keeping the inner link's nodes and
+          // letting whatever follows be re-tokenized.
+          let inner_has_link = inner.iter().any(|n| matches!(n, Node::Link(_)));
           // CommonMark 6.3: classify the link form by what follows the
           // closing `]`.
           //   `(...)`     -> inline link
@@ -527,6 +533,17 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
           //   nothing     -> shortcut reference `[label]`
           // Reference forms resolve against the ref-def map populated in
           // the pre-pass; unresolved refs fall back to literal text.
+          if inner_has_link {
+            // Emit `[`, inner..., `]` as raw output and let the next
+            // iteration handle whatever follows (it might itself be a
+            // valid link reference).
+            out.push(Node::Text(Text { value: "[".into(), span: span.clone() }));
+            for n in inner {
+              out.push(n);
+            }
+            out.push(Node::Text(Text { value: "]".into(), span }));
+            continue;
+          }
           match self.peek_kind() {
             Some(TokenKind::LinkTargetOpen) => {
               self.advance(); // consume `(`
