@@ -982,17 +982,39 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       };
       buf.push_str(&body);
       buf.push('\n');
-      // Continue across a soft break only if the next line is also indented.
+      // Continue across a soft break only if the next line is also
+      // indented. CM 4.4 also keeps blank lines inside the block when a
+      // later line resumes the indent; pick that up by buffering blanks
+      // and only emitting them when an indented line follows.
       let saved = self.pos;
-      if !matches!(self.peek_kind(), Some(TokenKind::SoftBreak)) {
+      let mut blanks: usize = 0;
+      loop {
+        match self.peek_kind() {
+          Some(TokenKind::SoftBreak) => {
+            self.advance();
+            blanks += 1;
+            break;
+          },
+          Some(TokenKind::BlankLine) => {
+            self.advance();
+            blanks += 2; // BlankLine collapses >=2 newlines
+          },
+          _ => break,
+        }
+      }
+      if blanks == 0 {
         break;
       }
-      self.advance();
       let next_is_indent = matches!(self.peek_kind(), Some(TokenKind::Whitespace(_)))
         && matches!(self.tokens.get(self.pos + 1).map(|t| &t.kind), Some(TokenKind::IndentedCodeLine));
       if !next_is_indent {
         self.pos = saved;
         break;
+      }
+      // Push the buffered blank-line newlines (the body already ended
+      // with one `\n` for the previous line, so add `blanks - 1`).
+      for _ in 1..blanks {
+        buf.push('\n');
       }
     }
     Node::CodeBlock(CodeBlock { lang: None, meta: None, value: buf, span })
