@@ -61,7 +61,7 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
       },
 
       // Setext underline
-      '=' if self.start_column == 0 => {
+      '=' if self.at_block_marker_position() => {
         if !self.try_lex_setext_underline() {
           self.lex_text();
         }

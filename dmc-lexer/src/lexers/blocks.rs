@@ -127,7 +127,7 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
   /// whitespace). The first `=` is already consumed. The parser folds
   /// `Text + SoftBreak + SetextUnderline` into a heading.
   pub(crate) fn try_lex_setext_underline(&mut self) -> bool {
-    if self.start_column != 0 {
+    if !self.at_block_marker_position() {
       return false;
     }
     let bytes = self.source.as_bytes();
