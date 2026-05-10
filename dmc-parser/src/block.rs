@@ -278,20 +278,41 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       // nested lists (indent > 0) require a `Whitespace` of width `indent`
       // before the next marker - a marker at a smaller indent belongs to
       // an outer list.
-      if !first && indent > 0 {
-        let aligned = matches!(self.peek(), Some(t) if matches!(t.kind, TokenKind::Whitespace(_)) && t.raw.chars().count() == indent);
-        if !aligned {
-          break;
+      let mut item_indent = indent;
+      if !first {
+        if indent > 0 {
+          let aligned = matches!(self.peek(), Some(t) if matches!(t.kind, TokenKind::Whitespace(_)) && t.raw.chars().count() == indent);
+          if !aligned {
+            break;
+          }
+          let next = self.tokens.get(self.pos + 1);
+          let next_is_marker = matches!(
+            next.map(|t| t.kind.clone()),
+            Some(TokenKind::UnorderedListMarker) | Some(TokenKind::OrderedListMarker(_))
+          );
+          if !next_is_marker {
+            break;
+          }
+          self.advance();
+        } else if let Some(w) = match self.peek_kind() {
+          Some(TokenKind::Whitespace(w)) if (*w as usize) <= 3 => Some(*w as usize),
+          _ => None,
+        } {
+          // Top-level list: allow 1-3 leading spaces before each
+          // continuation marker so `- a\n - b\n  - c` parses as one
+          // list (CM 5.2 sub-marker indent < 4 keeps them at the same
+          // level when no list-content boundary intervenes).
+          let next = self.tokens.get(self.pos + 1);
+          let next_is_marker = matches!(
+            next.map(|t| t.kind.clone()),
+            Some(TokenKind::UnorderedListMarker) | Some(TokenKind::OrderedListMarker(_))
+          );
+          if !next_is_marker {
+            break;
+          }
+          self.advance();
+          item_indent = w;
         }
-        let next = self.tokens.get(self.pos + 1);
-        let next_is_marker = matches!(
-          next.map(|t| t.kind.clone()),
-          Some(TokenKind::UnorderedListMarker) | Some(TokenKind::OrderedListMarker(_))
-        );
-        if !next_is_marker {
-          break;
-        }
-        self.advance();
       }
       first = false;
 
@@ -344,6 +365,12 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       //   1. list marker -> nested sublist
       //   2. plain text  -> loose-list paragraph continuation
       //   3. anything else -> rewind, parent decides
+      // CM 5.2: a sub-list marker only nests when its column is at or
+      // past the parent item's content-indent. Approximate that with
+      // `indent + 2` (unordered) / `indent + 3` (ordered, 1-digit). A
+      // marker at a shallower column breaks out so the outer loop can
+      // continue the same list.
+      let content_floor = item_indent + if ordered { 3 } else { 2 };
       while let Some(child_indent) = self.peek_leading_indent() {
         if child_indent <= indent {
           break;
@@ -351,6 +378,14 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         let saved = self.pos;
         self.advance();
         match self.peek_kind() {
+          Some(TokenKind::UnorderedListMarker) if child_indent < content_floor => {
+            self.pos = saved;
+            break;
+          },
+          Some(TokenKind::OrderedListMarker(_)) if child_indent < content_floor => {
+            self.pos = saved;
+            break;
+          },
           Some(TokenKind::UnorderedListMarker) => {
             let sub = self.parse_list(false, child_indent);
             Self::append_to_item(&mut item, sub);
@@ -1306,7 +1341,11 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       let next_is_ul_interrupting = match self.peek_kind() {
         Some(TokenKind::UnorderedListMarker) => !matches!(
           self.tokens.get(self.pos + 1).map(|t| &t.kind),
-          Some(TokenKind::SoftBreak) | Some(TokenKind::HardBreak) | Some(TokenKind::BlankLine) | Some(TokenKind::Eof) | None
+          Some(TokenKind::SoftBreak)
+            | Some(TokenKind::HardBreak)
+            | Some(TokenKind::BlankLine)
+            | Some(TokenKind::Eof)
+            | None
         ),
         _ => false,
       };
