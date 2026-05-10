@@ -721,20 +721,9 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
                 out.push(Node::Link(Link { href, title, children: inner, span }));
                 continue;
               }
-              // CM 6.3: full reference `[a][b]` where `[b]` is not
-              // defined falls back -- the inner `[a]` is shortcut-tried,
-              // and the second `[b]...` is left to be reparsed (it might
-              // start a new shortcut/full reference).
-              let label_raw = raw_inner_label.clone();
-              let label_plain = plain_text(&inner);
-              let resolved = self.refs.get(&label_raw).cloned().or_else(|| self.refs.get(&label_plain).cloned());
-              if let Some((href, title)) = resolved {
-                out.push(Node::Link(Link { href, title, children: inner, span: span.clone() }));
-                self.pos = second_bracket_pos;
-                continue;
-              }
-              // Otherwise emit `[inner]` literally and rewind so the
-              // second `[...]` is reparsed from scratch.
+              // CM 6.3: an unresolved full reference `[a][b]` leaves the
+              // first label literal and rewinds so the second `[...]` can be
+              // reparsed as a fresh shortcut/full reference.
               out.push(Node::Text(Text { value: "[".into(), span: span.clone() }));
               for n in inner {
                 out.push(n);

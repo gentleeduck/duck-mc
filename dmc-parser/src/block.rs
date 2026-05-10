@@ -416,6 +416,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         }
         let saved = self.pos;
         self.advance();
+        self.try_promote_text_blockquote_marker();
         self.try_promote_text_list_marker();
         match self.peek_kind() {
           Some(TokenKind::UnorderedListMarker) if child_indent < content_floor => {
@@ -712,6 +713,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
             continue;
           }
           self.advance(); // skip whitespace
+          self.try_promote_text_blockquote_marker();
           self.try_promote_text_list_marker();
           let appended = match self.peek_kind() {
             Some(TokenKind::UnorderedListMarker) => {
@@ -891,6 +893,25 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     }
   }
 
+  /// `>` after a list marker can be lexed as plain text once we're already
+  /// inside list-item parsing. Recover it so the item can start with a
+  /// blockquote.
+  fn try_promote_text_blockquote_marker(&mut self) -> bool {
+    let Some(tok) = self.peek() else {
+      return false;
+    };
+    if !matches!(tok.kind, TokenKind::Text) || tok.raw != ">" {
+      return false;
+    }
+    let has_space_after =
+      matches!(self.tokens.get(self.pos + 1).map(|t| &t.kind), Some(TokenKind::Whitespace(w)) if *w > 0);
+    if !has_space_after {
+      return false;
+    }
+    self.tokens[self.pos].kind = TokenKind::BlockQuoteMarker;
+    true
+  }
+
   /// Append `child` to the children of `item` (works for both `ListItem`
   /// and `TaskListItem`).
   fn append_to_item(item: &mut Node, child: Node) {
@@ -992,6 +1013,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     if matches!(self.peek_kind(), Some(TokenKind::Whitespace(_))) {
       self.advance();
     }
+    self.try_promote_text_blockquote_marker();
     self.try_promote_text_list_marker();
     match self.peek_kind() {
       Some(TokenKind::UnorderedListMarker) => {
