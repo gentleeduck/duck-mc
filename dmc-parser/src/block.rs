@@ -891,6 +891,16 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         Some(k) => k.clone(),
         None => break,
       };
+      // Ref-defs inside blockquotes are harvested by the pre-pass; the
+      // tokens themselves should produce no node so the bq stays
+      // structurally empty.
+      if matches!(after_marker_kind, TokenKind::LinkRefDef) {
+        self.advance();
+        if matches!(self.peek_kind(), Some(TokenKind::SoftBreak) | Some(TokenKind::HardBreak)) {
+          self.advance();
+        }
+        continue;
+      }
       if matches!(after_marker_kind, TokenKind::UnorderedListMarker | TokenKind::OrderedListMarker(_)) {
         if !paragraphs[top].is_empty() {
           let para = std::mem::take(&mut paragraphs[top]);
