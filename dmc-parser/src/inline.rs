@@ -519,6 +519,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
             Some(TokenKind::LinkOpen) => {
               // Reference form: peek the second `[..]` to distinguish
               // collapsed (`[]`) from full (`[label]`).
+              let second_bracket_pos = self.pos;
               self.advance(); // consume `[`
               if matches!(self.peek_kind(), Some(TokenKind::LinkClose)) {
                 self.advance();
@@ -563,16 +564,23 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
                 out.push(Node::Link(Link { href, title, children: inner, span }));
                 continue;
               }
-              // Unresolved full ref -- emit `[inner][label]` as text.
+              // CM 6.3: full reference `[a][b]` where `[b]` is not
+              // defined falls back -- the inner `[a]` is shortcut-tried,
+              // and the second `[b]...` is left to be reparsed (it might
+              // start a new shortcut/full reference).
+              if let Some((href, title)) = self.refs.get(&plain_text(&inner)).cloned() {
+                out.push(Node::Link(Link { href, title, children: inner, span: span.clone() }));
+                self.pos = second_bracket_pos;
+                continue;
+              }
+              // Otherwise emit `[inner]` literally and rewind so the
+              // second `[...]` is reparsed from scratch.
               out.push(Node::Text(Text { value: "[".into(), span: span.clone() }));
               for n in inner {
                 out.push(n);
               }
-              out.push(Node::Text(Text { value: "][".into(), span: span.clone() }));
-              for n in label_inner {
-                out.push(n);
-              }
               out.push(Node::Text(Text { value: "]".into(), span }));
+              self.pos = second_bracket_pos;
             },
             _ => {
               // Shortcut `[label]`. Resolve via the ref-def map; falls
