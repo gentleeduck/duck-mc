@@ -107,7 +107,36 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
         return false;
       }
       match seg[i] {
-        b'-' | b'+' | b'*' => {
+        b'-' | b'*' | b'_' | b'=' => {
+          // Thematic break / setext underline: 3+ of the same marker
+          // possibly separated by whitespace, then end of line.
+          let marker = seg[i];
+          let mut j = i;
+          let mut count = 0usize;
+          while j < seg.len() {
+            match seg[j] {
+              b if b == marker => {
+                count += 1;
+                j += 1;
+              },
+              b' ' | b'\t' => j += 1,
+              b'\n' => break,
+              _ => {
+                count = 0;
+                break;
+              },
+            }
+          }
+          if count >= 3 && (matches!(marker, b'-' | b'*' | b'_') || matches!(marker, b'=')) {
+            return true;
+          }
+          if marker == b'-' || marker == b'+' || marker == b'*' {
+            let n = seg.get(i + 1).copied();
+            return matches!(n, Some(b' ') | Some(b'\t') | Some(b'\n') | None);
+          }
+          false
+        },
+        b'+' => {
           let n = seg.get(i + 1).copied();
           matches!(n, Some(b' ') | Some(b'\t') | Some(b'\n') | None)
         },
