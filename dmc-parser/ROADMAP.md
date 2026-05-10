@@ -233,13 +233,13 @@ that produces a meaningful AST node (or intentionally drops it).
 
 Goal: CM 6.3 + GFM footnote resolution.
 
-### [ ] D1. LinkRefDef collection
+### [x] D1. LinkRefDef collection
 - Spec: CM 4.7.
 - First pass walks tokens; populates `RefMap<Label, (url, title)>`.
   Label normalization: lowercase, collapse whitespace.
 - Touch: `parser.rs`, new `ref_map.rs`. Size: M.
 
-### [ ] D2. Link form classification
+### [x] D2. Link form classification
 - Spec: CM 6.3.
 - At a closing `LinkClose`, peek the token stream:
   - `LinkTargetOpen` -> inline link.
@@ -250,13 +250,13 @@ Goal: CM 6.3 + GFM footnote resolution.
   it (T10); the parser self-classifies.
 - Touch: `inline.rs`. Size: M.
 
-### [ ] D3. Reference resolution pass
+### [x] D3. Reference resolution pass
 - Second pass replaces ref-link AST nodes with resolved
   `Link { url, title }` from the RefMap. Unresolved refs render as
   literal text per spec.
 - Touch: `parser.rs`. Size: M.
 
-### [ ] D4. Footnotes (GFM)
+### [x] D4. Footnotes (GFM)
 - Spec: GFM footnotes.
 - Same two-pass pattern: collect `FootnoteDefMarker` definitions,
   resolve `FootnoteRefOpen` references. AST: `FootnoteRef { id }`,
@@ -384,12 +384,12 @@ Goal: spec-pinned test runners.
 ## Status snapshot
 
 - Total items: 47.
-- Done: 26.
+- Done: 30.
 - Partial: 5 (B1, B4, B5, C6, C8).
 - Phase A (build): 12/12.
 - Phase B (parity): 3/6 done + 3 partial; tests green.
 - Phase C (wire): 11/13 done + 2 partial.
-- Phase D (refs): 0/4.
+- Phase D (refs): 4/4 -- ref links + footnotes complete.
 - Phase E (structural): 2/4 done (E1 link bracket depth via
   recursive collector; E2 GFM tables in `table.rs`); E3 raw HTML
   1/6/7 + E4 lazy continuation outstanding.
