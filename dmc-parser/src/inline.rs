@@ -494,6 +494,14 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         },
         TokenKind::HardBreak => {
           self.advance();
+          // CM 6.7: drop trailing whitespace-only text immediately
+          // before the hard break -- the spaces / `\` produced the
+          // break itself, they shouldn't render in the body.
+          while let Some(Node::Text(t)) = out.last()
+            && t.value.chars().all(|c| c == ' ' || c == '\t')
+          {
+            out.pop();
+          }
           out.push(Node::HardBreak(BreakNode { span }));
         },
         TokenKind::FootnoteRefOpen => {
@@ -580,9 +588,8 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     let bytes = rest.as_bytes();
     let first = bytes[0];
     let last = bytes[bytes.len() - 1];
-    let matches_pair = (first == b'"' && last == b'"')
-      || (first == b'\'' && last == b'\'')
-      || (first == b'(' && last == b')');
+    let matches_pair =
+      (first == b'"' && last == b'"') || (first == b'\'' && last == b'\'') || (first == b'(' && last == b')');
     if matches_pair && rest.len() >= 2 {
       (raw_dest, Some(rest[1..rest.len() - 1].to_string()))
     } else {
