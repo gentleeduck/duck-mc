@@ -89,18 +89,14 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
   /// `None` means the cursor advanced but emitted no node (e.g. a stray break
   /// or a markdown comment).
   pub(crate) fn parse_block(&mut self) -> Option<Node> {
-    // Indented code: 4+ leading spaces AND the next non-whitespace token is
-    // not a list marker (otherwise this is nested-list indentation).
-    let is_indented = matches!(
-        self.peek(),
-        Some(t) if matches!(t.kind, TokenKind::Whitespace(_)) && t.raw.starts_with("    ")
-    );
+    // Indented code: lexer emits `Whitespace(_) + IndentedCodeLine` for
+    // any column-0 indent that reaches col 4 (4+ spaces, a tab, or a
+    // tab/space mix), so the parser just trusts the pair.
+    let is_indented = matches!(self.peek_kind(), Some(TokenKind::Whitespace(_)))
+      && matches!(self.tokens.get(self.pos + 1).map(|t| &t.kind), Some(TokenKind::IndentedCodeLine));
 
     if is_indented {
-      let next_kind = self.tokens.get(self.pos + 1).map(|t| t.kind.clone());
-      if !matches!(next_kind, Some(TokenKind::UnorderedListMarker) | Some(TokenKind::OrderedListMarker(_))) {
-        return Some(self.parse_indented_code());
-      }
+      return Some(self.parse_indented_code());
     }
 
     // Whitespace-then-list-marker: nested list at top level.
@@ -872,10 +868,8 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     let span = self.current_span();
     let mut buf = String::new();
     loop {
-      let starts_indent = matches!(
-          self.peek(),
-          Some(t) if matches!(t.kind, TokenKind::Whitespace(_)) && t.raw.starts_with("    ")
-      );
+      let starts_indent = matches!(self.peek_kind(), Some(TokenKind::Whitespace(_)))
+        && matches!(self.tokens.get(self.pos + 1).map(|t| &t.kind), Some(TokenKind::IndentedCodeLine));
       if !starts_indent {
         break;
       }
@@ -913,10 +907,8 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         break;
       }
       self.advance();
-      let next_is_indent = matches!(
-          self.peek(),
-          Some(t) if matches!(t.kind, TokenKind::Whitespace(_)) && t.raw.starts_with("    ")
-      );
+      let next_is_indent = matches!(self.peek_kind(), Some(TokenKind::Whitespace(_)))
+        && matches!(self.tokens.get(self.pos + 1).map(|t| &t.kind), Some(TokenKind::IndentedCodeLine));
       if !next_is_indent {
         self.pos = saved;
         break;

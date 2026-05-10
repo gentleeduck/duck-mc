@@ -16,9 +16,13 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
   pub(crate) fn lex_whitespace(&mut self) {
     self.skip_while_ascii(|b| b == b' ' || b == b'\t');
     let len = (self.current - self.start).min(255) as u8;
+    // CM 2.2: a tab snaps to the next 4-col stop, so 1-3 spaces + a
+    // tab also reach column 4. Use the column delta rather than the
+    // byte length so tab-only / mixed indents trigger indented code.
+    let column_delta = self.column.saturating_sub(self.start_column);
 
     if self.start_column == 0
-      && len >= 4
+      && column_delta >= 4
       && self.is_indented_code_context()
       && !matches!(self.peek(), None | Some('\n'))
     {
