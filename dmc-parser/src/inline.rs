@@ -169,6 +169,32 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
           let open_c: EmphasisChar = *c;
           let open_n = *n;
           let raw = t.raw.to_string();
+          // CM 6.4 left-flanking rule: an emphasis run that is followed
+          // by whitespace / EOL / EOF can't open. For `_` underscores
+          // also block opening when the previous char is alphanumeric
+          // (intra-word `_` rule). When can't open, surface the run as
+          // text and let the closer's logic decide if anything still
+          // pairs.
+          let next_kind = self.tokens.get(self.pos + 1).map(|t| &t.kind);
+          let next_is_break = matches!(
+            next_kind,
+            Some(TokenKind::Whitespace(_))
+              | Some(TokenKind::SoftBreak)
+              | Some(TokenKind::HardBreak)
+              | Some(TokenKind::BlankLine)
+              | Some(TokenKind::Eof)
+              | None
+          );
+          let prev_alnum = out.last().is_some_and(|n| match n {
+            Node::Text(t) => t.value.chars().last().is_some_and(|c| c.is_alphanumeric()),
+            _ => false,
+          });
+          let can_open = !next_is_break && !(open_c == EmphasisChar::Underscore && prev_alnum);
+          if !can_open {
+            self.advance();
+            out.push(Node::Text(Text { value: raw, span }));
+            continue;
+          }
           self.advance();
           let inner = self.collect_inline(&|k| {
             Self::is_top_level_break(k) || matches!(k, TokenKind::Emphasis(cc, m) if *cc == open_c && *m == open_n)

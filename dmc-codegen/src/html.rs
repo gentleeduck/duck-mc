@@ -35,6 +35,14 @@ impl NodeSink for HtmlEmitter {
       Node::Image(i) => self.image(i),
       Node::HorizontalRule(_) => self.out.push_str("<hr />\n"),
       Node::HardBreak(_) => self.out.push_str("<br />\n"),
+      // Raw HTML block: emit verbatim. Trailing `\n` keeps spacing
+      // consistent with other block-level closes.
+      Node::Html(h) => {
+        self.out.push_str(&h.value);
+        if !h.value.ends_with('\n') {
+          self.out.push('\n');
+        }
+      },
       Node::SoftBreak(_) => self.out.push('\n'),
       Node::JsxSelfClosing(s) => self.jsx_self_closing(s),
       Node::JsxExpression(e) => {
