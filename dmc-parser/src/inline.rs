@@ -21,6 +21,12 @@ fn is_unicode_punct(c: char) -> bool {
   )
 }
 
+/// Strip lexer-emitted inline markers (`*`, `_`, backticks) from a
+/// raw text run so image alt text renders as plain text per CM 6.3.
+fn strip_inline_markers(s: &str) -> String {
+  s.chars().filter(|c| !matches!(c, '*' | '_' | '`')).collect()
+}
+
 /// Flatten an inline node list to plain text. Used to build the lookup
 /// label for shortcut / collapsed / full reference links from the
 /// already-parsed inner content.
@@ -460,9 +466,13 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
               },
             }
           }
-          let mut paren_body = String::new();
+          // Strip lexer-emitted markers from the captured alt so it
+          // renders as plain text (CM 6.3 image alt is the inner text).
+          let alt = strip_inline_markers(&alt);
+          // Inline form: `(...)` follows.
           if matches!(self.peek_kind(), Some(TokenKind::LinkTargetOpen)) {
             self.advance();
+            let mut paren_body = String::new();
             while let Some(tok) = self.peek() {
               match &tok.kind {
                 TokenKind::LinkTargetClose => {
@@ -476,9 +486,43 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
                 },
               }
             }
+            let (src, title) = Self::split_destination_title(&paren_body);
+            let src = decode_entities_in(&Self::unescape_markdown(&src));
+            let title = title.map(|t| decode_entities_in(&Self::unescape_markdown(&t)));
+            out.push(Node::Image(Image { src, alt, title, span }));
+            continue;
           }
-          let (src, title) = Self::split_destination_title(&paren_body);
-          out.push(Node::Image(Image { src, alt, title, span }));
+          // Reference forms: `[label]` (full / collapsed) or shortcut.
+          let mut label = alt.clone();
+          if matches!(self.peek_kind(), Some(TokenKind::LinkOpen)) {
+            self.advance();
+            let mut second = String::new();
+            let mut has_second = false;
+            while let Some(tok) = self.peek() {
+              match &tok.kind {
+                TokenKind::LinkClose => {
+                  self.advance();
+                  break;
+                },
+                TokenKind::Eof | TokenKind::BlankLine | TokenKind::SoftBreak => break,
+                _ => {
+                  second.push_str(tok.raw);
+                  has_second = true;
+                  self.advance();
+                },
+              }
+            }
+            if has_second && !second.is_empty() {
+              label = strip_inline_markers(&second);
+            }
+            // collapsed `[...][]` keeps `label = alt`.
+          }
+          if let Some((href, title)) = self.refs.get(&label).cloned() {
+            out.push(Node::Image(Image { src: href, alt, title, span }));
+            continue;
+          }
+          // Unresolved reference -- fall back to literal text.
+          out.push(Node::Text(Text { value: format!("![{}]", alt), span }));
         },
         TokenKind::JsxOpenTagStart => {
           out.push(self.parse_jsx());
