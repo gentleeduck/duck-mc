@@ -1374,10 +1374,16 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         children.push(Vec::new());
         paragraphs.push(Vec::new());
       }
-      // Shrink the stack when this line has fewer markers than the
-      // current open depth (close the deeper blockquotes).
-      while children.len() > line_markers {
-        Self::close_blockquote_level(&mut children, &mut paragraphs, &para_span, &span);
+      // CM 5.1 lazy continuation across nested bq: when the line has
+      // fewer markers than the current depth AND the deepest paragraph
+      // is open, keep the stack and let the line's content extend that
+      // paragraph instead of shrinking blockquotes prematurely.
+      let deepest_para_open = !paragraphs.last().is_some_and(|p| p.is_empty());
+      let shrink_blocked = line_markers < children.len() && deepest_para_open;
+      if !shrink_blocked {
+        while children.len() > line_markers {
+          Self::close_blockquote_level(&mut children, &mut paragraphs, &para_span, &span);
+        }
       }
 
       self.consume_blockquote_markers(line_markers);
