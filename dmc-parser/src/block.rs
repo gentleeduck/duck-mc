@@ -1202,13 +1202,22 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       }
       let saved = self.pos;
       self.advance(); // consume the SoftBreak
-      // Setext heading: `=`/`-` underline directly after the soft break.
+      // Setext heading: `=`/`-` underline directly after the soft break,
+      // possibly preceded by 1-3 leading spaces.
+      let ws_skip = matches!(self.peek_kind(), Some(TokenKind::Whitespace(w)) if (*w as usize) <= 3);
+      if ws_skip {
+        self.advance();
+      }
       if let Some(lvl) = self.setext_underline_level() {
         self.eat_setext_underline();
         while matches!(children.last(), Some(Node::HardBreak(_))) {
           children.pop();
         }
         return Node::Heading(Heading { level: lvl, children, span, id: None });
+      }
+      if ws_skip {
+        // Restore so the lazy-continuation path sees the whitespace.
+        self.pos -= 1;
       }
       // Blank line (another break right away) closes the paragraph.
       if matches!(
@@ -1271,7 +1280,10 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     match &t.kind {
       TokenKind::SetextUnderline(_) => Some(1),
       TokenKind::ThematicBreak => {
-        if !t.raw.is_empty() && t.raw.chars().all(|c| c == '-') {
+        // CM 4.3: setext H2 = run of `-` plus optional trailing
+        // whitespace. Trim trailing ws then verify all-dashes.
+        let trimmed = t.raw.trim_end_matches([' ', '\t']);
+        if !trimmed.is_empty() && trimmed.chars().all(|c| c == '-') {
           Some(2)
         } else {
           None
