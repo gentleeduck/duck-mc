@@ -50,8 +50,8 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
         }
       },
 
-      // Block quotes
-      '>' if self.start_column == 0 => self.lex_block_quote(),
+      // Block quotes (CM 5.1 allows up to 3 leading spaces / tabs).
+      '>' if self.at_block_marker_position() => self.lex_block_quote(),
 
       // Ordered list marker
       '0'..='9' if self.start_column == 0 => {

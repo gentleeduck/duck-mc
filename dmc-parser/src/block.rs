@@ -133,6 +133,10 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
           self.advance();
           return Some(self.parse_code_block());
         },
+        TokenKind::BlockQuoteMarker => {
+          self.advance();
+          return Some(self.parse_blockquote());
+        },
         TokenKind::JsxOpenTagStart => {
           // Peek the JSX tag two tokens ahead (after the leading
           // whitespace) to see if it routes to a Type-1 / Type-6 raw
