@@ -140,7 +140,13 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
       },
       '<' if self.peek_starts_jsx() => {
         if !self.try_lex_jsx_tag() {
-          self.lex_text();
+          // CM 4.6 type-6 HTML block fallback: when JSX lexing fails
+          // (e.g. unterminated open tag spanning multiple lines), the
+          // construct may still be a valid HTML block. Try the type-6
+          // path before giving up to plain text.
+          if !(self.at_block_marker_position() && self.try_lex_html_block_type6()) {
+            self.lex_text();
+          }
         }
       },
       '<' => self.lex_text(),
