@@ -36,8 +36,29 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
       self.advance();
     }
 
-    // Fragment open `<>` or close `</>`.
+    // Fragment open `<>` or close `</>`. For an opener, require a
+    // matching `</>` later in the source -- a stray `<>` without any
+    // close is not a fragment, it is two literal angle brackets and
+    // should round-trip as `&lt;&gt;` per CM 6.6 (raw HTML element
+    // names must start with a letter; `<>` is neither autolink nor
+    // valid HTML).
     if self.peek() == Some('>') {
+      if !is_close {
+        let bytes = self.source.as_bytes();
+        let after_open = self.current + 1;
+        let mut i = after_open;
+        let mut found_close = false;
+        while i + 2 < bytes.len() {
+          if bytes[i] == b'<' && bytes[i + 1] == b'/' && bytes[i + 2] == b'>' {
+            found_close = true;
+            break;
+          }
+          i += 1;
+        }
+        if !found_close {
+          return false;
+        }
+      }
       self.advance();
       self.emit(if is_close { TokenKind::JsxFragmentClose } else { TokenKind::JsxFragmentOpen });
       return true;
