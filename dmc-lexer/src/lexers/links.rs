@@ -200,7 +200,18 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
     while i < bytes.len() {
       match bytes[i] {
         b']' => break,
-        b'\n' | b'[' => return false,
+        b'[' => return false,
+        b'\n' => {
+          let mut k = i + 1;
+          while k < bytes.len() && matches!(bytes[k], b' ' | b'\t') {
+            k += 1;
+          }
+          if k >= bytes.len() || bytes[k] == b'\n' {
+            return false;
+          }
+          i = k;
+          continue;
+        },
         b'\\' if i + 1 < bytes.len() => i += 2,
         _ => i += 1,
       }

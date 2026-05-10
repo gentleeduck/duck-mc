@@ -153,9 +153,12 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
           self.pos = saved;
         },
         TokenKind::LinkRefDef => {
+          let valid_ref_def = crate::refs::parse_link_ref_def(next.raw).is_some();
           self.advance(); // skip whitespace
-          self.advance(); // skip the ref-def itself
-          return None;
+          if valid_ref_def {
+            self.advance(); // skip the ref-def itself
+            return None;
+          }
         },
         // Whitespace followed by an empty-line break -- drop both,
         // they're indent + blank padding around block structure.
@@ -228,8 +231,14 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       // Link reference definitions are harvested in the pre-pass; the
       // tokens themselves produce no output node.
       TokenKind::LinkRefDef => {
+        let span = self.current_span();
+        let raw = self.peek_raw().unwrap_or_default().to_string();
         self.advance();
-        None
+        if crate::refs::parse_link_ref_def(&raw).is_some() {
+          None
+        } else {
+          Some(Node::Paragraph(Paragraph { children: vec![Node::Text(Text { value: raw, span: span.clone() })], span }))
+        }
       },
       TokenKind::FootnoteDefMarker => Some(self.parse_footnote_def()),
       _ => {

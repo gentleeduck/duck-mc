@@ -188,9 +188,14 @@ pub fn parse_link_ref_def(raw: &str) -> Option<(String, String, Option<String>)>
       let bs = rest.as_bytes();
       let first = *bs.first()?;
       let last = *bs.last()?;
+      let starts_title = matches!(first, b'"' | b'\'' | b'(');
       let matched =
         (first == b'"' && last == b'"') || (first == b'\'' && last == b'\'') || (first == b'(' && last == b')');
-      if matched && rest.len() >= 2 { Some(rest[1..rest.len() - 1].to_string()) } else { Some(rest.to_string()) }
+      if starts_title {
+        if matched && rest.len() >= 2 { Some(rest[1..rest.len() - 1].to_string()) } else { return None; }
+      } else {
+        return None;
+      }
     }
   };
   Some((label, url, title))
