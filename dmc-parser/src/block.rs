@@ -424,29 +424,45 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
 
       items.push(item);
 
-      // CM 5.3 loose-list signal: a blank line between consecutive
-      // items at the same level marks the list as loose. Eat the
-      // blank line and keep iterating; the loose flag below promotes
-      // every item to a paragraph.
+      // CM 5.3 blank-line handling.
       if matches!(self.peek_kind(), Some(TokenKind::BlankLine)) {
         let saved = self.pos;
         self.advance();
-        // Allow leading whitespace at the marker indent before next
-        // marker -- nested list at deeper indent will be picked up
-        // by the marker check on next iteration.
-        if matches!(self.peek_kind(), Some(TokenKind::Whitespace(_))) {
-          self.advance();
-        }
-        let next_is_marker = match self.peek_kind() {
-          Some(TokenKind::UnorderedListMarker) if !ordered => true,
-          Some(TokenKind::OrderedListMarker(_)) if ordered => true,
-          _ => false,
-        };
-        if !next_is_marker {
-          self.pos = saved;
+        let leading = self.peek_leading_indent();
+        // Indented continuation -- attach a new paragraph to the
+        // current item (loose-list with continuation).
+        let content_indent = indent + 2;
+        if let Some(n) = leading
+          && n >= content_indent
+        {
+          self.advance(); // skip whitespace
+          let para_span = self.current_span();
+          let inline = self.collect_inline_until_break();
+          if !inline.is_empty() {
+            if let Some(last) = items.last_mut() {
+              Self::ensure_loose_item(last, &span);
+              Self::append_to_item(last, Node::Paragraph(Paragraph { children: inline, span: para_span }));
+            }
+            if matches!(self.peek_kind(), Some(TokenKind::SoftBreak) | Some(TokenKind::HardBreak)) {
+              self.advance();
+            }
+            continue;
+          } else {
+            self.pos = saved;
+          }
         } else {
-          // Mark current item as loose so the suite renders <p>.
-          if let Some(last) = items.last_mut() {
+          // Allow optional leading whitespace before the next marker.
+          if matches!(self.peek_kind(), Some(TokenKind::Whitespace(_))) {
+            self.advance();
+          }
+          let next_is_marker = match self.peek_kind() {
+            Some(TokenKind::UnorderedListMarker) if !ordered => true,
+            Some(TokenKind::OrderedListMarker(_)) if ordered => true,
+            _ => false,
+          };
+          if !next_is_marker {
+            self.pos = saved;
+          } else if let Some(last) = items.last_mut() {
             Self::ensure_loose_item(last, &span);
           }
         }
