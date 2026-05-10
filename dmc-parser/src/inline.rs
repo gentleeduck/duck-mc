@@ -502,8 +502,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
                     out.push(n);
                   }
                   let close_str = if has_close { ")" } else { "" };
-                  out
-                    .push(Node::Text(Text { value: format!("]({}{}", paren_body, close_str), span }));
+                  out.push(Node::Text(Text { value: format!("]({}{}", paren_body, close_str), span }));
                 },
               }
             },

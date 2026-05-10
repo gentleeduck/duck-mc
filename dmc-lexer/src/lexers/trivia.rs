@@ -120,10 +120,10 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
     let mark = c as u8;
     let bytes = self.source.as_bytes();
     let mut count: usize = 1;
-    while count < 3 && bytes.get(self.current) == Some(&mark) {
+    while bytes.get(self.current) == Some(&mark) {
       self.advance();
       count += 1;
     }
-    self.emit(TokenKind::Emphasis(kind, count as u8));
+    self.emit(TokenKind::Emphasis(kind, count.min(255) as u8));
   }
 }
