@@ -509,6 +509,34 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         self.advance();
       }
 
+      loop {
+        let lazy_eligible = !self.line_starts_other_block()
+          && matches!(
+            self.peek_kind(),
+            Some(TokenKind::Text)
+              | Some(TokenKind::Emphasis(_, _))
+              | Some(TokenKind::Strikethrough)
+              | Some(TokenKind::CodeInlineOpen(_))
+              | Some(TokenKind::Autolink(_))
+              | Some(TokenKind::EntityRef)
+              | Some(TokenKind::LinkOpen)
+              | Some(TokenKind::ImageMarker)
+          );
+        if !lazy_eligible {
+          break;
+        }
+        let para_span = self.current_span();
+        let mut inline = self.collect_inline_until_break();
+        if inline.is_empty() || !Self::append_inline_continuation(&mut item, &mut inline, &para_span) {
+          break;
+        }
+        if matches!(self.peek_kind(), Some(TokenKind::SoftBreak) | Some(TokenKind::HardBreak)) {
+          self.advance();
+        } else {
+          break;
+        }
+      }
+
       // Anything indented strictly deeper than the parent marker belongs
       // to this item. Three cases at the deeper indent:
       //   1. list marker -> nested sublist
