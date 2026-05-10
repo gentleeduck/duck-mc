@@ -1101,9 +1101,10 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     match self.peek() {
       Some(t) if matches!(t.kind, TokenKind::Whitespace(_)) => {
         // CM 2.2: tabs snap to the next 4-col stop. Compute visual
-        // width from `raw`: each tab takes the cols needed to reach
-        // the next multiple of 4 from the running column.
-        let mut col: usize = 0;
+        // width starting from the token's actual column so a
+        // post-marker tab (eg `> \t`) lands on the right multiple.
+        let mut col: usize = t.span.column.saturating_sub(1);
+        let start_col = col;
         for c in t.raw.chars() {
           if c == '\t' {
             col += 4 - (col % 4);
@@ -1111,7 +1112,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
             col += 1;
           }
         }
-        Some(col)
+        Some(col - start_col)
       },
       _ => None,
     }
@@ -1125,15 +1126,12 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     let span = self.current_span();
     let mut buf = String::new();
     loop {
-      let ws_len = match self.peek() {
-        Some(t) if matches!(t.kind, TokenKind::Whitespace(_)) => t.raw.chars().count(),
+      let ws_visual = match self.peek_leading_indent() {
+        Some(n) if n >= 4 => n,
         _ => break,
       };
-      if ws_len < 4 {
-        break;
-      }
       self.advance(); // consume whitespace
-      let visible = ws_len.saturating_sub(4);
+      let visible = ws_visual.saturating_sub(4);
       if visible > 0 {
         buf.push_str(&" ".repeat(visible));
       }
@@ -1148,7 +1146,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       }
       buf.push('\n');
       // Optional soft break + bq marker on next line; if the next non-
-      // marker peek isn't another Whitespace(>=4), stop.
+      // marker peek isn't another Whitespace(>=4 visual), stop.
       let saved = self.pos;
       if !matches!(self.peek_kind(), Some(TokenKind::SoftBreak)) {
         break;
@@ -1160,8 +1158,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         break;
       }
       self.consume_blockquote_markers(next_markers);
-      let next_aligned =
-        matches!(self.peek(), Some(t) if matches!(t.kind, TokenKind::Whitespace(_)) && t.raw.chars().count() >= 4);
+      let next_aligned = self.peek_leading_indent().is_some_and(|n| n >= 4);
       if !next_aligned {
         self.pos = saved;
         break;
@@ -1606,7 +1603,9 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       // Whitespace(>=4) immediately after the bq marker is an indented
       // code block inside the bq -- gather contiguous indented lines
       // until the indent breaks.
-      let indented_code: Option<Node> = if matches!(after_marker_kind, TokenKind::Whitespace(w) if (w as usize) >= 4) {
+      let indented_code: Option<Node> = if matches!(after_marker_kind, TokenKind::Whitespace(_))
+        && self.peek_leading_indent().is_some_and(|n| n >= 4)
+      {
         Some(self.parse_indented_code_in_bq())
       } else {
         None
@@ -1861,10 +1860,10 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       taken += 1;
     }
     // Drop the optional leading whitespace between the deepest `>` and
-    // the line content -- but only when it's < 4 cols. Four or more
-    // cols flag an indented code block whose indent must remain visible
-    // to the caller.
-    if matches!(self.peek_kind(), Some(TokenKind::Whitespace(w)) if (*w as usize) < 4) {
+    // the line content -- but only when it's < 4 visual cols. Four or
+    // more cols flag an indented code block whose indent must remain
+    // visible to the caller.
+    if self.peek_leading_indent().is_some_and(|n| n < 4) {
       self.advance();
     }
   }

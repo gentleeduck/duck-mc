@@ -56,14 +56,24 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
   /// single space/tab after `>` is folded into the marker. Successive
   /// `>` chars on the same line emit additional markers for nesting.
   pub(crate) fn lex_block_quote(&mut self) {
-    if matches!(self.peek(), Some(' ' | '\t')) {
+    // CM 5.1: only one space (or end of line) is consumed after `>`.
+    // A tab snaps to the next 4-col stop, so consuming the whole tab
+    // would steal up to 3 extra cols of content from the indented
+    // code block body. Only consume the tab if the start col already
+    // is at a 3-mod-4 position (so tab fills exactly 1 col) -- leave
+    // it for the parser otherwise.
+    if matches!(self.peek(), Some(' ')) {
+      self.advance();
+    } else if self.peek() == Some('\t') && self.column % 4 == 3 {
       self.advance();
     }
     self.emit(TokenKind::BlockQuoteMarker);
 
     while self.peek() == Some('>') {
       self.advance();
-      if matches!(self.peek(), Some(' ' | '\t')) {
+      if matches!(self.peek(), Some(' ')) {
+        self.advance();
+      } else if self.peek() == Some('\t') && self.column % 4 == 3 {
         self.advance();
       }
       self.emit(TokenKind::BlockQuoteMarker);
