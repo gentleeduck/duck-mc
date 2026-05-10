@@ -5,7 +5,7 @@ use dmc_lexer::token::{AutolinkKind, EmphasisChar, TokenKind};
 /// One emphasis delimiter run captured during `collect_inline`. The
 /// post-pass walks these and pairs openers with closers per CM 6.4
 /// to produce `<em>` / `<strong>` nodes.
-struct DelimRecord {
+pub(crate) struct DelimRecord {
   c: EmphasisChar,
   run: u8,
   can_open: bool,
@@ -17,7 +17,7 @@ struct DelimRecord {
 /// Resolve emphasis delimiter pairs in `out` per CM 6.4 stack
 /// algorithm. Each consumed delimiter is replaced with the resulting
 /// `<em>` / `<strong>` (or further nested) node.
-fn resolve_emphasis_delims(out: &mut Vec<Node>, delims: &mut [DelimRecord]) {
+pub(crate) fn resolve_emphasis_delims(out: &mut Vec<Node>, delims: &mut [DelimRecord]) {
   // CM 6.4 process_emphasis: walk delims left-to-right; for each
   // closer, scan back for the latest matching opener.
   let mut i = 0usize;
@@ -264,6 +264,23 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
   pub(crate) fn collect_inline(&mut self, stop: &dyn Fn(&TokenKind) -> bool) -> Vec<Node> {
     let mut out = Vec::new();
     let mut delims: Vec<DelimRecord> = Vec::new();
+    self.collect_inline_into(stop, &mut out, &mut delims);
+    if !delims.is_empty() {
+      resolve_emphasis_delims(&mut out, &mut delims);
+    }
+    out
+  }
+
+  /// Variant of `collect_inline` that pushes into caller-provided
+  /// buffers and does NOT run emphasis resolution. Lets multi-segment
+  /// callers (parse_paragraph across soft breaks) accumulate one delim
+  /// stack and resolve once at the end.
+  pub(crate) fn collect_inline_into(
+    &mut self,
+    stop: &dyn Fn(&TokenKind) -> bool,
+    out: &mut Vec<Node>,
+    delims: &mut Vec<DelimRecord>,
+  ) {
     while let Some(t) = self.peek() {
       let kind = t.kind.clone();
       if stop(&kind) {
@@ -690,10 +707,6 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         },
       }
     }
-    if !delims.is_empty() {
-      resolve_emphasis_delims(&mut out, &mut delims);
-    }
-    out
   }
 
   /// Split the body of a `(...)` link/image destination into
@@ -734,11 +747,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     let last = bytes[bytes.len() - 1];
     let matches_pair =
       (first == b'"' && last == b'"') || (first == b'\'' && last == b'\'') || (first == b'(' && last == b')');
-    if matches_pair && rest.len() >= 2 {
-      Some((raw_dest, Some(rest[1..rest.len() - 1].to_string())))
-    } else {
-      None
-    }
+    if matches_pair && rest.len() >= 2 { Some((raw_dest, Some(rest[1..rest.len() - 1].to_string()))) } else { None }
   }
 
   /// Strip `\X` -> `X` for the standard CommonMark escapable set so

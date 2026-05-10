@@ -1200,7 +1200,22 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
   /// line or a block-starter token closes the paragraph.
   fn parse_paragraph(&mut self) -> Node {
     let span = self.current_span();
-    let mut children = self.collect_inline_until_break();
+    let mut children: Vec<Node> = Vec::new();
+    let mut delims: Vec<crate::inline::DelimRecord> = Vec::new();
+    let para_stop = |k: &TokenKind| {
+      matches!(
+        k,
+        TokenKind::BlankLine
+          | TokenKind::SoftBreak
+          | TokenKind::Eof
+          | TokenKind::Heading(_)
+          | TokenKind::FrontmatterStart(_)
+          | TokenKind::Import
+          | TokenKind::Export
+          | TokenKind::JsxCloseTagStart
+      )
+    };
+    self.collect_inline_into(&para_stop, &mut children, &mut delims);
     // Setext H2 retro-fold: when the inline run ends with a hard break
     // followed by a Text node consisting only of `-` characters, treat
     // the run as the body of an `<h2>`. CM 4.3 allows trailing
@@ -1222,6 +1237,9 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         }
         children.pop();
       }
+      if !delims.is_empty() {
+        crate::inline::resolve_emphasis_delims(&mut children, &mut delims);
+      }
       return Node::Heading(Heading { level: 2, children, span, id: None });
     }
     loop {
@@ -1240,6 +1258,9 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         self.eat_setext_underline();
         while matches!(children.last(), Some(Node::HardBreak(_))) {
           children.pop();
+        }
+        if !delims.is_empty() {
+          crate::inline::resolve_emphasis_delims(&mut children, &mut delims);
         }
         return Node::Heading(Heading { level: lvl, children, span, id: None });
       }
@@ -1288,15 +1309,18 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       // newline inside the text and collect the next line's inlines.
       let break_span = self.current_span();
       children.push(Node::SoftBreak(BreakNode { span: break_span }));
-      let more = self.collect_inline_until_break();
-      if more.is_empty() {
+      let pre_len = children.len();
+      self.collect_inline_into(&para_stop, &mut children, &mut delims);
+      if children.len() == pre_len {
         // Nothing useful followed; rewind so the soft break we ate
         // becomes a separate empty-line marker.
         self.pos = saved;
         children.pop();
         break;
       }
-      children.extend(more);
+    }
+    if !delims.is_empty() {
+      crate::inline::resolve_emphasis_delims(&mut children, &mut delims);
     }
     Node::Paragraph(Paragraph { children, span })
   }
