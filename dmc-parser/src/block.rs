@@ -103,6 +103,40 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       return Some(self.parse_indented_code());
     }
 
+    // Fallback indented code: lexer didn't classify (because the prev
+    // token was inline content, eg a bq paragraph) but at top-level
+    // dispatch we know we're between blocks. Whitespace(>=4) followed
+    // by non-block content is an indented code block here.
+    if matches!(self.peek_kind(), Some(TokenKind::Whitespace(w)) if (*w as usize) >= 4)
+      && self.peek().is_some_and(|t| t.span.column == 1)
+    {
+      let next_kind = self.tokens.get(self.pos + 1).map(|t| &t.kind);
+      let next_is_inline = matches!(
+        next_kind,
+        Some(TokenKind::Text)
+          | Some(TokenKind::Emphasis(_, _))
+          | Some(TokenKind::Strikethrough)
+          | Some(TokenKind::CodeInlineOpen(_))
+          | Some(TokenKind::Whitespace(_))
+          | Some(TokenKind::Autolink(_))
+          | Some(TokenKind::EntityRef)
+          | Some(TokenKind::LinkOpen)
+          | Some(TokenKind::ImageMarker)
+          | Some(TokenKind::JsxOpenTagStart)
+          | Some(TokenKind::HtmlBlockOpen(_))
+          | Some(TokenKind::HtmlCommentOpen)
+          | Some(TokenKind::Heading(_))
+          | Some(TokenKind::ThematicBreak)
+          | Some(TokenKind::CodeFenceOpen(_, _))
+          | Some(TokenKind::UnorderedListMarker)
+          | Some(TokenKind::OrderedListMarker(_))
+          | Some(TokenKind::BlockQuoteMarker)
+      );
+      if next_is_inline {
+        return Some(self.parse_indented_code_fallback());
+      }
+    }
+
     // Whitespace-then-block-marker. CM allows up to 3 leading spaces
     // before any block-level marker, so when the lexer emitted a
     // leading Whitespace followed by a known block opener we drop the
@@ -1895,6 +1929,68 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       }
     }
     Node::Html(Html { value, span })
+  }
+
+  /// CM 4.4 fallback: build an indented code block by hand when the
+  /// lexer didn't pre-classify (eg between bq lines). Reads contiguous
+  /// `Whitespace(>=4) + line content` until the indent breaks.
+  fn parse_indented_code_fallback(&mut self) -> Node {
+    let span = self.current_span();
+    let mut buf = String::new();
+    loop {
+      let ws_len = match self.peek() {
+        Some(t) if matches!(t.kind, TokenKind::Whitespace(_)) && t.raw.chars().count() >= 4 => t.raw.chars().count(),
+        _ => break,
+      };
+      // Only at col 0.
+      if !self.peek().is_some_and(|t| t.span.column == 1) {
+        break;
+      }
+      self.advance();
+      let visible = ws_len.saturating_sub(4);
+      if visible > 0 {
+        buf.push_str(&" ".repeat(visible));
+      }
+      while let Some(t) = self.peek() {
+        match &t.kind {
+          TokenKind::SoftBreak | TokenKind::HardBreak | TokenKind::BlankLine | TokenKind::Eof => break,
+          _ => {
+            buf.push_str(t.raw);
+            self.advance();
+          },
+        }
+      }
+      buf.push('\n');
+      let saved = self.pos;
+      let mut blanks = 0usize;
+      loop {
+        match self.peek_kind() {
+          Some(TokenKind::SoftBreak) => {
+            self.advance();
+            blanks += 1;
+            break;
+          },
+          Some(TokenKind::BlankLine) => {
+            self.advance();
+            blanks += 2;
+          },
+          _ => break,
+        }
+      }
+      if blanks == 0 {
+        break;
+      }
+      let next_aligned =
+        matches!(self.peek(), Some(t) if matches!(t.kind, TokenKind::Whitespace(_)) && t.raw.chars().count() >= 4 && t.span.column == 1);
+      if !next_aligned {
+        self.pos = saved;
+        break;
+      }
+      for _ in 1..blanks {
+        buf.push('\n');
+      }
+    }
+    Node::CodeBlock(CodeBlock { lang: None, meta: None, value: buf, span })
   }
 
   /// 4-space indented code block (CM 4.4). Lexer pre-classifies a valid
