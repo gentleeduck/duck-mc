@@ -357,19 +357,37 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
           match self.peek_kind() {
             Some(TokenKind::LinkTargetOpen) => {
               self.advance(); // consume `(`
-              let mut paren_body = String::new();
+              let body_start_ptr = self.peek().map(|t| t.raw.as_ptr() as usize).unwrap_or(0);
               while let Some(tok) = self.peek() {
                 match &tok.kind {
-                  TokenKind::LinkTargetClose => {
-                    self.advance();
-                    break;
-                  },
+                  TokenKind::LinkTargetClose => break,
                   TokenKind::Eof => break,
                   _ => {
-                    paren_body.push_str(tok.raw);
                     self.advance();
                   },
                 }
+              }
+              // Reconstruct paren body verbatim from source. Lexer's JSX
+              // path normalizes whitespace inside `<...>`, so per-token
+              // concat would lose spaces; pointer arithmetic preserves
+              // them since every `Token.raw` borrows from the same
+              // source string.
+              let body_end_ptr = self
+                .tokens
+                .get(self.pos.saturating_sub(1))
+                .map(|t| t.raw.as_ptr() as usize + t.raw.len())
+                .unwrap_or(body_start_ptr);
+              let paren_body = if body_end_ptr > body_start_ptr {
+                let len = body_end_ptr - body_start_ptr;
+                // SAFETY: every `Token.raw` is a slice of the same
+                // `&'src str`; pointer subtraction stays in-bounds.
+                let slice = unsafe { std::slice::from_raw_parts(body_start_ptr as *const u8, len) };
+                std::str::from_utf8(slice).map(|s| s.to_string()).unwrap_or_default()
+              } else {
+                String::new()
+              };
+              if matches!(self.peek_kind(), Some(TokenKind::LinkTargetClose)) {
+                self.advance();
               }
               let (href, title) = Self::split_destination_title(&paren_body);
               let href = decode_entities_in(&Self::unescape_markdown(&href));
