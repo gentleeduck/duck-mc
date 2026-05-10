@@ -48,7 +48,8 @@ pub fn normalize_label(s: &str) -> String {
       if let Some(&nx) = chars.peek()
         && matches!(
           nx,
-          '!' | '"'
+          '!'
+            | '"'
             | '#'
             | '$'
             | '%'

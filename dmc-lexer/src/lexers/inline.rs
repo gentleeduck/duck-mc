@@ -46,7 +46,8 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
   fn is_escapable(c: char) -> bool {
     matches!(
       c,
-      '!' | '"'
+      '!'
+        | '"'
         | '#'
         | '$'
         | '%'

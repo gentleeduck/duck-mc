@@ -441,10 +441,22 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
             Some(TokenKind::LinkTargetOpen) => {
               self.advance(); // consume `(`
               let body_start_ptr = self.peek().map(|t| t.raw.as_ptr() as usize).unwrap_or(0);
+              // CM 6.3: bare destinations allow balanced parens. Track
+              // depth so `[link](foo(and(bar)))` keeps both inner pairs
+              // before the matching outer close.
+              let mut depth = 0i32;
               while let Some(tok) = self.peek() {
                 match &tok.kind {
-                  TokenKind::LinkTargetClose => break,
+                  TokenKind::LinkTargetClose if depth == 0 => break,
                   TokenKind::Eof => break,
+                  TokenKind::LinkTargetOpen => {
+                    depth += 1;
+                    self.advance();
+                  },
+                  TokenKind::LinkTargetClose => {
+                    depth -= 1;
+                    self.advance();
+                  },
                   _ => {
                     self.advance();
                   },
@@ -469,10 +481,12 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
               } else {
                 String::new()
               };
-              if matches!(self.peek_kind(), Some(TokenKind::LinkTargetClose)) {
+              let has_close = matches!(self.peek_kind(), Some(TokenKind::LinkTargetClose));
+              if has_close {
                 self.advance();
               }
-              match Self::split_destination_title(&paren_body) {
+              let well_formed = has_close && depth == 0;
+              match if well_formed { Self::split_destination_title(&paren_body) } else { None } {
                 Some((href, title)) => {
                   let href = decode_entities_in(&Self::unescape_markdown(&href));
                   let title = title.map(|t| decode_entities_in(&Self::unescape_markdown(&t)));
