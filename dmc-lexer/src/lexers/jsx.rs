@@ -10,6 +10,27 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
   /// Try lexing a JSX tag. The opening `<` is already consumed by the
   /// dispatcher. Returns `true` on success.
   pub(crate) fn try_lex_jsx_tag(&mut self) -> bool {
+    let saved_current = self.current;
+    let saved_start = self.start;
+    let saved_line = self.line;
+    let saved_column = self.column;
+    let saved_start_line = self.start_line;
+    let saved_start_column = self.start_column;
+    let saved_token_count = self.tokens.len();
+    let result = self.try_lex_jsx_tag_inner();
+    if !result {
+      self.tokens.truncate(saved_token_count);
+      self.current = saved_current;
+      self.start = saved_start;
+      self.line = saved_line;
+      self.column = saved_column;
+      self.start_line = saved_start_line;
+      self.start_column = saved_start_column;
+    }
+    result
+  }
+
+  fn try_lex_jsx_tag_inner(&mut self) -> bool {
     let is_close = self.peek() == Some('/');
     if is_close {
       self.advance();
