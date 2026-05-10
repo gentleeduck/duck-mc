@@ -377,24 +377,29 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
           let raw = t.raw.to_string();
           self.advance();
           // Resolve display vs href per autolink kind.
-          let (display, href) = match kind {
+          let link = match kind {
             AutolinkKind::AngleUrl => {
               let inner = raw.trim_start_matches('<').trim_end_matches('>').to_string();
-              (inner.clone(), inner)
+              Some((inner.clone(), inner))
             },
             AutolinkKind::AngleEmail => {
               let inner = raw.trim_start_matches('<').trim_end_matches('>').to_string();
-              (inner.clone(), format!("mailto:{inner}"))
+              Some((inner.clone(), format!("mailto:{inner}")))
             },
-            AutolinkKind::BareUrl => (raw.clone(), raw),
-            AutolinkKind::BareWww => (raw.clone(), format!("https://{raw}")),
+            // Bare URLs / `www.` runs are a GFM extension handled by the
+            // `BareUrlAutolink` transformer, not by the CommonMark parser.
+            AutolinkKind::BareUrl | AutolinkKind::BareWww => None,
           };
-          out.push(Node::Link(Link {
-            href,
-            title: None,
-            children: vec![Node::Text(Text { value: display, span: span.clone() })],
-            span,
-          }));
+          if let Some((display, href)) = link {
+            out.push(Node::Link(Link {
+              href,
+              title: None,
+              children: vec![Node::Text(Text { value: display, span: span.clone() })],
+              span,
+            }));
+          } else {
+            out.push(Node::Text(Text { value: raw, span }));
+          }
         },
         TokenKind::Whitespace(_) => {
           let raw = t.raw.to_string();

@@ -30,3 +30,11 @@ fn parses_angle_autolink_to_link_node() {
     panic!("link child should be Text");
   }
 }
+
+#[test]
+fn bare_url_stays_text_until_transformer_runs() {
+  let doc = parse_doc("see https://example.com end");
+  let kids = first_paragraph_children(&doc);
+  assert!(!kids.iter().any(|n| matches!(n, Node::Link(_))), "got {:?}", kids);
+  assert!(kids.iter().any(|n| matches!(n, Node::Text(t) if t.value.contains("https://example.com"))), "got {:?}", kids);
+}
