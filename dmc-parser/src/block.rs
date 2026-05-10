@@ -110,7 +110,11 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       && self.peek().is_some_and(|t| t.span.column == 1)
       && matches!(
         self.tokens.get(self.pos + 1).map(|t| &t.kind),
-        Some(TokenKind::SoftBreak) | Some(TokenKind::HardBreak) | Some(TokenKind::BlankLine) | Some(TokenKind::Eof) | None
+        Some(TokenKind::SoftBreak)
+          | Some(TokenKind::HardBreak)
+          | Some(TokenKind::BlankLine)
+          | Some(TokenKind::Eof)
+          | None
       )
     {
       self.advance();
@@ -2100,16 +2104,46 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       // and only emitting them when an indented line follows.
       let saved = self.pos;
       let mut blanks: usize = 0;
+      let mut blank_ws_visible: Vec<usize> = Vec::new();
+      let mut consumed_softbreak = false;
       loop {
-        match self.peek_kind() {
-          Some(TokenKind::SoftBreak) => {
+        // CM 4.4: blank-with-whitespace lines between indented code
+        // lines stay in the body. Each such line is `Whitespace(N) +
+        // SoftBreak`. Capture the visible cols (N - 4) so the body
+        // renders the indent past the 4-space strip.
+        let ws_then_break = matches!(self.peek_kind(), Some(TokenKind::Whitespace(_)))
+          && self.peek().is_some_and(|t| t.span.column == 1)
+          && matches!(
+            self.tokens.get(self.pos + 1).map(|t| &t.kind),
+            Some(TokenKind::SoftBreak) | Some(TokenKind::BlankLine)
+          );
+        if ws_then_break {
+          let ws_n = self.peek().map(|t| t.raw.chars().count()).unwrap_or(0);
+          self.advance();
+          if matches!(self.peek_kind(), Some(TokenKind::BlankLine)) {
+            self.advance();
+            blanks += 2;
+            blank_ws_visible.push(ws_n.saturating_sub(4));
+            blank_ws_visible.push(0);
+          } else {
             self.advance();
             blanks += 1;
-            break;
+            blank_ws_visible.push(ws_n.saturating_sub(4));
+          }
+          continue;
+        }
+        match self.peek_kind() {
+          Some(TokenKind::SoftBreak) if !consumed_softbreak => {
+            self.advance();
+            blanks += 1;
+            consumed_softbreak = true;
+            // Don't break -- keep scanning so blank-with-ws lines
+            // following the soft break stay in the code body.
           },
           Some(TokenKind::BlankLine) => {
             self.advance();
-            blanks += 2; // BlankLine collapses >=2 newlines
+            blanks += 2;
+            blank_ws_visible.push(0);
           },
           _ => break,
         }
@@ -2123,9 +2157,16 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         self.pos = saved;
         break;
       }
-      // Push the buffered blank-line newlines (the body already ended
-      // with one `\n` for the previous line, so add `blanks - 1`).
-      for _ in 1..blanks {
+      // Push buffered blank-line content. The body already ended with
+      // one `\n` for the previous code line; emit per-blank visible
+      // spaces + `\n`. The terminating SoftBreak before the next code
+      // line is handled by the outer loop's `\n` push.
+      let blanks_to_emit = blanks.saturating_sub(1);
+      for i in 0..blanks_to_emit {
+        let visible = blank_ws_visible.get(i).copied().unwrap_or(0);
+        if visible > 0 {
+          buf.push_str(&" ".repeat(visible));
+        }
         buf.push('\n');
       }
     }
