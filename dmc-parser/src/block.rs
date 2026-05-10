@@ -1449,6 +1449,10 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
             Some(Node::HorizontalRule(HorizontalRule { span: hr_span }))
           },
           TokenKind::CodeFenceOpen(_, _) => Some(self.parse_code_block()),
+          TokenKind::JsxOpenTagStart | TokenKind::JsxCloseTagStart => {
+            self.jsx_html_block_mode().map(|m| self.parse_html_block_from_jsx(m))
+          },
+          TokenKind::HtmlCommentOpen => Some(self.parse_html_comment_block()),
           _ => None,
         }
       };
@@ -1895,7 +1899,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     }
     let end_ptr =
       self.tokens.get(self.pos.saturating_sub(1)).map(|t| t.raw.as_ptr() as usize + t.raw.len()).unwrap_or(start_ptr);
-    let value = if end_ptr > start_ptr {
+    let mut value = if end_ptr > start_ptr {
       // SAFETY: every Token.raw borrows from the same `&'src str`
       // source; pointer subtraction stays within that buffer.
       let len = end_ptr - start_ptr;
@@ -1904,6 +1908,28 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     } else {
       String::new()
     };
+    // CM 5.1: when an HTML block lives inside a blockquote, each
+    // continuation line carries its own `>` marker(s). Strip them so
+    // the rendered raw HTML matches the spec output.
+    if value.contains("\n>") {
+      let stripped: String = value
+        .split_inclusive('\n')
+        .enumerate()
+        .map(|(i, line)| {
+          if i == 0 {
+            line.to_string()
+          } else {
+            // Strip leading `>` markers (with optional one space each).
+            let mut rest = line;
+            while let Some(stripped) = rest.strip_prefix('>') {
+              rest = stripped.strip_prefix(' ').unwrap_or(stripped);
+            }
+            rest.to_string()
+          }
+        })
+        .collect();
+      value = stripped;
+    }
     Node::Html(Html { value, span })
   }
 
