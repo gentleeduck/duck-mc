@@ -416,6 +416,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         }
         let saved = self.pos;
         self.advance();
+        self.try_promote_text_list_marker();
         match self.peek_kind() {
           Some(TokenKind::UnorderedListMarker) if child_indent < content_floor => {
             self.pos = saved;
@@ -432,6 +433,14 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
           Some(TokenKind::OrderedListMarker(_)) => {
             let sub = self.parse_list(true, child_indent);
             Self::append_to_item(&mut item, sub);
+          },
+          Some(TokenKind::BlockQuoteMarker) => {
+            let bq = self.parse_blockquote();
+            Self::append_to_item(&mut item, bq);
+          },
+          Some(TokenKind::CodeFenceOpen(_, _)) => {
+            let code = self.parse_code_block();
+            Self::append_to_item(&mut item, code);
           },
           Some(_) if child_indent >= content_floor + 4 => {
             // CM 5.2: a continuation line indented >= content_floor + 4
@@ -558,8 +567,10 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
               }
               inline.extend(more);
             }
-            Self::ensure_loose_item(&mut item, &span);
-            Self::append_to_item(&mut item, Node::Paragraph(Paragraph { children: inline, span }));
+            if !Self::append_inline_continuation(&mut item, &mut inline, &span) {
+              Self::ensure_loose_item(&mut item, &span);
+              Self::append_to_item(&mut item, Node::Paragraph(Paragraph { children: inline, span }));
+            }
           },
           None => {
             self.pos = saved;
@@ -701,6 +712,52 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
             continue;
           }
           self.advance(); // skip whitespace
+          self.try_promote_text_list_marker();
+          let appended = match self.peek_kind() {
+            Some(TokenKind::UnorderedListMarker) => {
+              let nested = self.parse_list(false, n);
+              if let Some(last) = items.last_mut() {
+                Self::ensure_loose_item(last, &span);
+                Self::append_to_item(last, nested);
+              }
+              true
+            },
+            Some(TokenKind::OrderedListMarker(_)) => {
+              let nested = self.parse_list(true, n);
+              if let Some(last) = items.last_mut() {
+                Self::ensure_loose_item(last, &span);
+                Self::append_to_item(last, nested);
+              }
+              true
+            },
+            Some(TokenKind::BlockQuoteMarker) => {
+              let bq = self.parse_blockquote();
+              if let Some(last) = items.last_mut() {
+                Self::ensure_loose_item(last, &span);
+                Self::append_to_item(last, bq);
+              }
+              true
+            },
+            Some(TokenKind::CodeFenceOpen(_, _)) => {
+              let code = self.parse_code_block();
+              if let Some(last) = items.last_mut() {
+                Self::ensure_loose_item(last, &span);
+                Self::append_to_item(last, code);
+              }
+              true
+            },
+            Some(TokenKind::LinkRefDef) => {
+              self.advance();
+              true
+            },
+            _ => false,
+          };
+          if appended {
+            if matches!(self.peek_kind(), Some(TokenKind::SoftBreak) | Some(TokenKind::HardBreak)) {
+              self.advance();
+            }
+            continue;
+          }
           let para_span = self.current_span();
           let inline = self.collect_inline_until_break();
           if !inline.is_empty() {
@@ -732,7 +789,13 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
             Some(TokenKind::OrderedListMarker(_)) if ordered => true,
             _ => false,
           };
-          if !next_is_marker {
+          let next_indent = if ws_w.is_some() {
+            self.tokens.get(ws_pos).map(|t| t.raw.chars().count()).unwrap_or(0)
+          } else {
+            0
+          };
+          let same_list_indent = if indent > 0 { next_indent == indent } else { next_indent <= 3 };
+          if !next_is_marker || !same_list_indent {
             self.pos = saved;
           } else {
             // Rewind to the leading-whitespace position so the next
@@ -778,6 +841,59 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     }
   }
 
+  fn is_block_node(node: &Node) -> bool {
+    matches!(
+      node,
+      Node::Paragraph(_)
+        | Node::List(_)
+        | Node::Blockquote(_)
+        | Node::CodeBlock(_)
+        | Node::Heading(_)
+        | Node::HorizontalRule(_)
+        | Node::Table(_)
+        | Node::Html(_)
+    )
+  }
+
+  /// Some deeper-indent list markers are lexed as plain `Text` + trailing
+  /// `Whitespace` once they move past the lexer's top-level block-start fast
+  /// path. Reclassify them in-place so nested list parsing can still recurse.
+  fn try_promote_text_list_marker(&mut self) -> bool {
+    let Some(tok) = self.peek() else {
+      return false;
+    };
+    if !matches!(tok.kind, TokenKind::Text) {
+      return false;
+    }
+    let has_space_after =
+      matches!(self.tokens.get(self.pos + 1).map(|t| &t.kind), Some(TokenKind::Whitespace(w)) if *w > 0);
+    if !has_space_after {
+      return false;
+    }
+    let raw = tok.raw;
+    let kind = match raw {
+      "-" | "*" | "+" => Some(TokenKind::UnorderedListMarker),
+      _ => {
+        let digits_end = raw.find(|c: char| !c.is_ascii_digit()).unwrap_or(raw.len());
+        if digits_end == 0 || digits_end + 1 != raw.len() {
+          None
+        } else {
+          match raw.as_bytes()[digits_end] {
+            b'.' => Some(TokenKind::OrderedListMarker(dmc_lexer::token::OrderedSep::Period)),
+            b')' => Some(TokenKind::OrderedListMarker(dmc_lexer::token::OrderedSep::Paren)),
+            _ => None,
+          }
+        }
+      },
+    };
+    if let Some(kind) = kind {
+      self.tokens[self.pos].kind = kind;
+      true
+    } else {
+      false
+    }
+  }
+
   /// Append `child` to the children of `item` (works for both `ListItem`
   /// and `TaskListItem`).
   fn append_to_item(item: &mut Node, child: Node) {
@@ -786,6 +902,24 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       Node::TaskListItem(t) => t.children.push(child),
       _ => {},
     }
+  }
+
+  /// Continuation lines without an intervening blank line stay inside the
+  /// current paragraph; they do not immediately make the list item loose.
+  fn append_inline_continuation(item: &mut Node, inline: &mut Vec<Node>, span: &duck_diagnostic::Span) -> bool {
+    let kids = match item {
+      Node::ListItem(li) => &mut li.children,
+      Node::TaskListItem(t) => &mut t.children,
+      _ => return false,
+    };
+    if kids.iter().any(Self::is_block_node) {
+      return false;
+    }
+    if !kids.is_empty() {
+      kids.push(Node::SoftBreak(BreakNode { span: span.clone() }));
+    }
+    kids.append(inline);
+    true
   }
 
   /// Wrap any LEADING raw inline content of `item` in a `Paragraph` so
@@ -797,24 +931,12 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
   /// CodeBlock, ...) are left in place. Otherwise a `[Text, List]` item
   /// would collapse into a single paragraph that swallows the list.
   fn ensure_loose_item(item: &mut Node, span: &duck_diagnostic::Span) {
-    fn is_block_node(n: &Node) -> bool {
-      matches!(
-        n,
-        Node::Paragraph(_)
-          | Node::List(_)
-          | Node::Blockquote(_)
-          | Node::CodeBlock(_)
-          | Node::Heading(_)
-          | Node::HorizontalRule(_)
-          | Node::Table(_)
-      )
-    }
     let promote = |kids: &mut Vec<Node>, span: &duck_diagnostic::Span| {
       // Already loose? Bail.
       if kids.first().is_some_and(|n| matches!(n, Node::Paragraph(_))) {
         return;
       }
-      let split = kids.iter().position(is_block_node).unwrap_or(kids.len());
+      let split = kids.iter().position(Self::is_block_node).unwrap_or(kids.len());
       if split == 0 {
         return;
       }
@@ -867,6 +989,33 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       } else {
         self.pos = pre;
       }
+    }
+
+    let content_start = self.pos;
+    if matches!(self.peek_kind(), Some(TokenKind::Whitespace(_))) {
+      self.advance();
+    }
+    self.try_promote_text_list_marker();
+    match self.peek_kind() {
+      Some(TokenKind::UnorderedListMarker) => {
+        let nested = self.parse_list(false, 0);
+        return Node::ListItem(ListItem { children: vec![nested], span });
+      },
+      Some(TokenKind::OrderedListMarker(_)) => {
+        let nested = self.parse_list(true, 0);
+        return Node::ListItem(ListItem { children: vec![nested], span });
+      },
+      Some(TokenKind::BlockQuoteMarker) => {
+        let bq = self.parse_blockquote();
+        return Node::ListItem(ListItem { children: vec![bq], span });
+      },
+      Some(TokenKind::CodeFenceOpen(_, _)) => {
+        let code = self.parse_code_block();
+        return Node::ListItem(ListItem { children: vec![code], span });
+      },
+      _ => {
+        self.pos = content_start;
+      },
     }
 
     let inline = self.collect_inline_for_list_item();

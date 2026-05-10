@@ -20,10 +20,11 @@ pub struct HtmlEmitter {
 }
 
 impl NodeSink for HtmlEmitter {
-  fn enter(&mut self, node: &Node, _ctx: &WalkCtx) {
+  fn enter(&mut self, node: &Node, ctx: &WalkCtx) {
     if self.in_table_depth > 0 {
       return;
     }
+    self.maybe_separate_list_item_block_child(node, ctx);
     match node {
       Node::Text(t) => self.out.push_str(&escape_text(&t.value)),
       Node::InlineCode(c) => {
@@ -41,7 +42,7 @@ impl NodeSink for HtmlEmitter {
       // span and must NOT inject a newline before `</p>`.
       Node::Html(h) => {
         self.out.push_str(&h.value);
-        let inline_context = matches!(_ctx.parent, Some(Node::Paragraph(_)) | Some(Node::Heading(_)));
+        let inline_context = matches!(ctx.parent, Some(Node::Paragraph(_)) | Some(Node::Heading(_)));
         if !inline_context && !h.value.ends_with('\n') {
           self.out.push('\n');
         }
@@ -113,6 +114,33 @@ impl HtmlEmitter {
 
   fn diag(&mut self, code: Code, message: impl Into<String>) {
     self.diag_engine.emit(diag!(code, message.into()));
+  }
+
+  fn is_block_node(node: &Node) -> bool {
+    matches!(
+      node,
+      Node::Paragraph(_)
+        | Node::List(_)
+        | Node::Blockquote(_)
+        | Node::CodeBlock(_)
+        | Node::Heading(_)
+        | Node::HorizontalRule(_)
+        | Node::Table(_)
+        | Node::Html(_)
+    )
+  }
+
+  fn maybe_separate_list_item_block_child(&mut self, node: &Node, ctx: &WalkCtx) {
+    let Some(parent) = ctx.parent else {
+      return;
+    };
+    if !matches!(parent, Node::ListItem(_) | Node::TaskListItem(_)) || ctx.index == 0 || !Self::is_block_node(node) {
+      return;
+    }
+    let prev = Node::children_of(parent).get(ctx.index - 1);
+    if prev.is_some_and(|n| !Self::is_block_node(n)) && !self.out.ends_with('\n') {
+      self.out.push('\n');
+    }
   }
 
   // container open / close (walker fills the children in between)
