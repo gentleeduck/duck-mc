@@ -398,9 +398,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
             // them as Text so the `BareUrlAutolink` transformer can
             // operate later in the pipeline.
             AutolinkKind::BareUrl if self.options.gfm_autolinks => Some((raw.clone(), raw.clone())),
-            AutolinkKind::BareWww if self.options.gfm_autolinks => {
-              Some((raw.clone(), format!("http://{}", raw)))
-            },
+            AutolinkKind::BareWww if self.options.gfm_autolinks => Some((raw.clone(), format!("http://{}", raw))),
             AutolinkKind::BareUrl | AutolinkKind::BareWww => None,
           };
           if let Some((display, href)) = link {

@@ -94,8 +94,8 @@ impl Apply {
       let mut best: Option<(usize, &'static str)> = None;
       for prefix in ["http://", "https://", "www."] {
         if let Some(idx) = rest.find(prefix) {
-          let ok_boundary = idx == 0
-            || matches!(bytes.get(idx - 1).copied(), Some(b) if !b.is_ascii_alphanumeric() && b != b'_');
+          let ok_boundary =
+            idx == 0 || matches!(bytes.get(idx - 1).copied(), Some(b) if !b.is_ascii_alphanumeric() && b != b'_');
           if !ok_boundary {
             continue;
           }

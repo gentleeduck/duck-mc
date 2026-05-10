@@ -355,26 +355,26 @@ impl HtmlEmitter {
   /// Render the entire `<table>...</table>` up-front. Cell content uses
   /// `inline_node` recursion since the walker is suppressed inside.
   fn inline_table(&mut self, t: &Table) {
-    self.out.push_str("<table>");
+    self.out.push_str("<table>\n");
     if let Some(header) = t.children.first() {
-      self.out.push_str("<thead><tr>");
+      self.out.push_str("<thead>\n<tr>\n");
       for (i, cell) in header.cells.iter().enumerate() {
         self.inline_cell("th", cell, t.align.get(i).copied().unwrap_or(TableAlign::None));
       }
-      self.out.push_str("</tr></thead>");
+      self.out.push_str("</tr>\n</thead>\n");
     }
     if t.children.len() > 1 {
-      self.out.push_str("<tbody>");
+      self.out.push_str("<tbody>\n");
       for row in &t.children[1..] {
-        self.out.push_str("<tr>");
+        self.out.push_str("<tr>\n");
         for (i, cell) in row.cells.iter().enumerate() {
           self.inline_cell("td", cell, t.align.get(i).copied().unwrap_or(TableAlign::None));
         }
-        self.out.push_str("</tr>");
+        self.out.push_str("</tr>\n");
       }
-      self.out.push_str("</tbody>");
+      self.out.push_str("</tbody>\n");
     }
-    self.out.push_str("</table>");
+    self.out.push_str("</table>\n");
   }
 
   fn inline_cell(&mut self, tag: &str, cell: &TableCell, align: TableAlign) {
@@ -395,7 +395,7 @@ impl HtmlEmitter {
     }
     self.out.push_str("</");
     self.out.push_str(tag);
-    self.out.push('>');
+    self.out.push_str(">\n");
   }
 
   /// Self-recursive render used only inside the table inline path. The

@@ -85,7 +85,9 @@ fn gfm_spec_no_regression() {
     panic!("regression: was {baseline}, now {pass}. Sample failing examples: {first_failures:?}");
   }
   if pass > baseline {
-    println!("improvement: pass count moved from {baseline} -> {pass}; bump tests/fixtures/gfm_baseline.txt to {pass}.");
+    println!(
+      "improvement: pass count moved from {baseline} -> {pass}; bump tests/fixtures/gfm_baseline.txt to {pass}."
+    );
   }
 }
 
