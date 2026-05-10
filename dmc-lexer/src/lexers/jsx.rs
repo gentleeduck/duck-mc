@@ -26,6 +26,22 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
       return false;
     }
 
+    // Reject URL-scheme-like prefixes (`https:`, `http:`, etc.). When
+    // the would-be tag name ends in `:` and is followed by `/` the
+    // construct is an attempted autolink that lex_angle_autolink
+    // already rejected (e.g., contains a space) so we must keep it as
+    // literal text rather than swallow it as a JSX tag.
+    {
+      let bytes = self.source.as_bytes();
+      let mut i = self.current;
+      while i < bytes.len() && (bytes[i].is_ascii_alphanumeric() || matches!(bytes[i], b'_' | b'-' | b'.')) {
+        i += 1;
+      }
+      if i < bytes.len() && bytes[i] == b':' && bytes.get(i + 1) == Some(&b'/') {
+        return false;
+      }
+    }
+
     self.emit(if is_close { TokenKind::JsxCloseTagStart } else { TokenKind::JsxOpenTagStart });
 
     // Tag name: identifier chars + `.` (member) + `:` (namespace) + `-`.
