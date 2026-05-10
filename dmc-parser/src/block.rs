@@ -1047,7 +1047,20 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
   /// marker's indent. `None` when the cursor is not on a Whitespace token.
   fn peek_leading_indent(&self) -> Option<usize> {
     match self.peek() {
-      Some(t) if matches!(t.kind, TokenKind::Whitespace(_)) => Some(t.raw.chars().count()),
+      Some(t) if matches!(t.kind, TokenKind::Whitespace(_)) => {
+        // CM 2.2: tabs snap to the next 4-col stop. Compute visual
+        // width from `raw`: each tab takes the cols needed to reach
+        // the next multiple of 4 from the running column.
+        let mut col: usize = 0;
+        for c in t.raw.chars() {
+          if c == '\t' {
+            col += 4 - (col % 4);
+          } else {
+            col += 1;
+          }
+        }
+        Some(col)
+      },
       _ => None,
     }
   }
