@@ -287,6 +287,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     };
 
     let mut first = true;
+    let mut saw_blank_between_items = false;
     loop {
       // First iteration: caller has already advanced past any indent
       // whitespace; cursor is on the marker. Subsequent iterations: for
@@ -739,6 +740,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
             if ws_w.is_some() {
               self.pos = ws_pos;
             }
+            saw_blank_between_items = true;
             if let Some(last) = items.last_mut() {
               Self::ensure_loose_item(last, &span);
             }
@@ -747,13 +749,16 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       }
     }
 
-    // Loose list: when any item has a Paragraph child, every item must
-    // also be wrapped in a Paragraph (CommonMark loose-list rule).
-    let any_loose = items.iter().any(|n| match n {
-      Node::ListItem(li) => li.children.iter().any(|c| matches!(c, Node::Paragraph(_))),
-      Node::TaskListItem(t) => t.children.iter().any(|c| matches!(c, Node::Paragraph(_))),
-      _ => false,
-    });
+    // CM 5.3 loose list: a list is loose when any blank line appears
+    // between items (or inside an item between block children). We track
+    // the inter-item case during parsing; the per-item case shows up
+    // here as items already containing a Paragraph child.
+    let any_loose = saw_blank_between_items
+      || items.iter().any(|n| match n {
+        Node::ListItem(li) => li.children.iter().any(|c| matches!(c, Node::Paragraph(_))),
+        Node::TaskListItem(t) => t.children.iter().any(|c| matches!(c, Node::Paragraph(_))),
+        _ => false,
+      });
     if any_loose {
       for n in items.iter_mut() {
         Self::ensure_loose_item(n, &span);
