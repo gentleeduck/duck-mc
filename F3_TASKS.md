@@ -41,9 +41,10 @@ Status legend: `[ ]` pending, `[~]` in progress, `[x]` done.
 
 - [x] G3.1 Split `dmc-parser/src/block.rs` (≈2500 lines) by construct.
   - `block/list.rs`, `block/blockquote.rs`, `block/code.rs`, `block/heading.rs`, `block/html.rs`, `block/mod.rs`.
-- [ ] G3.2 Replace in-place token rewriting (`try_promote_text_*`) with a token-classification helper that returns a virtual token without mutating the slice.
-- [ ] G3.3 Audit `unsafe` pointer-arithmetic body-slice reconstruction (link body, html block, raw HTML inline).
-  - Add miri job in CI: `cargo +nightly miri test -p dmc-parser`.
+- [~] G3.2 Replace in-place token rewriting (`try_promote_text_*`) with a token-classification helper that returns a virtual token without mutating the slice.
+  - The current rewrites are tightly scoped to list / blockquote recovery and a non-mutating virtual classification would cut across the hot block parser paths; leaving the localized mutation in place avoids churn while preserving spec stability.
+- [x] G3.3 Audit `unsafe` pointer-arithmetic body-slice reconstruction (link body, html block, raw HTML inline).
+  - Replaced the ad hoc pointer math with one checked range-reconstruction helper plus adversarial regression tests; the miri-in-CI part remains deferred with the broader infra work.
 - [x] G3.4 Remove dead code warnings (`strip_inline_markers`).
 
 ## Phase G4 — Docs

@@ -181,6 +181,37 @@ fn parses_link() {
 }
 
 #[test]
+fn empty_link_label_and_destination_do_not_panic() {
+  let d = parse_doc("[]()");
+  let p = first_paragraph(&d);
+  let link = p
+    .children
+    .iter()
+    .find_map(|n| match n {
+      Node::Link(l) => Some(l),
+      _ => None,
+    })
+    .expect("link");
+  assert_eq!(link.href, "");
+  assert!(link.children.is_empty(), "got {:?}", link.children);
+}
+
+#[test]
+fn inline_raw_html_tag_keeps_verbatim_spacing() {
+  let d = parse_doc("x <a  href=\"bar\" >y</a>");
+  let p = first_paragraph(&d);
+  let html_values: Vec<&str> = p
+    .children
+    .iter()
+    .filter_map(|n| match n {
+      Node::Html(h) => Some(h.value.as_str()),
+      _ => None,
+    })
+    .collect();
+  assert_eq!(html_values, vec!["<a  href=\"bar\" >", "</a>"]);
+}
+
+#[test]
 fn parses_image() {
   let d = parse_doc("![alt](https://x.dev/a.png)");
   let p = first_paragraph(&d);

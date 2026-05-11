@@ -152,6 +152,58 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     self.tokens.get(pos).map(|t| t.span.clone()).unwrap_or_else(default_span)
   }
 
+  /// Rebuild the verbatim source slice covered by `tokens[start..end)`.
+  /// Returns an empty string for empty / invalid ranges.
+  pub(crate) fn raw_source_for_token_range(&self, start: usize, end: usize) -> String {
+    if start >= end {
+      return String::new();
+    }
+    let Some(start_tok) = self.tokens.get(start) else {
+      return String::new();
+    };
+    let Some(end_tok) = self.tokens.get(end - 1) else {
+      return String::new();
+    };
+
+    let start_ptr = start_tok.raw.as_ptr() as usize;
+    let end_ptr = end_tok.raw.as_ptr() as usize + end_tok.raw.len();
+    let Some((source_start, source_end)) = self.source_bounds() else {
+      return String::new();
+    };
+
+    debug_assert!(start_ptr <= end_ptr, "token slice start pointer exceeded end pointer");
+    debug_assert!(start_ptr >= source_start, "token slice start pointer fell before the source buffer");
+    debug_assert!(end_ptr <= source_end, "token slice end pointer exceeded the source buffer");
+
+    if start_ptr > end_ptr || start_ptr < source_start || end_ptr > source_end {
+      return String::new();
+    }
+    let len = end_ptr - start_ptr;
+    if len == 0 {
+      return String::new();
+    }
+
+    // SAFETY: `start_ptr..end_ptr` was derived from `Token.raw` slices
+    // that all borrow from the same source buffer, and the checked
+    // bounds above keep the reconstruction in-range and ordered.
+    let slice = unsafe { std::slice::from_raw_parts(start_ptr as *const u8, len) };
+    std::str::from_utf8(slice).map(|s| s.to_string()).unwrap_or_default()
+  }
+
+  fn source_bounds(&self) -> Option<(usize, usize)> {
+    let mut source_start = usize::MAX;
+    let mut source_end = 0usize;
+
+    for tok in &self.tokens {
+      let start = tok.raw.as_ptr() as usize;
+      let end = start + tok.raw.len();
+      source_start = source_start.min(start);
+      source_end = source_end.max(end);
+    }
+
+    if source_start == usize::MAX { None } else { Some((source_start, source_end)) }
+  }
+
   /// Span of the token at the cursor, or a default span at EOF.
   pub(crate) fn current_span(&self) -> Span {
     self.tokens.get(self.pos).map(|t| t.span.clone()).unwrap_or_else(default_span)

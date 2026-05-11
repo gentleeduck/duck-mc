@@ -101,7 +101,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
   /// whitespace, so per-token concat alone would drop it).
   pub(super) fn parse_html_block_from_jsx(&mut self, mode: HtmlBlockMode) -> Node {
     let span = self.current_span();
-    let start_ptr = self.tokens.get(self.pos).map(|t| t.raw.as_ptr() as usize).unwrap_or(0);
+    let start_idx = self.pos;
     if matches!(self.peek_kind(), Some(TokenKind::JsxCloseTagStart)) {
       let close_name = self
         .tokens
@@ -114,7 +114,9 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         span.clone(),
         format!("orphan close tag `</{close_name}>` has no matching opener in this block; preserving it as raw HTML")
       )
-      .with_help("add the matching opening tag earlier in the block, or escape the leading `<` if this should render as text");
+      .with_help(
+        "add the matching opening tag earlier in the block, or escape the leading `<` if this should render as text",
+      );
       self.emit_diagnostic(diagnostic);
     }
     match mode {
@@ -163,17 +165,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         }
       },
     }
-    let end_ptr =
-      self.tokens.get(self.pos.saturating_sub(1)).map(|t| t.raw.as_ptr() as usize + t.raw.len()).unwrap_or(start_ptr);
-    let mut value = if end_ptr > start_ptr {
-      // SAFETY: every Token.raw borrows from the same `&'src str`
-      // source; pointer subtraction stays within that buffer.
-      let len = end_ptr - start_ptr;
-      let slice = unsafe { std::slice::from_raw_parts(start_ptr as *const u8, len) };
-      std::str::from_utf8(slice).map(|s| s.to_string()).unwrap_or_default()
-    } else {
-      String::new()
-    };
+    let mut value = self.raw_source_for_token_range(start_idx, self.pos);
     // CM 5.1: when an HTML block lives inside a blockquote, each
     // continuation line carries its own `>` marker(s). Strip them so
     // the rendered raw HTML matches the spec output.

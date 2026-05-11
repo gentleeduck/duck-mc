@@ -52,6 +52,13 @@ fn type6_table_tag_routes_to_html() {
 }
 
 #[test]
+fn standalone_close_tag_is_preserved_verbatim() {
+  let d = parse_doc("</div>\n");
+  let h = first_html(&d);
+  assert_eq!(h.value, "</div>\n");
+}
+
+#[test]
 fn capital_tag_stays_jsx() {
   // MDX dialect: capital-name tags are JSX components, never HTML
   // blocks. Type-7 is intentionally not handled.

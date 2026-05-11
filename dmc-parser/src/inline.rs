@@ -702,7 +702,6 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
           // Capture raw label text via pointer arithmetic on token raws
           // so emphasis/inline markers survive for ref-def lookup
           // (`[*foo* bar]: /url` matches `[*foo* bar]`).
-          let label_start_ptr = self.peek().map(|t| t.raw.as_ptr() as usize).unwrap_or(0);
           let inner = self.collect_inline(&|k| {
             matches!(k, TokenKind::LinkClose | TokenKind::BlankLine | TokenKind::SoftBreak | TokenKind::Eof)
           });
@@ -713,19 +712,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
             continue;
           }
           let label_end_pos = self.pos;
-          let label_end_ptr = self
-            .tokens
-            .get(self.pos.saturating_sub(1))
-            .map(|t| t.raw.as_ptr() as usize + t.raw.len())
-            .unwrap_or(label_start_ptr);
-          let raw_inner_label = if label_end_ptr > label_start_ptr {
-            let len = label_end_ptr - label_start_ptr;
-            // SAFETY: every Token.raw is a slice of the same source.
-            let slice = unsafe { std::slice::from_raw_parts(label_start_ptr as *const u8, len) };
-            std::str::from_utf8(slice).map(|s| s.to_string()).unwrap_or_default()
-          } else {
-            String::new()
-          };
+          let raw_inner_label = self.raw_source_for_token_range(label_start_pos, label_end_pos);
           self.advance(); // consume the closing `]`
           // CommonMark 6.3: a link cannot contain another link. When
           // inner contains a `Link` (recursively, e.g. wrapped in
@@ -767,7 +754,6 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
             Some(TokenKind::LinkTargetOpen) => {
               self.advance(); // consume `(`
               let body_start_pos = self.pos;
-              let body_start_ptr = self.peek().map(|t| t.raw.as_ptr() as usize).unwrap_or(0);
               // CM 6.3: bare destinations allow balanced parens. Track
               // depth so `[link](foo(and(bar)))` keeps both inner pairs
               // before the matching outer close. Stop at blank lines
@@ -828,22 +814,9 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
               // concat would lose spaces; pointer arithmetic preserves
               // them since every `Token.raw` borrows from the same
               // source string.
-              let body_end_ptr = self
-                .tokens
-                .get(self.pos.saturating_sub(1))
-                .map(|t| t.raw.as_ptr() as usize + t.raw.len())
-                .unwrap_or(body_start_ptr);
-              let paren_body = if body_end_ptr > body_start_ptr {
-                let len = body_end_ptr - body_start_ptr;
-                // SAFETY: every `Token.raw` is a slice of the same
-                // `&'src str`; pointer subtraction stays in-bounds.
-                let slice = unsafe { std::slice::from_raw_parts(body_start_ptr as *const u8, len) };
-                std::str::from_utf8(slice).map(|s| s.to_string()).unwrap_or_default()
-              } else {
-                String::new()
-              };
               let has_close = matches!(self.peek_kind(), Some(TokenKind::LinkTargetClose));
               let body_end_pos = self.pos;
+              let paren_body = self.raw_source_for_token_range(body_start_pos, body_end_pos);
               if has_close {
                 self.advance();
               }
@@ -919,7 +892,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
                 out.push(Node::Text(Text { value: "][]".into(), span }));
                 continue;
               }
-              let label2_start_ptr = self.peek().map(|t| t.raw.as_ptr() as usize).unwrap_or(0);
+              let label2_start_pos = self.pos;
               let label_inner = self.collect_inline(&|k| {
                 matches!(k, TokenKind::LinkClose | TokenKind::BlankLine | TokenKind::SoftBreak | TokenKind::Eof)
               });
@@ -944,20 +917,9 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
                 }
                 continue;
               }
-              let label2_end_ptr = self
-                .tokens
-                .get(self.pos.saturating_sub(1))
-                .map(|t| t.raw.as_ptr() as usize + t.raw.len())
-                .unwrap_or(label2_start_ptr);
+              let label2_end_pos = self.pos;
               self.advance(); // consume label-side `]`
-              let label_raw_2 = if label2_end_ptr > label2_start_ptr {
-                let len = label2_end_ptr - label2_start_ptr;
-                // SAFETY: every Token.raw is a slice of the same source.
-                let slice = unsafe { std::slice::from_raw_parts(label2_start_ptr as *const u8, len) };
-                std::str::from_utf8(slice).map(|s| s.to_string()).unwrap_or_default()
-              } else {
-                String::new()
-              };
+              let label_raw_2 = self.raw_source_for_token_range(label2_start_pos, label2_end_pos);
               // CM 4.7: label matching is case-fold + ws-collapse only.
               // Use the raw source slice (with backslash escapes intact)
               // so `[foo\!]` does NOT match `[foo!]: /url` per spec.

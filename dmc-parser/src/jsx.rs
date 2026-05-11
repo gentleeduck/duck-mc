@@ -109,7 +109,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
 
     let span = self.current_span();
     let valid = self.jsx_raw_html_tag_is_valid();
-    let start_ptr = self.tokens.get(self.pos)?.raw.as_ptr() as usize;
+    let start_idx = self.pos;
     let mut end_idx = self.pos;
     let want_close = matches!(kind, TokenKind::JsxCloseTagStart);
     while let Some(tok) = self.tokens.get(end_idx) {
@@ -127,15 +127,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       end_idx += 1;
     }
 
-    let end_ptr = self.tokens.get(end_idx).map(|t| t.raw.as_ptr() as usize + t.raw.len()).unwrap_or(start_ptr);
-    let value = if end_ptr > start_ptr {
-      // SAFETY: every Token.raw points into the same source buffer.
-      let len = end_ptr - start_ptr;
-      let slice = unsafe { std::slice::from_raw_parts(start_ptr as *const u8, len) };
-      std::str::from_utf8(slice).map(|s| s.to_string()).unwrap_or_default()
-    } else {
-      String::new()
-    };
+    let value = self.raw_source_for_token_range(start_idx, end_idx + 1);
     self.pos = end_idx + 1;
 
     Some(if valid {
