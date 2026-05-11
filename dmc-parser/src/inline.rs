@@ -1,5 +1,5 @@
 use crate::ast::*;
-use crate::parser::Parser;
+use crate::parser::{MAX_LINK_LABEL_DEPTH, Parser};
 use dmc_diagnostic::Code;
 use dmc_lexer::token::{AutolinkKind, EmphasisChar, TokenKind};
 
@@ -697,15 +697,23 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
           out.push(Node::InlineCode(InlineCode { value, span }));
         },
         TokenKind::LinkOpen => {
+          if self.link_label_depth >= MAX_LINK_LABEL_DEPTH {
+            // Adversarial `[[[[...`: stop recursing and emit `[` literal.
+            self.advance();
+            out.push(Node::Text(Text { value: "[".into(), span }));
+            continue;
+          }
           let start = self.pos;
           self.advance();
           let label_start_pos = self.pos;
           // Capture raw label text via pointer arithmetic on token raws
           // so emphasis/inline markers survive for ref-def lookup
           // (`[*foo* bar]: /url` matches `[*foo* bar]`).
+          self.link_label_depth += 1;
           let inner = self.collect_inline(&|k| {
             matches!(k, TokenKind::LinkClose | TokenKind::BlankLine | TokenKind::SoftBreak | TokenKind::Eof)
           });
+          self.link_label_depth -= 1;
           if !matches!(self.peek_kind(), Some(TokenKind::LinkClose)) {
             // No closing `]`: emit `[` literally and splice the
             // already-parsed inner nodes. Do NOT reset `self.pos` and
@@ -899,9 +907,11 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
                 continue;
               }
               let label2_start_pos = self.pos;
+              self.link_label_depth += 1;
               let label_inner = self.collect_inline(&|k| {
                 matches!(k, TokenKind::LinkClose | TokenKind::BlankLine | TokenKind::SoftBreak | TokenKind::Eof)
               });
+              self.link_label_depth -= 1;
               if !matches!(self.peek_kind(), Some(TokenKind::LinkClose)) {
                 // Treat the trailing `[..` as text and fall through to
                 // shortcut behavior on the original inner.
@@ -953,6 +963,12 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
                 out.push(Node::Link(Link { href, title, children: inner, span }));
                 continue;
               }
+              // Unresolved shortcut `[label]`: emit `[`, then re-parse
+              // the label tokens into the *outer* delimiter stack so an
+              // emphasis run that opens before `[` can close inside it
+              // (CM ex 523: `*foo [bar* baz]`). The re-parse carries the
+              // `link_label_depth` so adversarial `[[[...]]]` still hits
+              // the recursion cap instead of cascading.
               out.push(Node::Text(Text { value: "[".into(), span: span.clone() }));
               self.replay_inline_slice_into(label_start_pos, label_end_pos, out, delims, false);
               out.push(Node::Text(Text { value: "]".into(), span }));
@@ -960,6 +976,11 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
           }
         },
         TokenKind::ImageMarker => {
+          if self.link_label_depth >= MAX_LINK_LABEL_DEPTH {
+            self.advance();
+            out.push(Node::Text(Text { value: "![".into(), span }));
+            continue;
+          }
           // Lexer's `ImageMarker` already covers `![`, so the cursor is on
           // the alt-text body. Walk to the closing `]` (`LinkClose`).
           self.advance();
@@ -968,9 +989,11 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
           // rendered alt is plain text (no markup). Parse the body
           // then derive both a raw label (for ref lookups) and a
           // plain-text alt.
+          self.link_label_depth += 1;
           let alt_inner = self.collect_inline(&|k| {
             matches!(k, TokenKind::LinkClose | TokenKind::BlankLine | TokenKind::SoftBreak | TokenKind::Eof)
           });
+          self.link_label_depth -= 1;
           let mut alt_raw = String::new();
           {
             // Rebuild raw label by walking the original token range. We
@@ -1189,9 +1212,16 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     let mut parser = Parser::new(tokens, self.meta.clone(), &mut diag);
     parser.refs = self.refs.clone();
     parser.source = self.source;
+    parser.link_label_depth = self.link_label_depth.saturating_add(1);
     parser.collect_inline(&|k| matches!(k, TokenKind::Eof))
   }
 
+  /// Re-parse `tokens[start..end)` into the caller's `out`/`delims` so
+  /// emphasis delimiters in the slice join the outer delimiter run
+  /// (used when an unresolved shortcut `[label]` falls back to literal
+  /// text but `*`/`_` runs still need to pair across the brackets).
+  /// Carries `link_label_depth` so nested `[...]` re-parses still hit
+  /// the recursion cap.
   fn replay_inline_slice_into(
     &self,
     start: usize,
@@ -1212,6 +1242,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     let mut parser = Parser::new(tokens, self.meta.clone(), &mut diag);
     parser.refs = self.refs.clone();
     parser.source = self.source;
+    parser.link_label_depth = self.link_label_depth.saturating_add(1);
     parser.collect_inline_into(&|k| matches!(k, TokenKind::Eof), out, delims);
   }
 

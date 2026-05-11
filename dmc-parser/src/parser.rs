@@ -41,7 +41,23 @@ pub struct Parser<'eng, 'tokens> {
   /// reslice in `raw_source_for_token_range` instead of pointer
   /// arithmetic across token slices.
   pub source: Option<&'tokens str>,
+  /// Current `[...]` link-label nesting depth. Recursive label parsing
+  /// (and the unresolved-shortcut replay) is super-linear in the number
+  /// of nested brackets; once this exceeds [`MAX_LINK_LABEL_DEPTH`] a
+  /// `[` is treated as literal text instead of opening yet another
+  /// recursive parse. No real document nests link labels that deeply
+  /// (CM forbids links inside link text), so this only bounds adversarial
+  /// `[[[[[...` input.
+  pub link_label_depth: u16,
 }
+
+/// Maximum `[...]` link-label nesting before `[` is treated as literal.
+/// Kept small because an unresolved-shortcut fallback re-parses its
+/// label into the outer delimiter stack, so total work is exponential
+/// in this depth on adversarial `[[[[...]]]]` input. CommonMark never
+/// nests link labels more than a couple deep (links cannot contain
+/// links), so 12 is far more than any real document needs.
+pub(crate) const MAX_LINK_LABEL_DEPTH: u16 = 12;
 
 impl<'eng, 'tokens> Parser<'eng, 'tokens> {
   /// Build a parser positioned at the first token.
@@ -50,7 +66,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     meta: Arc<SourceMeta>,
     diag_engine: &'eng mut DiagnosticEngine<Code>,
   ) -> Self {
-    Self { tokens, meta, pos: 0, refs: RefMap::new(), diag_engine, options: ParseOptions::default(), source: None }
+    Self { tokens, meta, pos: 0, refs: RefMap::new(), diag_engine, options: ParseOptions::default(), source: None, link_label_depth: 0 }
   }
 
   /// Build a parser with explicit `ParseOptions`.
@@ -60,7 +76,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     diag_engine: &'eng mut DiagnosticEngine<Code>,
     options: ParseOptions,
   ) -> Self {
-    Self { tokens, meta, pos: 0, refs: RefMap::new(), diag_engine, options, source: None }
+    Self { tokens, meta, pos: 0, refs: RefMap::new(), diag_engine, options, source: None, link_label_depth: 0 }
   }
 
   /// Attach the original source string so verbatim-slice reconstruction
