@@ -127,6 +127,33 @@ pub(crate) fn resolve_emphasis_delims(out: &mut Vec<Node>, delims: &mut [DelimRe
   }
 }
 
+pub(crate) fn normalize_legacy_gfm_emphasis(nodes: &mut Vec<Node>) {
+  for node in nodes.iter_mut() {
+    match node {
+      Node::Bold(inline) => {
+        normalize_legacy_gfm_emphasis(&mut inline.children);
+        flatten_nested_bold(&mut inline.children);
+      },
+      Node::Italic(inline) => normalize_legacy_gfm_emphasis(&mut inline.children),
+      Node::Strikethrough(inline) => normalize_legacy_gfm_emphasis(&mut inline.children),
+      Node::Link(link) => normalize_legacy_gfm_emphasis(&mut link.children),
+      _ => {},
+    }
+  }
+}
+
+fn flatten_nested_bold(children: &mut Vec<Node>) {
+  let mut flat = Vec::with_capacity(children.len());
+  for child in std::mem::take(children) {
+    if let Node::Bold(inner) = child {
+      flat.extend(inner.children);
+    } else {
+      flat.push(child);
+    }
+  }
+  *children = flat;
+}
+
 /// CM 6.4 "Unicode punctuation": ASCII punctuation plus Unicode
 /// general categories Pc, Pd, Pe, Pf, Pi, Po, Ps and Sc, Sk, Sm, So.
 /// Approximated with common ranges; full Unicode classification would
@@ -467,6 +494,9 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     self.collect_inline_into(stop, &mut out, &mut delims);
     if !delims.is_empty() {
       resolve_emphasis_delims(&mut out, &mut delims);
+      if self.options.legacy_gfm_emphasis {
+        normalize_legacy_gfm_emphasis(&mut out);
+      }
     }
     out
   }

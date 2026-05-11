@@ -71,7 +71,7 @@ fn gfm_spec_no_regression() {
     let gfm_tagfilter = ex.extensions.iter().any(|e| e == "tagfilter");
     let doc = dmc_parser::parse_with(
       &ex.markdown,
-      dmc_parser::parser::ParseOptions { cm_strict_html_blocks: true, gfm_autolinks },
+      dmc_parser::parser::ParseOptions { cm_strict_html_blocks: true, gfm_autolinks, legacy_gfm_emphasis: true },
     );
     let html =
       dmc_codegen::render_html_with(&doc, dmc_codegen::RenderOptions { gfm_disallowed_raw_html: gfm_tagfilter });
@@ -107,7 +107,7 @@ fn gfm_spec_dump_failures() {
     let gfm_tagfilter = ex.extensions.iter().any(|e| e == "tagfilter");
     let doc = dmc_parser::parse_with(
       &ex.markdown,
-      dmc_parser::parser::ParseOptions { cm_strict_html_blocks: true, gfm_autolinks },
+      dmc_parser::parser::ParseOptions { cm_strict_html_blocks: true, gfm_autolinks, legacy_gfm_emphasis: true },
     );
     let html =
       dmc_codegen::render_html_with(&doc, dmc_codegen::RenderOptions { gfm_disallowed_raw_html: gfm_tagfilter });

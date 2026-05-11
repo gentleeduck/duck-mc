@@ -144,7 +144,7 @@ fn strikethrough_does_not_cross_blank_line() {
 fn gfm_email_autolink_keeps_underscore_in_local_part() {
   let doc = dmc_parser::parse_with(
     "a.b-c_d@a.b\n\na.b-c_d@a.b.\n\na.b-c_d@a.b-\n\na.b-c_d@a.b_\n",
-    dmc_parser::ParseOptions { cm_strict_html_blocks: false, gfm_autolinks: true },
+    dmc_parser::ParseOptions { cm_strict_html_blocks: false, gfm_autolinks: true, legacy_gfm_emphasis: false },
   );
   let h = render_html(&doc);
   assert_eq!(

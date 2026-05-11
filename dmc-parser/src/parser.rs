@@ -21,6 +21,10 @@ pub struct ParseOptions {
   /// `Link` nodes during inline parsing. Default off so the
   /// `BareUrlAutolink` transformer owns this for MDX consumers.
   pub gfm_autolinks: bool,
+  /// Legacy GFM 0.29 emphasis rendering. Flattens redundant nested
+  /// `<strong>` / `<em>` structure so the GFM spec runner can keep the
+  /// older delimiter behavior without regressing CommonMark 0.31.2.
+  pub legacy_gfm_emphasis: bool,
 }
 
 /// Token-stream cursor + diagnostic engine. `'tokens` ties borrowed lexemes to

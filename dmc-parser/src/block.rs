@@ -2509,6 +2509,9 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       }
       if !delims.is_empty() {
         crate::inline::resolve_emphasis_delims(&mut children, &mut delims);
+        if self.options.legacy_gfm_emphasis {
+          crate::inline::normalize_legacy_gfm_emphasis(&mut children);
+        }
       }
       return Node::Heading(Heading { level: 2, children, span, id: None });
     }
@@ -2531,6 +2534,9 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         }
         if !delims.is_empty() {
           crate::inline::resolve_emphasis_delims(&mut children, &mut delims);
+          if self.options.legacy_gfm_emphasis {
+            crate::inline::normalize_legacy_gfm_emphasis(&mut children);
+          }
         }
         // Trim trailing whitespace-only text nodes from the heading.
         while let Some(Node::Text(t)) = children.last_mut() {
@@ -2659,6 +2665,9 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     }
     if !delims.is_empty() {
       crate::inline::resolve_emphasis_delims(&mut children, &mut delims);
+      if self.options.legacy_gfm_emphasis {
+        crate::inline::normalize_legacy_gfm_emphasis(&mut children);
+      }
     }
     Self::finalize_inline_breaks(&mut children);
     Node::Paragraph(Paragraph { children, span })
