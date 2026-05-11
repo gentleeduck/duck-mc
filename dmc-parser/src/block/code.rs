@@ -82,10 +82,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     }
 
     let mut value = String::new();
-    loop {
-      let Some(indent) = self.peek_leading_indent() else {
-        break;
-      };
+    while let Some(indent) = self.peek_leading_indent() {
       if indent < content_indent {
         break;
       }
@@ -144,7 +141,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         _ => break,
       };
       // Only at col 0.
-      if !self.peek().is_some_and(|t| t.span.column == 1) {
+      if self.peek().is_none_or(|t| t.span.column != 1) {
         break;
       }
       self.advance();

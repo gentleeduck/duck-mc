@@ -42,6 +42,7 @@ pub mod metadata;
 /// - functions that handle errors locally + emit into a passed-in
 ///   `&mut DiagnosticEngine<Code>` return plain `Result<T, ()>`
 ///   (or no result at all).
+///
 /// Mix the two and you get the same diagnostic in the engine twice.
 pub type DiagResult<T = ()> = Result<T, Diagnostic<Code>>;
 

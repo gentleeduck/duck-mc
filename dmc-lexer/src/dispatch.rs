@@ -69,9 +69,7 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
 
       // Code fences and inline code
       '`' if self.at_block_marker_position() => {
-        if self.try_lex_fenced_code('`') {
-        } else if self.try_lex_inline_code() {
-        } else {
+        if !(self.try_lex_fenced_code('`') || self.try_lex_inline_code()) {
           // Consume the entire run of backticks as one Text token so a
           // later run can't accidentally pair across it (CM 6.1: an
           // unmatched backtick run renders verbatim).
@@ -88,9 +86,7 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
 
       // Tilde fence and strikethrough
       '~' if self.at_block_marker_position() => {
-        if self.try_lex_fenced_code('~') {
-        } else if self.try_lex_strikethrough() {
-        } else {
+        if !(self.try_lex_fenced_code('~') || self.try_lex_strikethrough()) {
           self.lex_text();
         }
       },
@@ -154,10 +150,10 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
 
       // Brackets, parens, image marker
       '[' => {
-        if self.try_lex_task_marker() {
-        } else if self.try_lex_footnote() {
-        } else if self.at_block_marker_position() && self.try_lex_link_ref_def() {
-        } else {
+        if !(self.try_lex_task_marker()
+          || self.try_lex_footnote()
+          || (self.at_block_marker_position() && self.try_lex_link_ref_def()))
+        {
           self.emit(TokenKind::LinkOpen);
         }
       },
@@ -177,12 +173,12 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
       // / list path is taken whenever the preceding content on this
       // line is just 0-3 chars of whitespace.
       '-' | '*' | '_' if self.at_block_marker_position() => {
-        if self.lex_thematic_break(c) {
-        } else if c != '_' && self.lex_unordered_list_marker() {
-        } else if c == '*' || c == '_' {
-          self.lex_emphasis(c);
-        } else {
-          self.lex_text();
+        if !(self.lex_thematic_break(c) || (c != '_' && self.lex_unordered_list_marker())) {
+          if c == '*' || c == '_' {
+            self.lex_emphasis(c);
+          } else {
+            self.lex_text();
+          }
         }
       },
       '*' | '_' => self.lex_emphasis(c),

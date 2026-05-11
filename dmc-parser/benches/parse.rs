@@ -34,7 +34,7 @@ Reference [docs][fixture].
 [fixture]: https://example.com/docs "Fixture docs"
 "#;
 
-static SMALL: LazyLock<String> = LazyLock::new(|| build_corpus(1 * 1024));
+static SMALL: LazyLock<String> = LazyLock::new(|| build_corpus(1024));
 static MEDIUM: LazyLock<String> = LazyLock::new(|| build_corpus(100 * 1024));
 static LARGE: LazyLock<String> = LazyLock::new(|| build_corpus(5 * 1024 * 1024));
 

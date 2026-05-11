@@ -1,13 +1,17 @@
 //! Lex one MDX/MD file and dump tokens + diagnostics with source context.
 //!
 //! Usage:
-//!   cargo run -p dmc-lexer --bin lexer -- <path>
-//!   cargo run -p dmc-lexer --bin lexer -- <path> --bench [iters]
+//! ```text
+//! cargo run -p dmc-lexer --bin lexer -- <path>
+//! cargo run -p dmc-lexer --bin lexer -- <path> --bench [iters]
+//! ```
 //!
 //! Output:
-//!   1. tokens (one per line: line:col, kind, raw lexeme)
-//!   2. diagnostics rendered via `print_all` -- each one shows the source
-//!      line + caret under the offending span.
+//! ```text
+//! 1. tokens (one per line: line:col, kind, raw lexeme)
+//! 2. diagnostics rendered via `print_all` -- each one shows the source
+//!    line + caret under the offending span.
+//! ```
 //!
 //! With `--bench`, prints throughput stats instead.
 

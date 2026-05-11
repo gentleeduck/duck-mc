@@ -75,6 +75,7 @@ struct Apply {
 /// Build a `CodeBlock` node from a single file's content. `rel_label` is
 /// the user-visible filename emitted as the block's `title=` meta so the
 /// React `<ComponentSource>` wrapper can label tabs by basename.
+#[allow(clippy::result_large_err)]
 fn make_code_block(abs: &PathBuf, rel_label: &str, span: &duck_diagnostic::Span) -> DiagResult<Node> {
   let content =
     std::fs::read_to_string(abs).map_err(|e| diag!(Code::IoRead, format!("read {}: {}", abs.display(), e)))?;
@@ -89,6 +90,7 @@ fn make_code_block(abs: &PathBuf, rel_label: &str, span: &duck_diagnostic::Span)
 
 /// Read a path that may be a single file or a directory of files. For
 /// directories, yields one `CodeBlock` per direct child file (sorted).
+#[allow(clippy::result_large_err)]
 fn collect_blocks(abs: &PathBuf, rel: &str, span: &duck_diagnostic::Span) -> DiagResult<Vec<Node>> {
   let stat = std::fs::metadata(abs).map_err(|e| diag!(Code::IoRead, format!("stat {}: {}", abs.display(), e)))?;
   if stat.is_dir() {

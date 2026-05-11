@@ -4,6 +4,7 @@ use dmc_diagnostic::{Code, DiagResult};
 use duck_diagnostic::DiagnosticEngine;
 
 /// `dmc` CLI entry point.
+#[allow(clippy::result_large_err)]
 fn main() -> DiagResult<()> {
   let cli = Cli::parse();
   let mut diag_engine = DiagnosticEngine::<Code>::new();

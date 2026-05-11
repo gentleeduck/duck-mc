@@ -1,23 +1,27 @@
 //! Run the transform pipeline against one .mdx file (or stdin) and dump
 //! before/after AST trees so transformer effects are visible at a glance.
 //!
-//!     cargo run -p dmc-transform --bin transform                          # default: ../samples/index.mdx
-//!     cargo run -p dmc-transform --bin transform -- ../samples/headings.mdx
-//!     echo '# hi' | cargo run -p dmc-transform --bin transform -- -       # stdin (use `-`)
+//! ```text
+//! cargo run -p dmc-transform --bin transform                          # default: ../samples/index.mdx
+//! cargo run -p dmc-transform --bin transform -- ../samples/headings.mdx
+//! echo '# hi' | cargo run -p dmc-transform --bin transform -- -       # stdin (use `-`)
+//! ```
 //!
 //! Flags:
-//!     --before-only    print AST after parse, skip transform
-//!     --after-only     print AST after transform, skip pre-transform
-//!     --diff           print both pre + post (default)
-//!     --passes <list>  comma-separated transformer names: autolink-headings,
-//!                      bare-url, code-import, component-source,
-//!                      component-preview, disable-gfm. Default: with_defaults().
-//!     --list           list available transformers and exit
-//!     --tree-only      print only AST trees (no headers, no diagnostics, no summary)
-//!     --debug          print Debug `{:#?}` form alongside the tree
-//!     --tokens         dump the token stream (table, or under .tokens in --json)
-//!     --json           full structured dump: label, passes, tokens, before, after (exits after)
-//!     --quiet          suppress diagnostics + summary text
+//! ```text
+//! --before-only    print AST after parse, skip transform
+//! --after-only     print AST after transform, skip pre-transform
+//! --diff           print both pre + post (default)
+//! --passes <list>  comma-separated transformer names: autolink-headings,
+//!                  bare-url, code-import, component-source,
+//!                  component-preview, disable-gfm. Default: with_defaults().
+//! --list           list available transformers and exit
+//! --tree-only      print only AST trees (no headers, no diagnostics, no summary)
+//! --debug          print Debug `{:#?}` form alongside the tree
+//! --tokens         dump the token stream (table, or under .tokens in --json)
+//! --json           full structured dump: label, passes, tokens, before, after (exits after)
+//! --quiet          suppress diagnostics + summary text
+//! ```
 
 use dmc_diagnostic::metadata::{Origin, SourceMeta};
 use dmc_lexer::Lexer;

@@ -143,7 +143,7 @@ impl Math {
 
   /// Process-wide active engine. Set once via [`Math::set_engine`]
   /// (pipeline does this from `PipelineConfig::math_engine`); defaults
-  /// to KaTeX. Stored as a static so [`render`] does not need a
+  /// to KaTeX. Stored as a static so [`Self::render`] does not need a
   /// per-call engine argument (keeps the source preprocessor signature
   /// engine-agnostic).
   pub fn set_engine(engine: crate::MathEngine) {
@@ -167,6 +167,7 @@ impl Math {
   /// Load a previously persisted math cache from `path`. Missing or
   /// corrupt files yield `Ok(())` (empty cache). Other IO errors
   /// propagate as `IoRead`.
+  #[allow(clippy::result_large_err)]
   pub fn load_cache(path: &std::path::Path) -> DiagResult {
     let s = match std::fs::read_to_string(path) {
       Ok(s) => s,
@@ -189,6 +190,7 @@ impl Math {
 
   /// Persist the in-memory math cache to `path`. Best effort; errors
   /// are swallowed.
+  #[allow(clippy::result_large_err)]
   pub fn save_cache(path: &std::path::Path) -> DiagResult {
     let cache = Self::cache().lock().expect("math cache lock");
     let rows: Vec<(String, bool, u8, String)> = cache
@@ -209,6 +211,7 @@ impl Math {
     Ok(())
   }
 
+  #[allow(clippy::result_large_err)]
   fn display_opts() -> DiagResult<&'static katex::Opts> {
     static O: OnceLock<Result<katex::Opts, String>> = OnceLock::new();
     let cached = O.get_or_init(|| {
@@ -226,6 +229,7 @@ impl Math {
   /// bug (e.g. a busted katex feature combo) — we surface it as
   /// `Code::KatexOpts` (warning, not fatal) and let the caller decide
   /// what to do with the unrenderable span.
+  #[allow(clippy::result_large_err)]
   fn inline_opts() -> DiagResult<&'static katex::Opts> {
     static O: OnceLock<Result<katex::Opts, String>> = OnceLock::new();
     let cached = O.get_or_init(|| {

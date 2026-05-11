@@ -87,7 +87,7 @@ fn emit_enum(out: &mut String, ty_name: &str, all_const: &str, names: &[String])
 
   // from_str: name -> Option<Self>
   out.push_str(
-    "  /// Inverse of [`name`]: lookup an enum variant by its canonical name.\n\
+    "  /// Inverse of [`Self::name`]: lookup an enum variant by its canonical name.\n\
      /// Returns `None` if no variant matches.\n\
      pub fn from_name(s: &str) -> Option<Self> {\n\
         match s {\n",

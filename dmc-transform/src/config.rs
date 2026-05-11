@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 
-/// Top-level config consumed by [`Pipeline::with_defaults_for`].
+/// Top-level config consumed by [`crate::Pipeline::with_defaults_for`].
 /// All fields are optional; the empty config (`PipelineConfig::default()`)
 /// reproduces the historical `Pipeline::with_defaults()` behavior.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -97,7 +97,7 @@ pub enum MultiThemeStrategy {
   /// `default_mode`. Consumer CSS toggles via `var(--dmc-active)`.
   /// Slightly larger per-token style strings, but only one DOM
   /// subtree regardless of theme count — pick this when you have
-  /// >2 themes or need media-query / class-toggle theme switching
+  /// `>2` themes or need media-query / class-toggle theme switching
   /// without re-rendering the code surface.
   #[serde(alias = "cssVars")]
   CssVars,

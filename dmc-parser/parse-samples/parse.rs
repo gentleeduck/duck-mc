@@ -1,16 +1,20 @@
 //! Parse one .mdx file (or stdin) and print the AST as an indented tree.
 //!
-//!     cargo run -p dmc-parser --bin parse                        # default: ../samples/index.mdx
-//!     cargo run -p dmc-parser --bin parse -- path/to/file.mdx
-//!     echo '# hi' | cargo run -p dmc-parser --bin parse -        # stdin (use `-`)
+//! ```text
+//! cargo run -p dmc-parser --bin parse                        # default: ../samples/index.mdx
+//! cargo run -p dmc-parser --bin parse -- path/to/file.mdx
+//! echo '# hi' | cargo run -p dmc-parser --bin parse -        # stdin (use `-`)
+//! ```
 //!
 //! Flags:
-//!     --tree       print only the AST tree (no header/diagnostics/summary)
-//!     --tree-only  alias of --tree
-//!     --debug      print Debug `{:#?}` form alongside the tree
-//!     --tokens     dump the token stream (table, or array under .tokens in --json)
-//!     --json       full structured dump: label, ast, errors, warnings (exits after)
-//!     --quiet      suppress diagnostics + summary text (use with --tree)
+//! ```text
+//! --tree       print only the AST tree (no header/diagnostics/summary)
+//! --tree-only  alias of --tree
+//! --debug      print Debug `{:#?}` form alongside the tree
+//! --tokens     dump the token stream (table, or array under .tokens in --json)
+//! --json       full structured dump: label, ast, errors, warnings (exits after)
+//! --quiet      suppress diagnostics + summary text (use with --tree)
+//! ```
 
 use dmc_diagnostic::metadata::{Origin, SourceMeta};
 use dmc_lexer::Lexer;

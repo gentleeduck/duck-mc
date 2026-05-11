@@ -674,10 +674,8 @@ fn build_pre_style(
   // theme palette bleeding through) opt out via
   // `prettyCode.includePreBackground: false` — the per-mode
   // `--dmc-{mode}-bg` custom properties below stay either way.
-  if include_bg {
-    if let Some(bg) = backgrounds.get(default_idx).and_then(|c| *c) {
-      parts.push(format!("background-color:#{:02x}{:02x}{:02x}", bg.r, bg.g, bg.b));
-    }
+  if include_bg && let Some(bg) = backgrounds.get(default_idx).and_then(|c| *c) {
+    parts.push(format!("background-color:#{:02x}{:02x}{:02x}", bg.r, bg.g, bg.b));
   }
   for (j, (mode, _)) in themes.iter().enumerate() {
     if let Some(fg) = foregrounds.get(j).and_then(|c| *c) {

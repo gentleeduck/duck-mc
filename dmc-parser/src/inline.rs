@@ -40,7 +40,7 @@ pub(crate) fn resolve_emphasis_delims(out: &mut Vec<Node>, delims: &mut [DelimRe
       // current delimiter is BOTH a potential opener and closer.
       let combined = (d.run + delims[i].run) as usize;
       let both_open_close = (d.can_open && d.can_close) || (delims[i].can_open && delims[i].can_close);
-      if both_open_close && combined % 3 == 0 && d.run as usize % 3 != 0 {
+      if both_open_close && combined.is_multiple_of(3) && !(d.run as usize).is_multiple_of(3) {
         continue;
       }
       j = Some(k);
@@ -127,7 +127,7 @@ pub(crate) fn resolve_emphasis_delims(out: &mut Vec<Node>, delims: &mut [DelimRe
   }
 }
 
-pub(crate) fn normalize_legacy_gfm_emphasis(nodes: &mut Vec<Node>) {
+pub(crate) fn normalize_legacy_gfm_emphasis(nodes: &mut [Node]) {
   for node in nodes.iter_mut() {
     match node {
       Node::Bold(inline) => {
@@ -734,10 +734,8 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
             for n in nodes {
               match n {
                 Node::Link(_) => return true,
-                Node::Bold(i) | Node::Italic(i) | Node::Strikethrough(i) => {
-                  if contains_link(&i.children) {
-                    return true;
-                  }
+                Node::Bold(i) | Node::Italic(i) | Node::Strikethrough(i) if contains_link(&i.children) => {
+                  return true;
                 },
                 _ => {},
               }

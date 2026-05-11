@@ -134,13 +134,13 @@ impl Apply {
         }
         // Strip a trailing `&entity;` (entity refs render as following
         // text per GFM autolink rule).
-        if last == b';' {
-          if let Some(amp) = bytes[..end - 1].iter().rposition(|&b| b == b'&') {
-            let inner = &bytes[amp + 1..end - 1];
-            if !inner.is_empty() && inner.iter().all(|&b| b.is_ascii_alphanumeric()) {
-              end = amp;
-              continue;
-            }
+        if last == b';'
+          && let Some(amp) = bytes[..end - 1].iter().rposition(|&b| b == b'&')
+        {
+          let inner = &bytes[amp + 1..end - 1];
+          if !inner.is_empty() && inner.iter().all(|&b| b.is_ascii_alphanumeric()) {
+            end = amp;
+            continue;
           }
         }
         break;

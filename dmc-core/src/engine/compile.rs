@@ -159,7 +159,8 @@ impl CompileConfig {
   }
 
   /// Build the [`PipelineConfig`] consumed by
-  /// [`Pipeline::with_defaults_for`]. `path` is the compiled file's path,
+  /// [`dmc_transform::Pipeline::with_defaults_for`]. `path` is the compiled
+  /// file's path,
   /// used to resolve relative asset paths in the `copy-linked-files`
   /// transformer.
   pub fn pipeline_config(&self, path: &Path) -> PipelineConfig {
@@ -245,13 +246,14 @@ pub struct Compiler;
 
 impl Compiler {
   /// One-shot compile of `source` with the default pipeline. Use
-  /// `compile_with_pipeline` for file-aware compilation with real spans.
+  /// [`Self::compile_with_pipeline`] for file-aware compilation with real
+  /// spans.
   pub fn compile(source: &str, diag_engine: &mut DiagnosticEngine<Code>) -> CompileOutput {
     // FIX:
     Self::compile_with_pipeline(source, Path::new("."), &CompileConfig::new(), diag_engine)
   }
 
-  /// Like [`compile`] with a caller-supplied pipeline + path for spans.
+  /// Like [`Self::compile`] with a caller-supplied pipeline + path for spans.
   pub fn compile_with_pipeline(
     source: &str,
     path: &Path,

@@ -100,14 +100,11 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
           i += 1;
         }
         let prefix_len = i - self.current;
-        if i < bytes.len() && bytes[i] == b'.' {
-          if matches!(bytes.get(i + 1), Some(c) if c.is_ascii_alphabetic()) {
-            return false;
-          }
-        } else if i < bytes.len() && bytes[i] == b':' && prefix_len < 2 {
-          if matches!(bytes.get(i + 1), Some(c) if c.is_ascii_alphabetic()) {
-            return false;
-          }
+        if i < bytes.len()
+          && matches!(bytes.get(i + 1), Some(c) if c.is_ascii_alphabetic())
+          && (bytes[i] == b'.' || (bytes[i] == b':' && prefix_len < 2))
+        {
+          return false;
         }
       }
     }

@@ -108,7 +108,7 @@ impl SyntaxBundle {
     LinesWithEndings::from(code).map(|line| h.highlight_line(line, &self.syntaxes).unwrap_or_default()).collect()
   }
 
-  /// As [`highlight`] but takes a free-form grammar name (e.g. `"rs"`,
+  /// As [`Self::highlight`] but takes a free-form grammar name (e.g. `"rs"`,
   /// `"Rust"`). Useful when callers don't have a `Grammar` enum value
   /// (e.g., from user config).
   pub fn highlight_by_name<'a>(&'a self, code: &'a str, lang: &str, theme: Theme) -> Vec<Vec<(Style, &'a str)>> {

@@ -119,10 +119,8 @@ impl Collection {
         // the source is fixed, so the user sees the diagnostics every
         // time instead of getting a silent cache hit on poisoned output.
         let dirty = local_diag_engine.error_count() + local_diag_engine.bug_count() > 0;
-        if !dirty {
-          if let (Some(c), Some(k)) = (cache.as_ref(), cache_key.as_ref()) {
-            c.put(k, &rec);
-          }
+        if !dirty && let (Some(c), Some(k)) = (cache.as_ref(), cache_key.as_ref()) {
+          c.put(k, &rec);
         }
         local_diag_engine.print_all(&source);
 
@@ -131,11 +129,9 @@ impl Collection {
       .collect();
 
     let mut records: Vec<Value> = Vec::with_capacity(outcomes.len());
-    for rec in outcomes {
+    for r in outcomes.into_iter().flatten() {
       // diag_engine.extend(local_diag_engine);
-      if let Some(r) = rec {
-        records.push(r);
-      }
+      records.push(r);
     }
 
     let out_path = cfg.output_dir.join(format!("{}.json", self.name));

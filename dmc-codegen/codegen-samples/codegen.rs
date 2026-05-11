@@ -1,19 +1,23 @@
 //! Render one .mdx file (or stdin) through the full pipeline and dump
 //! before-render AST + after-render output (HTML and/or MDX body).
 //!
-//!     cargo run -p dmc-codegen --features bin --bin codegen                                   # default sample, both renderers
-//!     cargo run -p dmc-codegen --features bin --bin codegen -- ../samples/headings.mdx --html
-//!     echo '# hi' | cargo run -p dmc-codegen --features bin --bin codegen -- - --mdx
+//! ```text
+//! cargo run -p dmc-codegen --features bin --bin codegen                                   # default sample, both renderers
+//! cargo run -p dmc-codegen --features bin --bin codegen -- ../samples/headings.mdx --html
+//! echo '# hi' | cargo run -p dmc-codegen --features bin --bin codegen -- - --mdx
+//! ```
 //!
 //! Flags:
-//!     --html           print HTML output (default if no renderer flag set)
-//!     --mdx            print MDX body output
-//!     --both           print both
-//!     --tree-only      print AST only, skip rendering
-//!     --no-ast         skip pre-render AST tree (default shows it)
-//!     --passes <list>  comma-separated transformer names; default = with_defaults()
-//!     --json           full structured dump: label, ast, html, mdx, errors (exits after)
-//!     --quiet          suppress diagnostics + summary
+//! ```text
+//! --html           print HTML output (default if no renderer flag set)
+//! --mdx            print MDX body output
+//! --both           print both
+//! --tree-only      print AST only, skip rendering
+//! --no-ast         skip pre-render AST tree (default shows it)
+//! --passes <list>  comma-separated transformer names; default = with_defaults()
+//! --json           full structured dump: label, ast, html, mdx, errors (exits after)
+//! --quiet          suppress diagnostics + summary
+//! ```
 
 use dmc_codegen::{HtmlEmitter, MdxBodyEmitter};
 use dmc_diagnostic::metadata::{Origin, SourceMeta};

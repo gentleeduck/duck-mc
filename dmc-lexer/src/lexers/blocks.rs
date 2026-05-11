@@ -62,18 +62,14 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
     // code block body. Only consume the tab if the start col already
     // is at a 3-mod-4 position (so tab fills exactly 1 col) -- leave
     // it for the parser otherwise.
-    if matches!(self.peek(), Some(' ')) {
-      self.advance();
-    } else if self.peek() == Some('\t') && self.column % 4 == 3 {
+    if matches!(self.peek(), Some(' ')) || (self.peek() == Some('\t') && self.column % 4 == 3) {
       self.advance();
     }
     self.emit(TokenKind::BlockQuoteMarker);
 
     while self.peek() == Some('>') {
       self.advance();
-      if matches!(self.peek(), Some(' ')) {
-        self.advance();
-      } else if self.peek() == Some('\t') && self.column % 4 == 3 {
+      if matches!(self.peek(), Some(' ')) || (self.peek() == Some('\t') && self.column % 4 == 3) {
         self.advance();
       }
       self.emit(TokenKind::BlockQuoteMarker);

@@ -389,7 +389,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     &mut self,
     ordered: bool,
     indent: usize,
-    items: &mut Vec<Node>,
+    items: &mut [Node],
     span: &duck_diagnostic::Span,
     saw_blank_between_items: &mut bool,
   ) -> bool {
