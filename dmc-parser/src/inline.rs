@@ -707,9 +707,14 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
             matches!(k, TokenKind::LinkClose | TokenKind::BlankLine | TokenKind::SoftBreak | TokenKind::Eof)
           });
           if !matches!(self.peek_kind(), Some(TokenKind::LinkClose)) {
-            self.pos = start;
+            // No closing `]`: emit `[` literally and splice the
+            // already-parsed inner nodes. Do NOT reset `self.pos` and
+            // re-walk the inner tokens -- with N nested unclosed `[`
+            // that re-parse is `O(2^N)` (each `[` re-scans the suffix
+            // once recursively and once after backtracking). Keeping
+            // `self.pos` after the inner makes label parsing linear.
             out.push(Node::Text(Text { value: "[".into(), span }));
-            self.advance();
+            out.extend(inner);
             continue;
           }
           let label_end_pos = self.pos;
