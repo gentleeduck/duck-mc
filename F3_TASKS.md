@@ -28,7 +28,7 @@ Status legend: `[ ]` pending, `[~]` in progress, `[x]` done.
   - Compare: `pulldown_cmark::Parser::new`, `markdown::Markdown::parse`, optional `comrak`.
 - [x] G1.2 Run + record results in `BENCHMARKS.md`.
 - [x] G1.3 Verify 500M tok/s claim or correct it.
-- [ ] G1.4 Add `bench-regress.yml` in CI to fail on >10% regression.
+- [x] G1.4 Add `bench-regress.yml` in CI to fail on >10% regression — DONE: `.github/workflows/bench-regress.yml` runs `cargo bench -p dmc-parser --bench parse` against the merge-base via `critcmp --threshold 10 --fail-on-regression`.
 
 ## Phase G2 — Fuzzing
 
