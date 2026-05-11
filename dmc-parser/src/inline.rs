@@ -155,27 +155,28 @@ fn flatten_nested_bold(children: &mut Vec<Node>) {
   *children = flat;
 }
 
-/// CM 6.4 "Unicode punctuation": ASCII punctuation plus Unicode
-/// general categories Pc, Pd, Pe, Pf, Pi, Po, Ps and Sc, Sk, Sm, So.
-/// Approximated with common ranges; full Unicode classification would
-/// need a table.
+/// CM 6.4 "Unicode punctuation": an ASCII punctuation character, or a
+/// character in Unicode general category P* (Pc Pd Pe Pf Pi Po Ps) or
+/// S* (Sc Sk Sm So). Uses the `unicode-general-category` table for an
+/// exact classification instead of the old hand-rolled range list.
 fn is_unicode_punct(c: char) -> bool {
+  use unicode_general_category::GeneralCategory as GC;
   if c.is_ascii_punctuation() {
     return true;
   }
   matches!(
-    c,
-    '\u{00A1}'..='\u{00BF}'
-      | '\u{2010}'..='\u{205E}'
-      | '\u{20A0}'..='\u{20CF}'
-      | '\u{2200}'..='\u{22FF}'
-      | '\u{2300}'..='\u{23FF}'
-      | '\u{2600}'..='\u{26FF}'
-      | '\u{2700}'..='\u{27BF}'
-      | '\u{2E00}'..='\u{2E7F}'
-      | '\u{3001}'..='\u{303F}'
-      | '\u{FE30}'..='\u{FE6F}'
-      | '\u{FF00}'..='\u{FF65}'
+    unicode_general_category::get_general_category(c),
+    GC::ConnectorPunctuation
+      | GC::DashPunctuation
+      | GC::ClosePunctuation
+      | GC::FinalPunctuation
+      | GC::InitialPunctuation
+      | GC::OtherPunctuation
+      | GC::OpenPunctuation
+      | GC::CurrencySymbol
+      | GC::ModifierSymbol
+      | GC::MathSymbol
+      | GC::OtherSymbol
   )
 }
 
