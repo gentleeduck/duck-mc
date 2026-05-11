@@ -1,4 +1,4 @@
-use dmc_codegen::render_html;
+use dmc_codegen::{RenderOptions, render_html, render_html_with};
 use dmc_parser::parse;
 use pretty_assertions::assert_eq;
 
@@ -132,6 +132,41 @@ fn table_html_with_align() {
   assert!(h.contains("<tbody>"));
   assert!(h.contains("align=\"left\""));
   assert!(h.contains("align=\"right\""));
+}
+
+#[test]
+fn strikethrough_does_not_cross_blank_line() {
+  let h = render_html(&dmc_parser::parse("This ~~has a\n\nnew paragraph~~.\n"));
+  assert_eq!(h, "<p>This ~~has a</p>\n<p>new paragraph~~.</p>\n");
+}
+
+#[test]
+fn gfm_email_autolink_keeps_underscore_in_local_part() {
+  let doc = dmc_parser::parse_with(
+    "a.b-c_d@a.b\n\na.b-c_d@a.b.\n\na.b-c_d@a.b-\n\na.b-c_d@a.b_\n",
+    dmc_parser::ParseOptions { cm_strict_html_blocks: false, gfm_autolinks: true },
+  );
+  let h = render_html(&doc);
+  assert_eq!(
+    h,
+    "<p><a href=\"mailto:a.b-c_d@a.b\">a.b-c_d@a.b</a></p>\n\
+<p><a href=\"mailto:a.b-c_d@a.b\">a.b-c_d@a.b</a>.</p>\n\
+<p>a.b-c_d@a.b-</p>\n\
+<p>a.b-c_d@a.b_</p>\n"
+  );
+}
+
+#[test]
+fn gfm_disallowed_raw_html_can_be_enabled() {
+  let doc = dmc_parser::parse(
+    "<strong> <title> <style> <em>\n\n<blockquote>\n  <xmp> is disallowed.  <XMP> is also disallowed.\n</blockquote>\n",
+  );
+  let h = render_html_with(&doc, RenderOptions { gfm_disallowed_raw_html: true });
+  assert_eq!(
+    h,
+    "<p><strong> &lt;title> &lt;style> <em></p>\n\
+<blockquote>\n  &lt;xmp> is disallowed.  &lt;XMP> is also disallowed.\n</blockquote>\n"
+  );
 }
 
 // pretty-code transformer removed - syntax highlighting now handled by

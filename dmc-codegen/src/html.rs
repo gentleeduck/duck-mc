@@ -5,6 +5,14 @@ use crate::{
 use dmc_diagnostic::Code;
 use dmc_parser::ast::*;
 use duck_diagnostic::{DiagnosticEngine, diag};
+
+#[derive(Debug, Clone, Copy, Default)]
+pub struct RenderOptions {
+  /// GFM disallowed raw HTML extension. When enabled, a fixed tag-name
+  /// set gets its leading `<` escaped in raw HTML output.
+  pub gfm_disallowed_raw_html: bool,
+}
+
 /// Emits static HTML by reacting to walker enter/leave events. Container
 /// nodes split into `open_tag` / `close_tag` halves; leaves write their
 /// markup once on enter. Tables are rendered up-front in `enter Table`
@@ -17,6 +25,7 @@ pub struct HtmlEmitter {
   out: String,
   diag_engine: DiagnosticEngine<Code>,
   in_table_depth: usize,
+  options: RenderOptions,
 }
 
 impl NodeSink for HtmlEmitter {
@@ -41,9 +50,11 @@ impl NodeSink for HtmlEmitter {
       // a paragraph the same Html node represents an inline raw HTML
       // span and must NOT inject a newline before `</p>`.
       Node::Html(h) => {
-        self.out.push_str(&h.value);
+        let value =
+          if self.options.gfm_disallowed_raw_html { escape_disallowed_raw_html_tag(&h.value) } else { h.value.clone() };
+        self.out.push_str(&value);
         let inline_context = matches!(ctx.parent, Some(Node::Paragraph(_)) | Some(Node::Heading(_)));
-        if !inline_context && !h.value.ends_with('\n') {
+        if !inline_context && !value.ends_with('\n') {
           self.out.push('\n');
         }
       },
@@ -90,7 +101,11 @@ impl Default for HtmlEmitter {
 
 impl HtmlEmitter {
   pub fn new() -> Self {
-    Self { out: String::new(), diag_engine: DiagnosticEngine::new(), in_table_depth: 0 }
+    Self::new_with_options(RenderOptions::default())
+  }
+
+  pub fn new_with_options(options: RenderOptions) -> Self {
+    Self { out: String::new(), diag_engine: DiagnosticEngine::new(), in_table_depth: 0, options }
   }
 
   pub fn into_string(self) -> String {
@@ -108,6 +123,12 @@ impl HtmlEmitter {
   /// shares the walk.
   pub fn render(doc: &Document) -> (String, DiagnosticEngine<Code>) {
     let mut e = Self::new();
+    Walker::new(doc).walk(&mut [&mut e]);
+    e.into_parts()
+  }
+
+  pub fn render_with(doc: &Document, options: RenderOptions) -> (String, DiagnosticEngine<Code>) {
+    let mut e = Self::new_with_options(options);
     Walker::new(doc).walk(&mut [&mut e]);
     e.into_parts()
   }
@@ -223,7 +244,7 @@ impl HtmlEmitter {
         // GFM Disallowed Raw HTML extension: a fixed set of tag names
         // get their leading `<` escaped (the tag wouldn't render
         // safely in a browser). Affects open + close tags.
-        if is_disallowed_raw_html(&e.name) {
+        if self.options.gfm_disallowed_raw_html && is_disallowed_raw_html(&e.name) {
           self.out.push_str("&lt;");
         } else {
           self.out.push('<');
@@ -257,7 +278,7 @@ impl HtmlEmitter {
       Node::ListItem(_) | Node::TaskListItem(_) => self.out.push_str("</li>\n"),
       Node::Link(_) => self.out.push_str("</a>"),
       Node::JsxElement(e) if !e.name.is_empty() => {
-        if is_disallowed_raw_html(&e.name) {
+        if self.options.gfm_disallowed_raw_html && is_disallowed_raw_html(&e.name) {
           self.out.push_str(&format!("&lt;/{}>", e.name));
         } else {
           self.out.push_str(&format!("</{}>", e.name));
@@ -472,8 +493,40 @@ fn is_disallowed_raw_html(name: &str) -> bool {
   )
 }
 
+fn escape_disallowed_raw_html_tag(raw: &str) -> String {
+  let bytes = raw.as_bytes();
+  let mut out = String::with_capacity(raw.len());
+  let mut i = 0;
+  while i < bytes.len() {
+    if bytes[i] == b'<' {
+      let mut j = i + 1;
+      if j < bytes.len() && bytes[j] == b'/' {
+        j += 1;
+      }
+      let name_start = j;
+      while j < bytes.len() && ((bytes[j] as char).is_ascii_alphanumeric() || bytes[j] == b'-') {
+        j += 1;
+      }
+      if j > name_start && is_disallowed_raw_html(&raw[name_start..j]) {
+        out.push_str("&lt;");
+        i += 1;
+        continue;
+      }
+    }
+    out.push(bytes[i] as char);
+    i += 1;
+  }
+  out
+}
+
 pub fn render_html(doc: &Document) -> String {
   let mut e = HtmlEmitter::new();
+  Walker::new(doc).walk(&mut [&mut e]);
+  e.into_string()
+}
+
+pub fn render_html_with(doc: &Document, options: RenderOptions) -> String {
+  let mut e = HtmlEmitter::new_with_options(options);
   Walker::new(doc).walk(&mut [&mut e]);
   e.into_string()
 }

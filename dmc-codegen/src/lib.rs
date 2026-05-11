@@ -13,7 +13,7 @@ mod escape;
 pub mod html;
 pub mod mdx;
 use dmc_parser::ast::{Document, Node};
-pub use html::{HtmlEmitter, render_html};
+pub use html::{HtmlEmitter, RenderOptions, render_html, render_html_with};
 pub use mdx::{MdxBodyEmitter, render_mdx_body};
 
 /// Callback pair invoked by [`Walker`] at every node.

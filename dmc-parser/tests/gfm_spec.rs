@@ -68,11 +68,13 @@ fn gfm_spec_no_regression() {
 
   for ex in &examples {
     let gfm_autolinks = ex.extensions.iter().any(|e| e == "autolink");
+    let gfm_tagfilter = ex.extensions.iter().any(|e| e == "tagfilter");
     let doc = dmc_parser::parse_with(
       &ex.markdown,
       dmc_parser::parser::ParseOptions { cm_strict_html_blocks: true, gfm_autolinks },
     );
-    let html = dmc_codegen::render_html(&doc);
+    let html =
+      dmc_codegen::render_html_with(&doc, dmc_codegen::RenderOptions { gfm_disallowed_raw_html: gfm_tagfilter });
     if normalize(&html) == normalize(&ex.html) {
       pass += 1;
     } else if first_failures.len() < 8 {
@@ -102,11 +104,13 @@ fn gfm_spec_dump_failures() {
 
   for ex in &examples {
     let gfm_autolinks = ex.extensions.iter().any(|e| e == "autolink");
+    let gfm_tagfilter = ex.extensions.iter().any(|e| e == "tagfilter");
     let doc = dmc_parser::parse_with(
       &ex.markdown,
       dmc_parser::parser::ParseOptions { cm_strict_html_blocks: true, gfm_autolinks },
     );
-    let html = dmc_codegen::render_html(&doc);
+    let html =
+      dmc_codegen::render_html_with(&doc, dmc_codegen::RenderOptions { gfm_disallowed_raw_html: gfm_tagfilter });
     if normalize(&html) != normalize(&ex.html) {
       shown += 1;
       println!("=== example {} ({}) ===", ex.example, ex.section);

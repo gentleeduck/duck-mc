@@ -151,7 +151,6 @@ fn is_unicode_punct(c: char) -> bool {
   )
 }
 
-
 /// Flatten an inline node into a label string that preserves emphasis
 /// markers and link / image bracketing -- used to reconstruct the
 /// label string for ref-def lookup.
@@ -302,6 +301,22 @@ fn utf8_char_len(b: u8) -> usize {
   }
 }
 
+fn is_email_local_byte(b: u8) -> bool {
+  b.is_ascii_alphanumeric() || matches!(b, b'.' | b'_' | b'+' | b'-')
+}
+
+fn trailing_email_local_suffix_start(s: &str) -> Option<usize> {
+  let mut start = s.len();
+  for (idx, ch) in s.char_indices().rev() {
+    if ch.is_ascii_alphanumeric() || matches!(ch, '.' | '_' | '+' | '-') {
+      start = idx;
+    } else {
+      break;
+    }
+  }
+  (start < s.len()).then_some(start)
+}
+
 /// GFM "extended email autolink": `local@domain` where `local` is
 /// `[A-Za-z0-9._+-]+`, `domain` is `[A-Za-z0-9-_]+(\.[A-Za-z0-9-_]+)+`,
 /// the domain has at least one `.`, and the final domain label does
@@ -309,9 +324,6 @@ fn utf8_char_len(b: u8) -> usize {
 /// email was found, mixing `Text` and `Link` nodes; `None` otherwise
 /// so the caller emits a single plain `Text`.
 fn split_email_autolinks(s: &str, span: &duck_diagnostic::Span) -> Option<Vec<Node>> {
-  fn is_local(b: u8) -> bool {
-    b.is_ascii_alphanumeric() || matches!(b, b'.' | b'_' | b'+' | b'-')
-  }
   fn is_domain(b: u8) -> bool {
     b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_')
   }
@@ -330,7 +342,7 @@ fn split_email_autolinks(s: &str, span: &duck_diagnostic::Span) -> Option<Vec<No
     if bytes[i] == b'@' {
       // Walk back over local-part chars.
       let mut local_start = i;
-      while local_start > 0 && is_local(bytes[local_start - 1]) {
+      while local_start > 0 && is_email_local_byte(bytes[local_start - 1]) {
         local_start -= 1;
       }
       // Walk forward over domain chars + `.`.
@@ -375,6 +387,40 @@ fn split_email_autolinks(s: &str, span: &duck_diagnostic::Span) -> Option<Vec<No
   }
   flush_text(&mut emitted_text, &mut out);
   if found { Some(out) } else { None }
+}
+
+fn split_email_autolinks_with_tail_underscore(
+  raw_lexeme: &str,
+  span: &duck_diagnostic::Span,
+  out: &mut Vec<Node>,
+  delims: &mut [DelimRecord],
+) -> Option<Vec<Node>> {
+  let underscore_idx = out.len().checked_sub(1)?;
+  let prev_text = match out.get(underscore_idx)? {
+    Node::Text(t) if !t.value.is_empty() && t.value.chars().all(|c| c == '_') => t.value.clone(),
+    _ => return None,
+  };
+  let prev_node = out.get(underscore_idx.checked_sub(1)?)?;
+  let prev_value = match prev_node {
+    Node::Text(t) => t.value.clone(),
+    _ => return None,
+  };
+  let delim_idx =
+    delims.iter().rposition(|d| d.run > 0 && d.out_idx == underscore_idx && matches!(d.c, EmphasisChar::Underscore))?;
+  let suffix_start = trailing_email_local_suffix_start(&prev_value)?;
+  let candidate = format!("{}{}{}", &prev_value[suffix_start..], prev_text, raw_lexeme);
+  let pieces = split_email_autolinks(&candidate, span)?;
+  out.pop();
+  let prefix = prev_value[..suffix_start].to_string();
+  if prefix.is_empty() {
+    out.pop();
+  } else if let Some(Node::Text(t)) = out.last_mut() {
+    t.value = prefix;
+  }
+  delims[delim_idx].run = 0;
+  delims[delim_idx].can_open = false;
+  delims[delim_idx].can_close = false;
+  Some(pieces)
 }
 
 impl<'eng, 'tokens> Parser<'eng, 'tokens> {
@@ -447,6 +493,15 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
           let raw_lexeme: &'tokens str = self.peek_raw().unwrap_or("");
           let span_clone = span.clone();
           let gfm = self.options.gfm_autolinks;
+          let trailing_underscore_to_break = raw_lexeme.contains('@')
+            && matches!(
+              self.tokens.get(self.pos + 1).map(|t| &t.kind),
+              Some(TokenKind::Emphasis(EmphasisChar::Underscore, _))
+            )
+            && matches!(
+              self.tokens.get(self.pos + 2).map(|t| &t.kind),
+              Some(TokenKind::SoftBreak | TokenKind::HardBreak | TokenKind::BlankLine | TokenKind::Eof) | None
+            );
           self.advance();
           // GFM email autolink extension: scan the text for
           // `local@domain` patterns and split into Text + Link runs.
@@ -454,7 +509,9 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
           // the transformer to do it.
           if gfm
             && raw_lexeme.contains('@')
-            && let Some(pieces) = split_email_autolinks(raw_lexeme, &span_clone)
+            && !trailing_underscore_to_break
+            && let Some(pieces) = split_email_autolinks_with_tail_underscore(raw_lexeme, &span_clone, out, delims)
+              .or_else(|| split_email_autolinks(raw_lexeme, &span_clone))
           {
             out.extend(pieces);
           } else {
@@ -553,12 +610,31 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
           delims.push(DelimRecord { c: dc, run: dn, can_open, can_close, out_idx: idx, span: dspan });
         },
         TokenKind::Strikethrough => {
+          let mut has_closer = false;
+          for tok in &self.tokens[self.pos + 1..] {
+            if matches!(tok.kind, TokenKind::Strikethrough) {
+              has_closer = true;
+              break;
+            }
+            if Self::is_top_level_break(&tok.kind) {
+              break;
+            }
+          }
+          if !has_closer {
+            let raw = t.raw.to_string();
+            self.advance();
+            out.push(Node::Text(Text { value: raw, span }));
+            continue;
+          }
           self.advance();
           let inner = self.collect_inline(&|k| Self::is_top_level_break(k) || matches!(k, TokenKind::Strikethrough));
           if matches!(self.peek_kind(), Some(TokenKind::Strikethrough)) {
             self.advance();
+            out.push(Node::Strikethrough(Inline { children: inner, span }));
+          } else {
+            out.push(Node::Text(Text { value: "~~".into(), span }));
+            out.extend(inner);
           }
-          out.push(Node::Strikethrough(Inline { children: inner, span }));
         },
         TokenKind::CodeInlineOpen(n) => {
           let open_n = *n;
