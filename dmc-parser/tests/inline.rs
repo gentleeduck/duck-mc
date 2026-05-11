@@ -211,3 +211,33 @@ fn parses_fenced_code_block() {
   assert_eq!(cb.lang.as_deref(), Some("ts"));
   assert!(cb.value.contains("let x = 1"), "got {:?}", cb.value);
 }
+
+#[test]
+fn multi_codepoint_named_entity_decodes() {
+  let d = parse_doc("&ngE;\n");
+  let p = first_paragraph(&d);
+  let text: String = p
+    .children
+    .iter()
+    .filter_map(|n| match n {
+      Node::Text(t) => Some(t.value.clone()),
+      _ => None,
+    })
+    .collect();
+  assert_eq!(text, "\u{2267}\u{0338}");
+}
+
+#[test]
+fn sharp_s_reference_labels_case_fold() {
+  let d = parse_doc("[ẞ]\n\n[SS]: /url\n");
+  let p = first_paragraph(&d);
+  let link = p
+    .children
+    .iter()
+    .find_map(|n| match n {
+      Node::Link(l) => Some(l),
+      _ => None,
+    })
+    .expect("link");
+  assert_eq!(link.href, "/url");
+}

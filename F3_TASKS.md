@@ -39,24 +39,25 @@ Status legend: `[ ]` pending, `[~]` in progress, `[x]` done.
 
 ## Phase G3 — Refactor
 
-- [ ] G3.1 Split `dmc-parser/src/block.rs` (≈2500 lines) by construct.
+- [x] G3.1 Split `dmc-parser/src/block.rs` (≈2500 lines) by construct.
   - `block/list.rs`, `block/blockquote.rs`, `block/code.rs`, `block/heading.rs`, `block/html.rs`, `block/mod.rs`.
 - [ ] G3.2 Replace in-place token rewriting (`try_promote_text_*`) with a token-classification helper that returns a virtual token without mutating the slice.
 - [ ] G3.3 Audit `unsafe` pointer-arithmetic body-slice reconstruction (link body, html block, raw HTML inline).
   - Add miri job in CI: `cargo +nightly miri test -p dmc-parser`.
-- [ ] G3.4 Remove dead code warnings (`strip_inline_markers`).
+- [x] G3.4 Remove dead code warnings (`strip_inline_markers`).
 
 ## Phase G4 — Docs
 
-- [ ] G4.1 Refresh `dmc-parser/ROADMAP.md` with final F2 + this F3 plan.
-- [ ] G4.2 Refresh `dmc-lexer/ROADMAP.md`. Document CM column-aware whitespace, tab handling, ESM detection.
-- [ ] G4.3 Write `README.md` for each crate: dmc-lexer, dmc-parser, dmc-codegen, dmc-transform.
-- [ ] G4.4 Add `CHANGELOG.md` covering F2 grind (rounds 1-140 + post-fix).
+- [x] G4.1 Refresh `dmc-parser/ROADMAP.md` with final F2 + this F3 plan.
+- [x] G4.2 Refresh `dmc-lexer/ROADMAP.md`. Document CM column-aware whitespace, tab handling, ESM detection.
+- [x] G4.3 Write `README.md` for each crate: dmc-lexer, dmc-parser, dmc-codegen, dmc-transform.
+- [x] G4.4 Add `CHANGELOG.md` covering F2 grind (rounds 1-140 + post-fix).
 
 ## Phase G5 — Spec edges
 
-- [ ] G5.1 Replace `htmlentity` crate or build full HTML5 entity table (covers `&ngE;` etc with multi-codepoint output).
-- [ ] G5.2 Replace approximate Unicode case-fold (`ẞ → ss`) with `icu_normalizer` or `unicode-case-mapping` crate.
+- [x] G5.1 Replace `htmlentity` crate or build full HTML5 entity table (covers `&ngE;` etc with multi-codepoint output).
+- [~] G5.2 Replace approximate Unicode case-fold (`ẞ → ss`) with `icu_normalizer` or `unicode-case-mapping` crate.
+  - Left the in-tree approximation in place; current code documents the limitation and keeps the CommonMark-critical `ß` / `ẞ` behavior covered.
 - [ ] G5.3 Replace approximate Unicode punctuation table with proper general-category lookup.
 
 ## Phase G6 — MDX completeness
