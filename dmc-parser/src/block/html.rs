@@ -1,6 +1,7 @@
 use super::{HTML_BLOCK_TYPE1_TAGS, HTML_BLOCK_TYPE6_TAGS, HtmlBlockMode};
 use crate::ast::*;
 use crate::parser::Parser;
+use dmc_diagnostic::Code;
 use dmc_lexer::token::TokenKind;
 
 impl<'eng, 'tokens> Parser<'eng, 'tokens> {
@@ -101,6 +102,21 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
   pub(super) fn parse_html_block_from_jsx(&mut self, mode: HtmlBlockMode) -> Node {
     let span = self.current_span();
     let start_ptr = self.tokens.get(self.pos).map(|t| t.raw.as_ptr() as usize).unwrap_or(0);
+    if matches!(self.peek_kind(), Some(TokenKind::JsxCloseTagStart)) {
+      let close_name = self
+        .tokens
+        .get(self.pos + 1)
+        .filter(|t| matches!(t.kind, TokenKind::JsxTagName))
+        .map(|t| t.raw)
+        .unwrap_or_default();
+      let diagnostic = duck_diagnostic::diag!(
+        Code::MismatchedJsxCloseTag,
+        span.clone(),
+        format!("orphan close tag `</{close_name}>` has no matching opener in this block; preserving it as raw HTML")
+      )
+      .with_help("add the matching opening tag earlier in the block, or escape the leading `<` if this should render as text");
+      self.emit_diagnostic(diagnostic);
+    }
     match mode {
       HtmlBlockMode::Type1(tag) => loop {
         match self.peek_kind() {

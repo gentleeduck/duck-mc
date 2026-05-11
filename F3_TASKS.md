@@ -71,9 +71,9 @@ Status legend: `[ ]` pending, `[~]` in progress, `[x]` done.
 
 ## Phase G7 — Diagnostics
 
-- [ ] G7.1 Audit every `Code::*` diagnostic. Replace placeholder messages with actionable spans + suggestions.
-- [ ] G7.2 Add recovery-quality tests: malformed link / unterminated fence / orphan close tag should produce ONE diagnostic, not many.
-- [ ] G7.3 Snapshot diagnostic output for CM error cases.
+- [x] G7.1 Audit every `Code::*` diagnostic. Replace placeholder messages with actionable spans + suggestions.
+- [x] G7.2 Add recovery-quality tests: malformed link / unterminated fence / orphan close tag should produce ONE diagnostic, not many.
+- [x] G7.3 Snapshot diagnostic output for CM error cases.
 
 ## Phase G8 — Stability
 

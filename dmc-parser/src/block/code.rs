@@ -1,5 +1,6 @@
 use crate::ast::*;
 use crate::parser::Parser;
+use dmc_diagnostic::Code;
 use dmc_lexer::token::TokenKind;
 
 impl<'eng, 'tokens> Parser<'eng, 'tokens> {
@@ -375,6 +376,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     };
 
     let mut value = String::new();
+    let mut closed = false;
     if bq_depth > 0 {
       if let Some(t) = self.peek()
         && matches!(t.kind, TokenKind::CodeFenceContent)
@@ -384,12 +386,14 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       }
       if matches!(self.peek_kind(), Some(TokenKind::CodeFenceClose(c, m)) if *c == fence_char && *m >= fence_n) {
         self.advance();
+        closed = true;
       }
     } else {
       while let Some(t) = self.peek() {
         match &t.kind {
           TokenKind::CodeFenceClose(c, m) if *c == fence_char && *m >= fence_n => {
             self.advance();
+            closed = true;
             break;
           },
           TokenKind::Eof => break,
@@ -403,6 +407,20 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
           },
         }
       }
+    }
+
+    if !closed {
+      let fence = match fence_char {
+        dmc_lexer::token::FenceChar::Backtick => "`",
+        dmc_lexer::token::FenceChar::Tilde => "~",
+      };
+      let diagnostic = duck_diagnostic::diag!(
+        Code::UnterminatedCodeBlockBlock,
+        span.clone(),
+        "fenced code block never found a matching closing fence; treating the rest of the file as code"
+      )
+      .with_help(format!("add a closing fence with at least {fence_n} `{fence}` characters"));
+      self.emit_diagnostic(diagnostic);
     }
 
     // CM 4.5: fenced code-block content ends with a newline. The lexer

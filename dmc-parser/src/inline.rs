@@ -1,5 +1,6 @@
 use crate::ast::*;
 use crate::parser::Parser;
+use dmc_diagnostic::Code;
 use dmc_lexer::token::{AutolinkKind, EmphasisChar, TokenKind};
 
 /// One emphasis delimiter run captured during `collect_inline`. The
@@ -847,6 +848,15 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
                 self.advance();
               }
               let well_formed = has_close && depth == 0;
+              if !well_formed {
+                let diagnostic = duck_diagnostic::diag!(
+                  Code::UnterminatedLink,
+                  self.span_at(start),
+                  "inline link destination did not close before the end of the line; treating it as literal text"
+                )
+                .with_help("add a closing `)` to finish `[text](...)`, or escape the `[` if this should stay literal");
+                self.emit_diagnostic(diagnostic);
+              }
               match if well_formed { Self::split_destination_title(&paren_body) } else { None } {
                 Some((href, title)) => {
                   let href = decode_entities_in(&Self::unescape_markdown(&href));

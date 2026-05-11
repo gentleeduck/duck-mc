@@ -59,10 +59,7 @@ fn export_body_ignores_markdownish_strings() {
   let pairs = lex_pairs(src);
   assert_eq!(
     pairs[0],
-    (
-      TokenKind::Export,
-      "export const z = { text: \"# not heading\", link: \"[x](y)\", braces: \"{}\" }".to_string()
-    )
+    (TokenKind::Export, "export const z = { text: \"# not heading\", link: \"[x](y)\", braces: \"{}\" }".to_string())
   );
   assert_eq!(pairs[2], (TokenKind::UnorderedListMarker, "* ".to_string()));
   assert!(

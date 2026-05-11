@@ -1,5 +1,6 @@
 use crate::ast::*;
 use crate::parser::Parser;
+use dmc_diagnostic::Code;
 use dmc_lexer::token::TokenKind;
 
 mod blockquote;
@@ -538,6 +539,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
           | TokenKind::Export
       )
     };
+    self.maybe_diag_unterminated_text_jsx();
     self.collect_inline_into(&para_stop, &mut children, &mut delims);
     // Setext H2 retro-fold: when the inline run ends with a hard break
     // followed by a Text node consisting only of `-` characters, treat
@@ -707,6 +709,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       let break_span = self.current_span();
       children.push(Node::SoftBreak(BreakNode { span: break_span }));
       let pre_len = children.len();
+      self.maybe_diag_unterminated_text_jsx();
       self.collect_inline_into(&para_stop, &mut children, &mut delims);
       if children.len() == pre_len {
         // Nothing useful followed; rewind so the soft break we ate
@@ -724,6 +727,74 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     }
     Self::finalize_inline_breaks(&mut children);
     Node::Paragraph(Paragraph { children, span })
+  }
+
+  /// Heuristic recovery for lines like `<Foo bar=` that failed to lex as
+  /// JSX and would otherwise quietly fall back to plain text. Keep the
+  /// text output, but surface one actionable parser diagnostic.
+  fn maybe_diag_unterminated_text_jsx(&mut self) {
+    let Some(first) = self.peek() else {
+      return;
+    };
+    if !matches!(first.kind, TokenKind::Text) {
+      return;
+    }
+    let Some(tag_name) = first.raw.strip_prefix('<') else {
+      return;
+    };
+    if tag_name.is_empty() || !tag_name.chars().next().is_some_and(|c| c.is_ascii_uppercase()) {
+      return;
+    }
+    if !tag_name.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '-' | '.' | ':')) {
+      return;
+    }
+
+    let start = self.pos;
+    let mut i = start;
+    let mut saw_close = first.raw.contains('>');
+    let mut missing_attr: Option<(usize, String)> = None;
+
+    while let Some(tok) = self.tokens.get(i) {
+      match tok.kind {
+        TokenKind::SoftBreak | TokenKind::HardBreak | TokenKind::BlankLine | TokenKind::Eof => break,
+        _ => {},
+      }
+      if tok.raw.contains('>') {
+        saw_close = true;
+        break;
+      }
+      if matches!(tok.kind, TokenKind::Text)
+        && let Some(attr) = tok.raw.strip_suffix('=')
+        && !attr.is_empty()
+        && attr.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '-' | ':'))
+      {
+        missing_attr = Some((i, attr.to_string()));
+      }
+      i += 1;
+    }
+
+    if saw_close {
+      return;
+    }
+
+    if let Some((attr_pos, attr)) = missing_attr {
+      let diagnostic = duck_diagnostic::diag!(
+        Code::MissingJsxAttributeValue,
+        self.span_at(attr_pos),
+        format!("JSX attribute `{attr}` is missing a value before the tag ended; preserving the text literally")
+      )
+      .with_help("add a quoted string, `{expression}`, or remove the trailing `=`");
+      self.emit_diagnostic(diagnostic);
+      return;
+    }
+
+    let diagnostic = duck_diagnostic::diag!(
+      Code::UnterminatedJsxOpenTag,
+      self.span_at(start),
+      format!("JSX open tag `<{tag_name}>` never reached a closing `>`; preserving the text literally")
+    )
+    .with_help("close the tag with `>` or `/>`, or escape the leading `<` if this should stay text");
+    self.emit_diagnostic(diagnostic);
   }
 
   /// CM 6.7: a hard line break needs content after it. Strip a stripped

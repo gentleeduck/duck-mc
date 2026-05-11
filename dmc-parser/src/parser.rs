@@ -147,6 +147,11 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     self.diag(code, message);
   }
 
+  /// Span of an arbitrary token position, or a default EOF-adjacent span.
+  pub(crate) fn span_at(&self, pos: usize) -> Span {
+    self.tokens.get(pos).map(|t| t.span.clone()).unwrap_or_else(default_span)
+  }
+
   /// Span of the token at the cursor, or a default span at EOF.
   pub(crate) fn current_span(&self) -> Span {
     self.tokens.get(self.pos).map(|t| t.span.clone()).unwrap_or_else(default_span)
