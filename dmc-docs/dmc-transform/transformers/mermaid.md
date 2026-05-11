@@ -18,7 +18,7 @@ graph TD
 ```
 ```
 
-…and existing JSX:
+...and existing JSX:
 
 ```mdx
 <MermaidDiagram chart={`graph TD ...`} />
@@ -31,8 +31,8 @@ Default theme (`Multi({ light: "default", dark: "dark" })`):
 ```jsx
 <MermaidDiagram
   chart="graph TD\n    A[Accordion] --> B[AccordionItem]"
-  lightSvg="<svg…>"
-  darkSvg="<svg…>"
+  lightSvg="<svg...>"
+  darkSvg="<svg...>"
 />
 ```
 
@@ -48,12 +48,12 @@ import { defineConfig } from '@gentleduck/md/config'
 export default defineConfig({
   markdown: {
     mermaid: {
-      // 1) THEME — pick one form
-      theme: 'dark',                                // single → <MermaidDiagram chart chartSvg />
+      // 1) THEME - pick one form
+      theme: 'dark',                                // single -> <MermaidDiagram chart chartSvg />
       // theme: { light: 'default', dark: 'dark' }, // default; lightSvg + darkSvg
-      // theme: { day: 'forest', night: 'neutral', dim: 'dark' }, // any keys → daySvg/nightSvg/dimSvg
+      // theme: { day: 'forest', night: 'neutral', dim: 'dark' }, // any keys -> daySvg/nightSvg/dimSvg
 
-      // 2) RAW MERMAID CONFIG — anything mermaid.initialize() accepts.
+      // 2) RAW MERMAID CONFIG - anything mermaid.initialize() accepts.
       //    Forwarded verbatim to mmdc --configFile after a shallow
       //    merge over dmc defaults (htmlLabels:false + flowchart spacing).
       config: {
@@ -99,8 +99,8 @@ export default defineConfig({
 | `theme` | `{ light: "default", dark: "dark" }` | Single string OR `{ mode: theme }` map. Drives JSX attr names (`chartSvg` vs `${mode}Svg`). |
 | `config` | `{}` | Free-form `mermaid.initialize` config. Shallow-merged on top of dmc defaults. |
 | `backgroundColor` | `"transparent"` | `mmdc --backgroundColor`. |
-| `htmlLabels` | `false` | When `true`, flowchart node labels render as HTML-in-`<foreignObject>`. Off by default — HTML labels mismeasure on the headless browser, clipping text. |
-| `responsiveSvg` | `true` | Rewrites the first root-`<svg>` `width="…"` to `width="100%"` so the diagram scales to its container. |
+| `htmlLabels` | `false` | When `true`, flowchart node labels render as HTML-in-`<foreignObject>`. Off by default - HTML labels mismeasure on the headless browser, clipping text. |
+| `responsiveSvg` | `true` | Rewrites the first root-`<svg>` `width="..."` to `width="100%"` so the diagram scales to its container. |
 | `centerLabels` | `true` | Injects `text-anchor="middle"` on label `<text>` / `<tspan>` so flowchart labels center inside their `<rect>` when `htmlLabels:false`. |
 | `outputDir` | unset | Disk-backed SVG cache. Files hashed on `(theme, source)`. Persists across runs. |
 | `puppeteerConfigFile` | unset | Forwarded to `mmdc --puppeteerConfigFile`. |
@@ -113,9 +113,9 @@ adds a disk-backed cache that persists across runs.
 
 ## Failure modes
 
-- `mmdc` not on `PATH` → whole transformer no-ops with
+- `mmdc` not on `PATH` -> whole transformer no-ops with
   `Code::MmdcUnavailable`; mermaid blocks left as fenced code.
-- Per-block render error → `Code::MermaidRenderFailed` diagnostic;
+- Per-block render error -> `Code::MermaidRenderFailed` diagnostic;
   source block preserved.
 
 ## Sidecar opt-out

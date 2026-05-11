@@ -115,7 +115,7 @@ pub struct Heading {
 
 impl Heading {
   /// URL-anchor slug. Returns the pre-computed `id` when available
-  /// (preferred — only the document-scoped pass can dedupe duplicates),
+  /// (preferred - only the document-scoped pass can dedupe duplicates),
   /// else a one-shot github-slugger computation from the heading text.
   pub fn slug(&self) -> String {
     if let Some(id) = &self.id {

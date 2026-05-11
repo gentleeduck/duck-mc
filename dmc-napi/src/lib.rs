@@ -129,7 +129,7 @@ pub struct DiagnosticReport {
   pub severity: String,
   /// Human-readable summary line.
   pub message: String,
-  /// Optional follow-up help text (e.g. `bundled themes: …`).
+  /// Optional follow-up help text (e.g. `bundled themes: ...`).
   pub help: Option<String>,
   /// First label's source-file path (when present). Lets the
   /// JS-side formatter prefix `path:line:col` like rustc does.

@@ -5,7 +5,7 @@
 - CommonMark spec suite: `652/652`.
 - GFM spec suite: `670/670`.
 - Block parsing is split across `block/{mod,list,blockquote,code,heading,html}.rs`.
-- Bench baselines live in [`../BENCHMARKS.md`](../BENCHMARKS.md).
+- Bench baselines live in [`../duck-benchmarks/BENCHMARKS.md`](../duck-benchmarks/BENCHMARKS.md).
 
 ## Completed milestones
 

@@ -3,7 +3,7 @@
 //! Mirrors `github-slugger` (the npm package used by `rehype-slug`):
 //! lowercase, drop ASCII punctuation/symbols, drop control chars, replace
 //! whitespace runs with `-`, collapse repeated `-`, trim. Punctuation is
-//! stripped (NOT replaced), so `0.4.3` -> `043`, `It's` -> `its` —
+//! stripped (NOT replaced), so `0.4.3` -> `043`, `It's` -> `its` -
 //! matching velite output.
 //!
 //! For dedupe (`#patch-changes`, `#patch-changes-1`, `#patch-changes-2`)
@@ -30,7 +30,7 @@ pub fn github_slugify(input: &str) -> String {
       continue;
     }
     // Keep letters, digits, '_', '-'. Drop everything else (`.`, `'`,
-    // `:`, etc) — github-slugger's "strip, don't replace" semantics.
+    // `:`, etc) - github-slugger's "strip, don't replace" semantics.
     if ch.is_alphanumeric() || ch == '_' || ch == '-' {
       // Treat existing '-' the same as ws so we collapse runs.
       if ch == '-' {

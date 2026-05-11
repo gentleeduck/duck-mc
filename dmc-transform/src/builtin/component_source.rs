@@ -10,7 +10,7 @@ use duck_diagnostic::{Diagnostic, Label, diag};
 use std::path::PathBuf;
 use std::sync::Arc;
 
-/// Resolve `<ComponentSource path="…" />` JSX nodes by reading the
+/// Resolve `<ComponentSource path="..." />` JSX nodes by reading the
 /// referenced file (or directory of files) and injecting one
 /// `CodeBlock` child per file. The JSX wrapper stays so consumers can
 /// render Preview/Code chrome around the resolved source. PrettyCode

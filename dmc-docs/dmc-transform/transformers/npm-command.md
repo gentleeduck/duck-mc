@@ -1,7 +1,7 @@
 # `npm-command`
 
-Detects fenced code blocks whose first line is `npm install …`,
-`npx create-…`, or `npx <bin>` and rewrites them as a
+Detects fenced code blocks whose first line is `npm install ...`,
+`npx create-...`, or `npx <bin>` and rewrites them as a
 `<PackageManagerTabs>` JSX node carrying per-PM equivalents (npm, yarn,
 pnpm, bun) as plain string attributes.
 

@@ -1,0 +1,10 @@
+duck-ui flamegraph fixture
+-------------------------
+corpus       : 370 mdx files (apps/duck raw content tree (no preMdx pass))
+full passes  : 1
+compiles     : 370
+wall-clock   : 143.08s (386.7 ms/file avg over all compiles)
+sampling     : pprof @ 997 Hz, signal-driven (no perf, no sudo)
+
+Open `duck-ui.svg` in a browser. Click frames to zoom; click the
+title bar to reset. Search bar in the top-right.

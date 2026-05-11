@@ -2,10 +2,10 @@
 //! profiler available (perf_event_paranoid=2 here), we instrument each
 //! pipeline stage with `Instant::now()` and accumulate. Output:
 //!
-//!   lex       N µs   M.M%
-//!   parse     N µs   M.M%
-//!   transform N µs   M.M%
-//!   codegen   N µs   M.M%   (HTML + MDX body walk)
+//!   lex       N us   M.M%
+//!   parse     N us   M.M%
+//!   transform N us   M.M%
+//!   codegen   N us   M.M%   (HTML + MDX body walk)
 //!
 //! Run: cargo run --release --example profile --features pretty-code
 
@@ -135,9 +135,9 @@ fn main() {
   let pct = |d: Duration| 100.0 * d.as_secs_f64() / total.as_secs_f64();
   let per_iter_us = |d: Duration| d.as_secs_f64() * 1_000_000.0 / iters as f64;
   println!("iterations: {iters}");
-  println!("total:     {:>10.2} µs/iter", total.as_secs_f64() * 1_000_000.0 / iters as f64);
+  println!("total:     {:>10.2} us/iter", total.as_secs_f64() * 1_000_000.0 / iters as f64);
   println!();
-  println!("phase     | µs/iter   | share");
+  println!("phase     | us/iter   | share");
   println!("----------|-----------|------");
   println!("lex       | {:>9.2} | {:>5.1}%", per_iter_us(t_lex), pct(t_lex));
   println!("parse     | {:>9.2} | {:>5.1}%", per_iter_us(t_parse), pct(t_parse));
@@ -147,7 +147,7 @@ fn main() {
   println!("per-transformer (independent runs, share of named transformers):");
   let trans_total = t_assign_heading_ids + t_code_import + t_bare_url + t_autolink_headings + t_pretty_code;
   let pct_t = |d: Duration| 100.0 * d.as_secs_f64() / trans_total.as_secs_f64();
-  println!("transformer         | µs/iter   | share");
+  println!("transformer         | us/iter   | share");
   println!("--------------------|-----------|------");
   println!("assign_heading_ids  | {:>9.2} | {:>5.1}%", per_iter_us(t_assign_heading_ids), pct_t(t_assign_heading_ids));
   println!("code_import         | {:>9.2} | {:>5.1}%", per_iter_us(t_code_import), pct_t(t_code_import));

@@ -95,7 +95,7 @@ pub fn list_bundled_themes() -> Vec<&'static str> {
 }
 
 impl SyntaxBundle {
-  // (continued below — split to keep the helper next to its method)
+  // (continued below - split to keep the helper next to its method)
 
   /// Highlight `code` with the given grammar + theme. Returns one
   /// `Vec<(Style, &str)>` per source line. Falls back to plain-text

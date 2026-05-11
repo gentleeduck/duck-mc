@@ -15,10 +15,10 @@ Targets:
 | `fuzz_lex`          | `Lexer::scan_tokens` + token invariants (raw within source, span lengths, no token explosion) |
 | `fuzz_parse`        | `dmc_parser::parse` (lossy UTF-8 input)                          |
 | `fuzz_parse_strict` | `dmc_parser::parse_with` under spec-runner options              |
-| `fuzz_roundtrip`    | `parse` → `dmc_codegen::render_html`                            |
-| `fuzz_compile`      | full `dmc::Compiler::compile` pipeline (lex → parse → transforms → codegen) |
+| `fuzz_roundtrip`    | `parse` -> `dmc_codegen::render_html`                            |
+| `fuzz_compile`      | full `dmc::Compiler::compile` pipeline (lex -> parse -> transforms -> codegen) |
 
-`fuzz/seeds/` holds one file per CommonMark 0.31.2 + GFM 0.29 spec example —
+`fuzz/seeds/` holds one file per CommonMark 0.31.2 + GFM 0.29 spec example -
 copy it into a target's working corpus, or pass it on the command line as
 shown above. The generated working corpus (`fuzz/corpus/`), crash artifacts
 (`fuzz/artifacts/`), and build output (`fuzz/target/`) are git-ignored.

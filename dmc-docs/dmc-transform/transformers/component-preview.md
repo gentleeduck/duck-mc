@@ -1,6 +1,6 @@
 # `component-preview`
 
-Resolves `<ComponentPreview name="…" />` JSX nodes against a registry of
+Resolves `<ComponentPreview name="..." />` JSX nodes against a registry of
 preview components, attaching source + metadata attributes so the
 consumer's `<ComponentPreview>` runtime can render the example without
 re-reading the registry at render time.
@@ -28,7 +28,7 @@ attributes:
   name="accordion-1"
   description="A simple accordion."
   source="<file content>"
-  files={[…]}
+  files={[...]}
 />
 ```
 

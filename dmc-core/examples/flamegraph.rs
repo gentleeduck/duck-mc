@@ -6,7 +6,7 @@
 //!   cargo run --release --example flamegraph --features pretty-code
 //!
 //! Output:
-//!   duck-benchmarks/phase-6-correctness-cache/flamegraph/flame.svg
+//!   duck-benchmarks/phase-7-g-hardening/flamegraph/flame.svg
 //!
 //! Drag the SVG into any browser. Zoom by clicking a frame; reset by
 //! clicking the title bar.
@@ -92,7 +92,7 @@ fn main() {
   let out = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
     .parent()
     .expect("workspace root")
-    .join("duck-benchmarks/phase-6-correctness-cache/flamegraph/flame.svg");
+    .join("duck-benchmarks/phase-7-g-hardening/flamegraph/flame.svg");
   std::fs::create_dir_all(out.parent().unwrap()).unwrap();
 
   let guard = ProfilerGuardBuilder::default()

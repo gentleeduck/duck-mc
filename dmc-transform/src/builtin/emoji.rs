@@ -1,4 +1,4 @@
-//! Emoji shortcodes → unicode. See `transformers/emoji.md` for full docs.
+//! Emoji shortcodes -> unicode. See `transformers/emoji.md` for full docs.
 
 use crate::pipeline::Transformer;
 use crate::visit::{NodeAction, Visitor, walk_root};

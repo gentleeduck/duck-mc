@@ -13,10 +13,10 @@ to the pipeline when the user opts out of GFM.
 Walks the AST and removes / unwraps any node produced by GFM
 extensions:
 
-- `Table` nodes → flattened to plain paragraphs of cell content.
-- `Strikethrough` (`~~…~~`) → unwrapped into plain text.
-- `TaskList` checkboxes → stripped, leaving just the list item text.
-- Autolink-literals → reverted to plain text.
+- `Table` nodes -> flattened to plain paragraphs of cell content.
+- `Strikethrough` (`~~...~~`) -> unwrapped into plain text.
+- `TaskList` checkboxes -> stripped, leaving just the list item text.
+- Autolink-literals -> reverted to plain text.
 
 The dmc parser handles GFM natively, so disabling it here means the
 output matches CommonMark byte-for-byte.

@@ -1,4 +1,4 @@
-//! `npm install` / `npx` → `<PackageManagerTabs>`. See
+//! `npm install` / `npx` -> `<PackageManagerTabs>`. See
 //! `transformers/npm-command.md` for full docs.
 
 use crate::pipeline::Transformer;

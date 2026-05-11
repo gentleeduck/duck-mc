@@ -1,0 +1,18 @@
+iterations: 5000
+total:         478.58 µs/iter
+
+phase     | µs/iter   | share
+----------|-----------|------
+lex       |      4.63 |   1.0%
+parse     |      7.48 |   1.6%
+transform |    370.52 |  77.4%
+codegen   |     95.95 |  20.0%
+
+per-transformer (independent runs, share of named transformers):
+transformer         | µs/iter   | share
+--------------------|-----------|------
+assign_heading_ids  |      0.61 |   0.2%
+code_import         |      0.54 |   0.2%
+bare_url            |      4.38 |   1.8%
+autolink_headings   |      1.72 |   0.7%
+pretty_code         |    236.32 |  97.0%

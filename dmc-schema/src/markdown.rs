@@ -53,7 +53,7 @@ impl Schema for MetadataSchema {
 }
 
 /// Velite-compatible word counter. Strips fenced code blocks then
-/// counts whitespace-separated tokens — the same reduction
+/// counts whitespace-separated tokens - the same reduction
 /// `reading-time` does on the markdown source.
 fn word_count(source: &str) -> u32 {
   let mut out = String::with_capacity(source.len());

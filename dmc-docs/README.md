@@ -48,7 +48,7 @@ dmc-docs/
 |- dmc-core/                engine (compile + cache + sidecar)
 |- dmc-napi/                JS bindings (@gentleduck/md npm package)
 |- dmc-sidecar/             Node helper for foreign remark/rehype plugins
-|                              (incl. `perf.md` — sidecar wall-clock cost)
+|                              (incl. `perf.md` - sidecar wall-clock cost)
 `- articles/                long-form write-ups
     `- rust-mdx-compiler-vs-velite.md
 ```

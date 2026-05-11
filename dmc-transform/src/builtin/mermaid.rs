@@ -17,9 +17,9 @@ use std::sync::{Mutex, OnceLock};
 /// (`@mermaid-js/mermaid-cli`).
 ///
 /// Two input shapes are handled:
-///   * ` ```mermaid ` fenced code blocks — replaced with
-///     `<MermaidDiagram chart="..." {mode}Svg="<svg…>" ... />`.
-///   * Author-written `<MermaidDiagram chart={`…`} />` JSX nodes — the
+///   * ` ```mermaid ` fenced code blocks - replaced with
+///     `<MermaidDiagram chart="..." {mode}Svg="<svg...>" ... />`.
+///   * Author-written `<MermaidDiagram chart={`...`} />` JSX nodes - the
 ///     existing JSX node is preserved and `{mode}Svg` attributes are
 ///     appended.
 ///
@@ -29,7 +29,7 @@ use std::sync::{Mutex, OnceLock};
 /// per-mode and emits `lightSvg` + `darkSvg`.
 ///
 /// Per-block failures emit [`Code::MermaidRenderFailed`]. The CLI
-/// availability probe runs once per process; missing CLI → the whole
+/// availability probe runs once per process; missing CLI -> the whole
 /// transformer becomes a no-op with [`Code::MmdcUnavailable`].
 pub struct Mermaid {
   opts: MermaidOptions,
@@ -73,8 +73,8 @@ impl Mermaid {
   }
 
   /// Iterate the requested modes as `(jsx_attr_name, mermaid_theme)` pairs.
-  /// `Single("dark")` → `[("chartSvg", "dark")]`.
-  /// `Multi({"light":"default","dark":"dark"})` → `[("lightSvg","default"), ("darkSvg","dark")]`.
+  /// `Single("dark")` -> `[("chartSvg", "dark")]`.
+  /// `Multi({"light":"default","dark":"dark"})` -> `[("lightSvg","default"), ("darkSvg","dark")]`.
   fn theme_renders(&self) -> Vec<(String, String)> {
     match &self.opts.theme {
       MermaidThemeMode::Single(name) => vec![("chartSvg".to_string(), name.clone())],
@@ -136,7 +136,7 @@ impl Mermaid {
     });
     // Serialise the full options struct, then strip dmc-side keys
     // (`theme`, `responsiveSvg`, `centerLabels`, `outputDir`,
-    // `puppeteerConfigFile`, `backgroundColor`) — every remaining field
+    // `puppeteerConfigFile`, `backgroundColor`) - every remaining field
     // is part of the typed `mermaid.initialize()` surface.
     if let Ok(serde_json::Value::Object(mut user)) = serde_json::to_value(&self.opts) {
       for k in ["theme", "responsiveSvg", "centerLabels", "outputDir", "puppeteerConfigFile", "backgroundColor"] {
@@ -257,7 +257,7 @@ impl Mermaid {
 
 /// Shallow-merge `extra` into `base` when both are JSON objects: keys in
 /// `extra` overwrite keys in `base`. Non-object `extra` is ignored. We
-/// intentionally don't recurse — mermaid's nested config (`flowchart`,
+/// intentionally don't recurse - mermaid's nested config (`flowchart`,
 /// `themeVariables`, ...) is small enough that a user passing a partial
 /// `flowchart` block should fully override our defaults for that block.
 fn shallow_merge(base: &mut serde_json::Value, extra: &serde_json::Value) {
@@ -269,7 +269,7 @@ fn shallow_merge(base: &mut serde_json::Value, extra: &serde_json::Value) {
   }
 }
 
-/// Rewrite the first `width="…"` on the root `<svg>` element to
+/// Rewrite the first `width="..."` on the root `<svg>` element to
 /// `width="100%"` so the rendered diagram fluidly scales to its
 /// container.
 fn make_responsive(svg: &str) -> String {
@@ -285,8 +285,8 @@ fn make_responsive(svg: &str) -> String {
 
 /// With `htmlLabels:false` mermaid 11 emits node `<text>` tags with no
 /// `text-anchor`, and an inner `<tspan x="0">` that pins itself to the
-/// label's local origin — i.e. node center. Result: label text starts
-/// at the rect's mid-point and bleeds off the right edge ("Accordion" →
+/// label's local origin - i.e. node center. Result: label text starts
+/// at the rect's mid-point and bleeds off the right edge ("Accordion" ->
 /// "Accordio"). Inject `text-anchor="middle"` on the outer text/tspans
 /// so the `x="0"` becomes the *midpoint* of the line.
 fn center_labels(svg: &str) -> String {
@@ -363,7 +363,7 @@ impl<'a> Visitor for Apply<'a> {
         *node = Node::JsxSelfClosing(JsxSelfClosing { name: "MermaidDiagram".into(), attrs, span });
         NodeAction::KeepSkipChildren
       },
-      // <MermaidDiagram chart={`…`} /> -> same, with {modeKey}Svg appended.
+      // <MermaidDiagram chart={`...`} /> -> same, with {modeKey}Svg appended.
       Node::JsxSelfClosing(jsc) if jsc.name == "MermaidDiagram" => {
         let span = jsc.span.clone();
         let Some(chart) = extract_chart_attr(&jsc.attrs) else { return NodeAction::Keep };
@@ -390,9 +390,9 @@ impl<'a> Visitor for Apply<'a> {
 }
 
 /// Pull the `chart` attribute value out as a plain string. Handles both
-/// `chart="…"` (string literal) and `chart={`…`}` /
-/// `chart={"…"}` (expression carrying a single string / template). The
-/// expression branch trims the surrounding `"…"` or `` `…` `` so the
+/// `chart="..."` (string literal) and `chart={`...`}` /
+/// `chart={"..."}` (expression carrying a single string / template). The
+/// expression branch trims the surrounding `"..."` or `` `...` `` so the
 /// extracted text is mermaid source ready for `mmdc`.
 fn extract_chart_attr(attrs: &[JsxAttr]) -> Option<String> {
   let attr = attrs.iter().find(|a| a.name == "chart")?;

@@ -1,4 +1,4 @@
-//! LaTeX → KaTeX/MathML. See `transformers/math.md` for full docs.
+//! LaTeX -> KaTeX/MathML. See `transformers/math.md` for full docs.
 
 use crate::pipeline::Transformer;
 use crate::visit::{NodeAction, Visitor, walk_root};
@@ -102,7 +102,7 @@ impl Math {
     let opts_result = if display { Self::display_opts() } else { Self::inline_opts() };
     let opts = match opts_result {
       Ok(o) => o,
-      // KaTeX builder failure → fall back to the error placeholder
+      // KaTeX builder failure -> fall back to the error placeholder
       // so the build still completes. The diagnostic itself is
       // discarded here because `render_katex` has no
       // `&mut DiagnosticEngine` handle; callers that need to capture
@@ -226,7 +226,7 @@ impl Math {
 
   /// Build the KaTeX renderer once and cache. Inputs are all
   /// hard-coded constants, so any builder failure here is a packaging
-  /// bug (e.g. a busted katex feature combo) — we surface it as
+  /// bug (e.g. a busted katex feature combo) - we surface it as
   /// `Code::KatexOpts` (warning, not fatal) and let the caller decide
   /// what to do with the unrenderable span.
   #[allow(clippy::result_large_err)]

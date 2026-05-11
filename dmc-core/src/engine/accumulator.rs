@@ -150,7 +150,7 @@ impl Accumulator {
   /// whitespace-tokenizes. 200 wpm, ceil, min 1 min.
   ///
   /// The two strips together land within ~0.2% of velite's
-  /// `reading-time` output for representative changelogs (V=908 → G=906
+  /// `reading-time` output for representative changelogs (V=908 -> G=906
   /// for the duck-ui changelog). Without the heading-marker strip the
   /// `##` / `###` tokens count as words and overshoot by 50 per doc.
   fn metadata(source: &str, plain: &str) -> Metadata {

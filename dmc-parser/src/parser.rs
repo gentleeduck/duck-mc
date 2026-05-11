@@ -194,7 +194,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
   /// Returns an empty string for empty / invalid ranges.
   ///
   /// When the caller attached the original source (`with_source`), the
-  /// span is recovered as a safe byte-offset reslice of that `&str` —
+  /// span is recovered as a safe byte-offset reslice of that `&str` -
   /// no `unsafe`, no provenance hazard. Without it (a few sample bins
   /// and the inline-string helper), we fall back to concatenating the
   /// covered tokens' lexemes; that loses any JSX-internal whitespace

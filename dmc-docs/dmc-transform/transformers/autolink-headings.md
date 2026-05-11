@@ -35,7 +35,7 @@ false` (or via the sidecar opt-out below).
 
 ## Order
 
-Runs after [`assign-heading-ids`](./assign-heading-ids.md) — relies on
+Runs after [`assign-heading-ids`](./assign-heading-ids.md) - relies on
 `Heading.id` being populated.
 
 ## Sidecar opt-out

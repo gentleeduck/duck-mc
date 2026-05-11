@@ -381,7 +381,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
 /// to the block parser, which sees the leading two-space indent + the
 /// JSX opener as inline content and wraps the whole line in a
 /// `Paragraph`. That makes the emitted React tree
-/// `<TabsList><p>  <TabsTrigger>…</p></TabsList>`, which is wrong both
+/// `<TabsList><p>  <TabsTrigger>...</p></TabsList>`, which is wrong both
 /// semantically and visually.
 ///
 /// MDX's rule: a JSX element that is the only non-whitespace content

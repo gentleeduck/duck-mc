@@ -25,7 +25,7 @@ import { defineConfig } from '@gentleduck/md/config'
 
 export default defineConfig({
   markdown: {
-    // No `emoji` slot today — controlled via sidecar opt-out + feature flag.
+    // No `emoji` slot today - controlled via sidecar opt-out + feature flag.
   },
 })
 ```

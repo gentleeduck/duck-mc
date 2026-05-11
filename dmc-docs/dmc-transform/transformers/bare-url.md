@@ -1,6 +1,6 @@
 # `bare-url`
 
-Wraps bare `https://…` / `http://…` URLs in `<a href="…">` so they
+Wraps bare `https://...` / `http://...` URLs in `<a href="...">` so they
 render as clickable links without explicit Markdown link syntax.
 
 - **Source:** `dmc-transform/src/builtin/bare_url.rs`
@@ -20,6 +20,6 @@ Mirrors GFM autolink-literal semantics for plain http/https URLs.
 
 ## Sidecar opt-out
 
-None — the matching JS plugin (`remark-gfm`'s `autolink: literal`) is
+None - the matching JS plugin (`remark-gfm`'s `autolink: literal`) is
 absorbed by `disable-gfm`'s gate. Drop GFM globally via
 `markdown.gfm: false`.

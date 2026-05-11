@@ -1,6 +1,6 @@
 # `assign-heading-ids`
 
-Populates `Heading.id` on every `<h1>…<h6>` AST node using a
+Populates `Heading.id` on every `<h1>...<h6>` AST node using a
 github-slugger algorithm with per-document deduplication.
 
 - **Source:** `dmc-transform/src/builtin/assign_heading_ids.rs`
@@ -12,7 +12,7 @@ github-slugger algorithm with per-document deduplication.
 1. Collect heading text content (recursively, skipping JSX attribute values).
 2. Lowercase. Strip `.` and `'`. Replace runs of non-alphanumeric chars with `-`.
 3. Trim leading/trailing `-`.
-4. Per-document dedupe: collisions get `-1`, `-2`, … suffixes in source order.
+4. Per-document dedupe: collisions get `-1`, `-2`, ... suffixes in source order.
 
 Matches `rehype-slug` + `github-slugger` byte-for-byte for the typical
 heading set.

@@ -26,14 +26,43 @@ and this project adheres to
 ### Added
 
 - `dmc-parser` Criterion parse benches and recorded baselines in
-  [`BENCHMARKS.md`](./BENCHMARKS.md).
+  [`duck-benchmarks/BENCHMARKS.md`](./duck-benchmarks/BENCHMARKS.md).
+- `duck-benchmarks/phase-7-g-hardening/` - re-run of the `dmc-core`
+  compile-pipeline bench after the `G1` - `G9` hardening track, plus
+  `flame.svg` / `stage-profile.txt` / `duck-ui.svg` flamegraph
+  captures (the consumer-corpus one over the real `apps/duck` 370-mdx
+  set).
+- `dmc-core/examples/flamegraph_consumer` now falls back to the raw
+  `apps/duck/content/` tree when the `.dmc-cache/preprocessed` mirror
+  hasn't been generated, and reports which corpus + a per-file average
+  in `duck-ui.txt`.
 
 ### Docs
 
+- Moved `BENCHMARKS.md` into `duck-benchmarks/` alongside the recorded
+  phase folders; updated links in `CHANGELOG.md` and
+  `dmc-parser/ROADMAP.md`.
+- Added [`duck-benchmarks/GUIDE.md`](./duck-benchmarks/GUIDE.md) - how to record a new bench phase and validate signal vs host noise - and linked it from `duck-benchmarks/README.md`.
+- Added [`duck-benchmarks/OPTIMIZATIONS.md`](./duck-benchmarks/OPTIMIZATIONS.md) - per-crate catalogue of remaining optimization opportunities (token streaming, alloc-free text, path interning, syntect output caching) with rough estimates, plus a "done wrong due to timeline" debt list. Linked from the main README and `BENCHMARKS.md`.
+- Replaced fancy Unicode punctuation (em/en dashes, curly quotes, ellipsis, arrows, `x`/`u`/`section`/`~`/`<=` substitutions) with ASCII across docs and source comments/strings; test fixtures, spec suites, and asset data left untouched.
 - Refreshed parser and lexer roadmaps to reflect current spec status.
 - Rewrote crate READMEs for `dmc-lexer`, `dmc-parser`,
   `dmc-codegen`, and `dmc-transform` around current public APIs and
   compliance status.
+
+### Removed
+
+- `package-lock.json` (stale npm lockfile; pnpm is canonical) and
+  `dmc-napi/bun.lock` (redundant with `dmc-napi/pnpm-lock.yaml`).
+- `examples/acme-docs/tsconfig.tsbuildinfo`, `examples/web/tsconfig.tsbuildinfo`
+  (accidentally committed TS build artifacts; `*.tsbuildinfo` now gitignored).
+- `examples/nextjs-dmc-full/` example app (unreferenced except by the
+  historical `dmc-docs/architecture/compiler-gaps.md` write-up, now noted there).
+- `dmc-highlight/assets/grammars/` + `assets/themes/` (unused converted
+  outputs - `build.rs` and `lib.rs` embed `grammars-sublime/` + `themes-bat/`;
+  `assets/README.md` rewritten to match reality).
+- `dmc-highlight/examples/highlight_demo.rs` (dev smoke test redundant
+  with the crate's tests).
 
 ## [0.2.2](https://github.com/gentleeduck/duck-mc/compare/dmc-lexer-v0.2.1...dmc-lexer-v0.2.2) - 2026-05-07
 

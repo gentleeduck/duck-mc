@@ -4,16 +4,16 @@
 
 ### Compiler correctness
 
-- **CommonMark §4.5 fence-close compliance** (`dmc-lexer/src/lexers/code.rs`).
+- **CommonMark section 4.5 fence-close compliance** (`dmc-lexer/src/lexers/code.rs`).
   `lex_fenced_code` previously closed any line starting with N matching
   backticks at column 0, including ones with trailing info strings like
   `` ```tsx /Generic/ ``. That parity-flipped every following fence so
   TypeScript generics inside code blocks (`Partial<KeyBindOptions>`,
-  `Record<string, string>`, `Array<…>`) leaked into the JSX-flow lexer
+  `Record<string, string>`, `Array<...>`) leaked into the JSX-flow lexer
   and produced `unterminated expression` / dropped-`{...}` warnings.
   Close fence now requires only whitespace after the backtick run. Killed
   ~545 spurious diagnostics on a real docs corpus.
-- **CommonMark §6.1 multi-line inline code** (`lex_inline_code`).
+- **CommonMark section 6.1 multi-line inline code** (`lex_inline_code`).
   Spans now cross newlines per spec; line endings inside are treated like
   spaces. Bails at a blank line and at a column-0 fence run so a stray
   un-closed `` ` `` cannot swallow the rest of the document.
@@ -37,11 +37,11 @@
 - **Native compile cache survives `clean: true`**
   (`dmc-core/src/engine/mod.rs`). Cache keys are
   `blake3(source + path + cfg_fingerprint)`, so a config bump already
-  invalidates stale entries — the previous unconditional
+  invalidates stale entries - the previous unconditional
   `remove_dir_all(.cache)` on every clean build was forcing
   lex+parse+transform+codegen to re-run for every doc whose source
   hadn't changed. Result: warm full builds on `apps/duck` go from
-  34 s → 3.3 s (~10× faster).
+  34 s -> 3.3 s (~10x faster).
 - **Incremental preMdx mirror cache** (`dmc-napi/mod.ts`,
   `preprocessMdxIntoMirror`). Per-file SHA-256 manifest at
   `<root>/.dmc-cache/preprocessed/.manifest.json` keyed on
@@ -50,7 +50,7 @@
   entries (source removed) get swept post-loop. New
   `content.preMdxCacheInputs?: string[]` declares concrete extra files
   that gate the cache (e.g. `__ui_registry__/index.ts`). PreMdx step
-  measured 1345 ms → 221 ms warm on 370 mdx files (~6×).
+  measured 1345 ms -> 221 ms warm on 370 mdx files (~6x).
 
 ### Diagnostics
 
@@ -72,9 +72,9 @@
 ### Types
 
 - **`SchemaBuilder<_T>` fluent helpers preserve the generic**.
-  `.max() / .min() / .optional() / .nullable() / .default() / …`
+  `.max() / .min() / .optional() / .nullable() / .default() / ...`
   previously returned `SchemaBuilder<unknown>`, decaying every chain.
-  `.transform((data) => …)` now sees real field types — fixed the
+  `.transform((data) => ...)` now sees real field types - fixed the
   cascading `Type 'unknown' is not assignable to type 'string'` errors
   on consumer page-metadata helpers.
 - **`PreMdxPlugin<Options>`** alias replaces the loose `Pluggable[]` on
@@ -119,9 +119,9 @@ lowercase-JSX additions.
 
 | Bench               | Pre-fix (phase-5) | Now             | Delta    |
 | ------------------- | ----------------- | --------------- | -------- |
-| `compile fixture`   | 119 µs            | **111.55 µs**   | -6.3 %   |
-| `compile simple`    | -                 | 4.92 µs         | new row  |
-| `parse fixture`     | -                 | 2.18 µs         | new row  |
+| `compile fixture`   | 119 us            | **111.55 us**   | -6.3 %   |
+| `compile simple`    | -                 | 4.92 us         | new row  |
+| `parse fixture`     | -                 | 2.18 us         | new row  |
 
 End-to-end (`cargo run --release --example bench`, 1000 files,
 median ms; full numbers + raw samples in
@@ -137,7 +137,7 @@ median ms; full numbers + raw samples in
 | velite+kitchen-sink  | 1381.46 | 1427.16 |  +3 %  |
 
 Velite stays within ~3 % (the noise floor on this host). Phase-6
-overhead lands in the 13-23 % band — see
+overhead lands in the 13-23 % band - see
 `duck-benchmarks/phase-6-correctness-cache/README.md` for the cost
 breakdown (`Arc<str>` span paths, multi-line `lex_inline_code`,
 fence-close whitespace probe).
@@ -151,9 +151,10 @@ End-to-end consumer build (`apps/duck`, 370 mdx, full
 | Warm (no source change)             | **3.3 s**  | 217 ms (370 hits)                  |
 | 1-file edit                         | 2.9 s      | 205 ms (369 hits / 1 miss)         |
 
-The 10× warm speedup comes from the native cache surviving
+The 10x warm speedup comes from the native cache surviving
 `clean: true` (previously wiped on every build). The preMdx
-manifest accounts for the per-step 6× drop on top of that.
+manifest accounts for the per-step 6x drop on top of that.
+
 ## 0.2.2
 
 ### Patch Changes
@@ -180,7 +181,7 @@ manifest accounts for the per-step 6× drop on top of that.
   the build-time absolute path into the compiled binary. On any machine
   that wasn't the CI runner the path didn't exist, syntect panicked with
   `load grammars-sublime: WalkDir(...) NotFound`, and `native.build`
-  returned a partial report — making `report.collections is not iterable`
+  returned a partial report - making `report.collections is not iterable`
   appear in callers like `apps/duck`.
 
 ## 0.2.0

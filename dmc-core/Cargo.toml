@@ -58,7 +58,7 @@ predicates.workspace = true
 insta.workspace = true
 criterion.workspace = true
 plotters.workspace = true
-# `pprof` runs in-process via `setitimer(ITIMER_PROF)` — no kernel
+# `pprof` runs in-process via `setitimer(ITIMER_PROF)` - no kernel
 # `perf_event_open` access needed, which is what `samply` / `cargo
 # flamegraph` require but `perf_event_paranoid=2` blocks. Lets the
 # `flamegraph` example produce a real folded-stack SVG without sudo.

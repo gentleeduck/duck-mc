@@ -186,7 +186,7 @@ fn parse_alignment_row(s: &str) -> Option<Vec<TableAlign>> {
 /// Split `|a|b|c|` into the cell strings between pipes (no trim; caller
 /// trims when materialising the cell).
 ///
-/// Pipes inside an inline-code span (`` ` `` … `` ` ``) and pipes
+/// Pipes inside an inline-code span (`` ` `` ... `` ` ``) and pipes
 /// escaped with `\|` are *content*, not delimiters. GFM's table grammar
 /// requires this; without it, a row like
 /// `` | `"single" \| "multiple"` | `"single"` | `` is mis-split into

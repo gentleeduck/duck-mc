@@ -25,12 +25,12 @@ jobs:
     name: version PR / tag
     runs-on: ubuntu-latest
     # Skip on the auto-merged Version Packages commit itself unless it's
-    # the merge that should fire the tag — let the action figure it out.
+    # the merge that should fire the tag - let the action figure it out.
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          # Must be a PAT (or app token) — refs pushed with the default
+          # Must be a PAT (or app token) - refs pushed with the default
           # GITHUB_TOKEN do NOT trigger downstream workflows, which would
           # leave napi-prebuilds dormant. The PAT pushes the version PR
           # commits and the @gentleduck/md@<version> tag as a real user,

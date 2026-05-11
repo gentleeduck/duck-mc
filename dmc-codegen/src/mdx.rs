@@ -5,7 +5,7 @@ use dmc_diagnostic::Code;
 use dmc_parser::ast::*;
 use duck_diagnostic::{DiagnosticEngine, diag};
 
-/// Builds an MDX-runtime body — a `_createMdxContent(props)` function whose
+/// Builds an MDX-runtime body - a `_createMdxContent(props)` function whose
 /// return value is a React tree of `jsx`, `jsxs`, and `Fragment`. Imports +
 /// exports hoist into a prelude; frontmatter is dropped.
 ///
@@ -43,7 +43,7 @@ impl NodeSink for MdxBodyEmitter {
       Node::InlineCode(c) => {
         let tag = self.jsx_tag_ref("code");
         // Inline code: just `children`. `__dmcRaw__` is reserved for
-        // fenced `<pre>` blocks (see PrettyCode transformer) — putting it
+        // fenced `<pre>` blocks (see PrettyCode transformer) - putting it
         // on inline `<code>` makes consumer mappings that key off it
         // misclassify inline as block, breaking paragraph flow.
         self.push_part(format!("jsx({}, {{ children: {} }})", tag, Self::js_string(&c.value),));
@@ -137,7 +137,7 @@ impl MdxBodyEmitter {
     let body_expr = format!("{}(Fragment, {{ children: {} }})", root_callee, root_kids);
 
     // Function-body output (the only mode dmc emits today) is consumed
-    // via `new Function(body)(runtime)` — that scope cannot legally
+    // via `new Function(body)(runtime)` - that scope cannot legally
     // contain `import`/`export` statements. dmc parses top-level ESM
     // anyway because the lexer can't always tell content inside JSX-
     // wrapped fences from real top-level imports, so we drop them on
@@ -337,12 +337,12 @@ impl MdxBodyEmitter {
   /// Resolve a JSX tag name to the runtime expression and record the ref
   /// for the prelude.
   ///
-  /// - Lowercase tag → `_components.<tag>`, with the tag's default string
+  /// - Lowercase tag -> `_components.<tag>`, with the tag's default string
   ///   added to the `_components` literal at assemble time.
-  /// - Capitalized tag → bare local binding (destructured in the prelude
+  /// - Capitalized tag -> bare local binding (destructured in the prelude
   ///   from `_components` and validated via `_missingMdxReference`).
-  /// - `Fragment` → the jsx-runtime symbol already in scope.
-  /// - Non-identifier tag (`my-element`) → bracket access on `_components`.
+  /// - `Fragment` -> the jsx-runtime symbol already in scope.
+  /// - Non-identifier tag (`my-element`) -> bracket access on `_components`.
   fn jsx_tag_ref(&mut self, name: &str) -> String {
     if name == "Fragment" {
       return "Fragment".to_string();
@@ -573,8 +573,8 @@ pub fn render_mdx_body(doc: &Document) -> String {
 }
 
 /// Pick the right jsx-runtime callee for a child list, mirroring
-/// `@mdx-js/mdx`: zero/one child → `jsx` with the child unwrapped (no
-/// array); multiple children → `jsxs` with the `[a, b, c]` literal.
+/// `@mdx-js/mdx`: zero/one child -> `jsx` with the child unwrapped (no
+/// array); multiple children -> `jsxs` with the `[a, b, c]` literal.
 fn jsx_callee_and_children(parts: &[String]) -> (&'static str, String) {
   match parts.len() {
     0 => ("jsx", "[]".into()),

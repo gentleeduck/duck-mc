@@ -81,22 +81,22 @@ pub enum MathEngine {
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum MultiThemeStrategy {
-  /// One `<pre data-theme="<mode>">…</pre>` subtree per theme. Each
+  /// One `<pre data-theme="<mode>">...</pre>` subtree per theme. Each
   /// subtree carries solid `color:#XXX` styles, no CSS custom
   /// properties. Default because the per-token style strings stay
   /// shorter (no `--dmc-{mode}` pairs), the consumer flips themes by
   /// toggling a single `[data-theme]` CSS rule, and it matches the
   /// velite + rehype-pretty-code byte shape that consumers were
   /// already styled for. The phase-6 flamegraph confirms PrettyCode
-  /// dominates compile time, so cutting the per-token work — even
-  /// at the cost of duplicated pre subtrees — is the right default.
+  /// dominates compile time, so cutting the per-token work - even
+  /// at the cost of duplicated pre subtrees - is the right default.
   #[default]
   Split,
   /// One `<pre>` subtree carrying `--dmc-{mode}` / `--dmc-{mode}-bg`
   /// custom properties per token, plus solid fallbacks for the
   /// `default_mode`. Consumer CSS toggles via `var(--dmc-active)`.
   /// Slightly larger per-token style strings, but only one DOM
-  /// subtree regardless of theme count — pick this when you have
+  /// subtree regardless of theme count - pick this when you have
   /// `>2` themes or need media-query / class-toggle theme switching
   /// without re-rendering the code surface.
   #[serde(alias = "cssVars")]
@@ -144,9 +144,9 @@ pub struct PrettyCodeOptions {
   /// When unset, resolves to `"dark"` if present, else the first key.
   pub default_mode: Option<String>,
   /// Multi-theme DOM strategy. Default `CssVars` (single tree, faster).
-  /// Set to `Split` for one `<pre data-theme="…">` subtree per theme
-  /// (velite parity, ~2× the AST nodes). Single-theme mode ignores this
-  /// — there's only one tree either way.
+  /// Set to `Split` for one `<pre data-theme="...">` subtree per theme
+  /// (velite parity, ~2x the AST nodes). Single-theme mode ignores this
+  /// - there's only one tree either way.
   pub multi_theme_strategy: Option<MultiThemeStrategy>,
   /// Keep the `__dmcRaw__` attribute on each `<pre>` so consumer
   /// `<PreBlock>` can offer a Copy button without re-parsing the tree.
@@ -170,7 +170,7 @@ pub struct PrettyCodeOptions {
   /// for downstream tooling.
   pub fallback_to_plaintext: Option<bool>,
   /// Render a `<figcaption data-dmc-title>` from the
-  /// fence's `title="…"` meta. Default `true`.
+  /// fence's `title="..."` meta. Default `true`.
   pub render_title: Option<bool>,
   /// Include `data-language` on every emitted `<pre>` and `<code>`.
   /// Default `true`.
@@ -182,7 +182,7 @@ pub struct PrettyCodeOptions {
   /// always emitted regardless of this flag, so consumer CSS can still
   /// opt back in via `var(--dmc-{mode}-bg)` if it wants.
   pub include_pre_background: Option<bool>,
-  /// Languages to skip — these blocks are passed through unchanged.
+  /// Languages to skip - these blocks are passed through unchanged.
   /// `mermaid` is always skipped (owned by the mermaid transformer);
   /// add other langs to keep them as raw `CodeBlock` nodes.
   pub skip_languages: Vec<String>,
@@ -197,7 +197,7 @@ pub struct PrettyCodeOptions {
 ///
 /// Recognised theme names (passed through to `mmdc --theme`):
 /// `default`, `dark`, `forest`, `neutral`, `base`. Anything else is
-/// forwarded verbatim — mermaid-cli will validate.
+/// forwarded verbatim - mermaid-cli will validate.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum MermaidThemeMode {
@@ -597,10 +597,10 @@ pub struct MermaidTreemapConfig {
   pub padding: Option<u32>,
 }
 
-/// Top-level mermaid configuration. **Single flat object** — every
+/// Top-level mermaid configuration. **Single flat object** - every
 /// `mermaid.initialize()` knob (themeVariables, flowchart, sequence,
-/// gantt, look, layout, …) lives at the same level as the dmc-side
-/// rendering knobs (responsiveSvg, centerLabels, outputDir, …). All
+/// gantt, look, layout, ...) lives at the same level as the dmc-side
+/// rendering knobs (responsiveSvg, centerLabels, outputDir, ...). All
 /// fields are typed end-to-end; no `serde_json::Value` catch-all.
 ///
 /// `None` on `CompileConfig.mermaid` means "use built-in defaults"
@@ -609,10 +609,10 @@ pub struct MermaidTreemapConfig {
 #[serde(default, rename_all = "camelCase")]
 pub struct MermaidOptions {
   // dmc render knobs
-  /// Theme spec. Single string (one render → `chartSvg`) or
-  /// `mode -> theme` map (per-mode render → `${mode}Svg` each).
+  /// Theme spec. Single string (one render -> `chartSvg`) or
+  /// `mode -> theme` map (per-mode render -> `${mode}Svg` each).
   /// Always stripped from the mermaid configFile in
-  /// `build_mermaid_config` — it's a dmc-side knob, not a mermaid one.
+  /// `build_mermaid_config` - it's a dmc-side knob, not a mermaid one.
   pub theme: MermaidThemeMode,
   /// `mmdc --backgroundColor`. Default `"transparent"`.
   #[serde(skip_serializing_if = "Option::is_none")]
@@ -677,7 +677,7 @@ pub struct MermaidOptions {
   pub er: Option<MermaidErConfig>,
   #[serde(skip_serializing_if = "Option::is_none")]
   pub pie: Option<MermaidPieConfig>,
-  /// `class` is a Rust keyword — exposed under `class` in JSON via
+  /// `class` is a Rust keyword - exposed under `class` in JSON via
   /// `serde(rename)`.
   #[serde(rename = "class", alias = "classDiagram", skip_serializing_if = "Option::is_none")]
   pub class_diagram: Option<MermaidNodeRendererConfig>,

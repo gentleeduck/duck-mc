@@ -66,7 +66,7 @@ pub fn normalize_label(s: &str) -> String {
 /// case folding. `to_lowercase` matches that for most code points, but
 /// `ß` (U+00DF) folds to `ss` and capital `ẞ` (U+1E9E) lowercases to
 /// `ß` -- so a `[ẞ]` reference fails to match a `[SS]:` definition
-/// unless we explicitly fold `ß` → `ss` here.
+/// unless we explicitly fold `ß` -> `ss` here.
 ///
 /// Broader full-Unicode case folding still needs a dedicated mapping
 /// table or crate; for now the parser keeps the lightweight in-tree

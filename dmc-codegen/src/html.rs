@@ -219,7 +219,7 @@ impl HtmlEmitter {
         }
       },
       Node::TaskListItem(t) => {
-        // HTML5 self-closes void elements implicitly — match remark-gfm's
+        // HTML5 self-closes void elements implicitly - match remark-gfm's
         // emitted markup which writes `<input type="checkbox" ...>` (no `/>`)
         // and follows it with a literal space before the item content.
         let checked = if t.checked { " checked" } else { "" };
@@ -533,7 +533,7 @@ pub fn render_html_with(doc: &Document, options: RenderOptions) -> String {
 
 /// Recognise a JSX expression whose entire body is a single string
 /// literal (single-quoted, double-quoted, or backtick template with no
-/// `${…}` interpolation). MDX authors use these as inline whitespace /
+/// `${...}` interpolation). MDX authors use these as inline whitespace /
 /// inserted text (`{' '}`, `{"x"}`, `` {`y`} ``); they need no JS
 /// runtime, so the HTML emitter can lower them to plain text instead
 /// of dropping + warning. Genuinely dynamic expressions (`{count}`,
@@ -549,7 +549,7 @@ fn string_literal_expression(raw: &str) -> Option<String> {
     return None;
   }
   let inner = &s[1..s.len() - 1];
-  // Reject template literals with interpolation — those need JS to
+  // Reject template literals with interpolation - those need JS to
   // evaluate. `${` must be escaped (`\${`) or absent for the literal
   // to be safe to lower to plain text.
   if q == b'`' {
@@ -566,7 +566,7 @@ fn string_literal_expression(raw: &str) -> Option<String> {
   }
   // Decode the common JS escapes we expect to see in MDX prose:
   // `\n`, `\t`, `\r`, `\\`, `\'`, `\"`, `` \` ``. Anything else is
-  // passed through verbatim — no need for full ECMA-262 escape
+  // passed through verbatim - no need for full ECMA-262 escape
   // semantics here, the result is going straight into HTML text.
   let mut out = String::with_capacity(inner.len());
   let mut chars = inner.chars();

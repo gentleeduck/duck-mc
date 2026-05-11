@@ -145,7 +145,7 @@ impl Transformer for PrettyCode {
       }
       let mode_label = if mode.is_empty() { "default".to_string() } else { mode.clone() };
       let hint = if bundled.is_empty() {
-        "no themes are bundled — run a clean build".to_string()
+        "no themes are bundled - run a clean build".to_string()
       } else {
         format!("bundled themes: {}", bundled.join(", "))
       };
@@ -283,7 +283,7 @@ fn render_code_block(
   {
     return None;
   }
-  // Optional tab→spaces expansion before highlighting. Borrow when off
+  // Optional tab->spaces expansion before highlighting. Borrow when off
   // (the typical case) so we don't clone every block's body.
   let expanded;
   let source: &str = match shape.tab_size {
@@ -303,8 +303,8 @@ fn render_code_block(
     themes.iter().map(|(_, name)| bundle.themes.themes.get(name).and_then(|t| t.settings.background)).collect();
 
   // Pick layout: single tree with `--dmc-{mode}` CSS vars (default,
-  // ~25% faster), or one `<pre>` per theme (velite parity, ~2× nodes).
-  // Single-theme always uses the simple per-theme path — there's only
+  // ~25% faster), or one `<pre>` per theme (velite parity, ~2x nodes).
+  // Single-theme always uses the simple per-theme path - there's only
   // one tree either way.
   let theme_blocks: Vec<Node> = if themes.len() > 1 && shape.multi_theme_strategy == MultiThemeStrategy::CssVars {
     vec![Node::JsxElement(render_css_vars_pre(
@@ -362,7 +362,7 @@ fn render_code_block(
   }
   fragment_children.extend(theme_blocks);
 
-  // Without the fragment wrapper there's no single root to return —
+  // Without the fragment wrapper there's no single root to return -
   // emit a fragment-style `<>` if title is present, else just one
   // synthetic `<div>` wrapping the panes (keeps the AST single-rooted).
   if !shape.fragment_wrapper {
@@ -399,7 +399,7 @@ fn render_theme_pre(
   let mut line_children: Vec<Node> = Vec::with_capacity(lines.len());
   for (line_i, tokens) in lines.iter().enumerate() {
     let line_no = (line_i + 1) as u32;
-    // Coalesce adjacent tokens with identical style — keeps DOM tight.
+    // Coalesce adjacent tokens with identical style - keeps DOM tight.
     let mut runs: Vec<(String, String)> = Vec::with_capacity(tokens.len());
     for tok in tokens.iter() {
       let style = single_theme_token_style(tok, theme_idx, fg_default);
@@ -629,7 +629,7 @@ fn css_vars_token_style(
   foregrounds: &[Option<dmc_highlight::Color>],
 ) -> String {
   use dmc_highlight::HlFontStyle as FontStyle;
-  // Whitespace inherits unconditionally — saves a span attribute on
+  // Whitespace inherits unconditionally - saves a span attribute on
   // most lines (significant share of token count).
   if tok.text.chars().all(|c| c.is_whitespace()) {
     return String::new();
@@ -672,7 +672,7 @@ fn build_pre_style(
   // Solid `background-color` from the primary theme. Consumers that
   // want their own chrome around the `<pre>` (and don't want the
   // theme palette bleeding through) opt out via
-  // `prettyCode.includePreBackground: false` — the per-mode
+  // `prettyCode.includePreBackground: false` - the per-mode
   // `--dmc-{mode}-bg` custom properties below stay either way.
   if include_bg && let Some(bg) = backgrounds.get(default_idx).and_then(|c| *c) {
     parts.push(format!("background-color:#{:02x}{:02x}{:02x}", bg.r, bg.g, bg.b));

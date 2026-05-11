@@ -1,6 +1,6 @@
 # `component-source`
 
-Resolves `<ComponentSource name="…" />` JSX nodes, attaching the raw
+Resolves `<ComponentSource name="..." />` JSX nodes, attaching the raw
 source file content as an attribute so the consumer's
 `<ComponentSource>` runtime renders the example without filesystem
 access at render time.
@@ -24,7 +24,7 @@ similar) attribute that the consumer renders through
 ## Difference vs `code-import`
 
 - [`code-import`](./code-import.md) replaces the JSX with a fenced code
-  block — meant for plain code embedding.
-- `component-source` keeps the JSX wrapper intact — meant for rich
+  block - meant for plain code embedding.
+- `component-source` keeps the JSX wrapper intact - meant for rich
   component-aware previews (Copy button, file tree, multi-file
   switcher).

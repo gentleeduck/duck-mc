@@ -95,13 +95,18 @@ pnpm --filter @gentleduck/md run build
 ## Docs
 
 - [`dmc-docs/`](dmc-docs) - per-crate references, architecture, integration guides
-- [`docs/`](docs) - architecture notes, perf write-ups
+- [`duck-benchmarks/`](duck-benchmarks) - benchmark phases, methodology guide, optimization map
 - [duck-ui website](https://github.com/gentleeduck/duck-ui) - cross-linked intro + benchmarks page
 
 ## Benchmarks
 
-Five recorded phases under [`duck-benchmarks/`](duck-benchmarks).
-Headline: **9.5x velite** at the kitchen-sink workload, **132x** on plain markdown.
+Seven recorded phases under [`duck-benchmarks/`](duck-benchmarks).
+Headline: **~10x velite** at the kitchen-sink workload, **~100x** on plain markdown.
+
+- [`duck-benchmarks/README.md`](duck-benchmarks/README.md) - phase-by-phase log + cross-phase table
+- [`duck-benchmarks/BENCHMARKS.md`](duck-benchmarks/BENCHMARKS.md) - parser microbenchmarks + compile-pipeline numbers
+- [`duck-benchmarks/GUIDE.md`](duck-benchmarks/GUIDE.md) - how to record a new bench phase and tell signal from host noise
+- [`duck-benchmarks/OPTIMIZATIONS.md`](duck-benchmarks/OPTIMIZATIONS.md) - per-crate optimization opportunities + timeline debt (not being worked on; the map if you want to push further)
 
 ## Contributing
 

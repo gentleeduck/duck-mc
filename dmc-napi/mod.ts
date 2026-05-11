@@ -19,14 +19,14 @@ export type { Plugin, Pluggable } from "unified";
 
 /**
  * One unified-style plugin that operates on the mdast tree before dmc
- * parses the document. Tighter than `Pluggable` — strings and nested
+ * parses the document. Tighter than `Pluggable` - strings and nested
  * `PluggableList` are excluded since the preMdx pipeline runs each
  * entry directly, so neither makes sense here.
  *
  * The first generic carries the plugin's options tuple so the
  * `[plugin, options]` form gives TS errors on misspelled / wrong-shape
  * config. We deliberately leave the tree type as the unified default
- * (`any`) — consumer plugins routinely declare their own narrower tree
+ * (`any`) - consumer plugins routinely declare their own narrower tree
  * (e.g. `IUnistTree`) and a stricter tree generic here would reject
  * them via contravariance.
  *
@@ -162,7 +162,7 @@ export interface CollectionConfig<S = unknown> {
 	single?: boolean;
 	/**
 	 * Schema for records in this collection. Always built via the `s`
-	 * helpers (`s.object({...})`, etc) — those return Standard Schema v1
+	 * helpers (`s.object({...})`, etc) - those return Standard Schema v1
 	 * compliant `SchemaBuilder<T>` instances, so downstream tooling can
 	 * read `schema['~standard']['types']['output']` for record types.
 	 */
@@ -183,8 +183,8 @@ export interface OutputOptions {
 }
 
 /**
- * Bundled syntect theme names. Listed for autocomplete/discovery —
- * the trailing `(string & {})` keeps the type open to any other theme
+ * Bundled syntect theme names. Listed for autocomplete/discovery - the
+ * trailing `(string & {})` keeps the type open to any other theme
  * the syntect bundle may add without forcing a type bump.
  */
 export type PrettyCodeBundledTheme =
@@ -246,14 +246,14 @@ export type PrettyCodeTheme = PrettyCodeBundledTheme | PrettyCodeThemeMap;
 
 /**
  * Pretty-code (syntax highlighter) configuration. Every field is
- * optional — `undefined` keeps the bundled default.
+ * optional - `undefined` keeps the bundled default.
  *
  * Output shape mirrors `rehype-pretty-code`:
- * `<div data-rehype-pretty-code-fragment>` → optional `<figcaption>` →
+ * `<div data-rehype-pretty-code-fragment>` -> optional `<figcaption>` ->
  * one `<pre __rawString__ data-language data-theme>` per theme.
  */
 export interface PrettyCodeOptions {
-	/** Theme spec — single string or `{ mode: theme }` map. */
+	/** Theme spec - single string or `{ mode: theme }` map. */
 	theme?: PrettyCodeTheme;
 	/**
 	 * Mode whose colors fill unprefixed `color` / `background-color`.
@@ -264,7 +264,7 @@ export interface PrettyCodeOptions {
 	 * Multi-theme DOM strategy. Default `"css-vars"` (single tree, faster,
 	 * half the AST). Consumer CSS swaps `color` to `var(--dmc-{active})`
 	 * to switch themes. Set to `"split"` for velite parity (one
-	 * `<pre data-theme="…">` per theme).
+	 * `<pre data-theme="...">` per theme).
 	 */
 	multiThemeStrategy?: MultiThemeStrategy;
 	/** Keep `__rawString__` on `<pre>` for Copy button. Default `true`. */
@@ -279,7 +279,7 @@ export interface PrettyCodeOptions {
 	defaultLanguage?: string;
 	/** Unknown langs render as plaintext. Default `true`. */
 	fallbackToPlaintext?: boolean;
-	/** Render `<figcaption>` from `title="…"` meta. Default `true`. */
+	/** Render `<figcaption>` from `title="..."` meta. Default `true`. */
 	renderTitle?: boolean;
 	/** Include `data-language` on `<pre>` + `<code>`. Default `true`. */
 	includeDataLanguage?: boolean;
@@ -581,10 +581,10 @@ export interface MermaidTreemapConfig {
 }
 
 /**
- * Full mermaid render config. Single flat object — every
+ * Full mermaid render config. Single flat object - every
  * `mermaid.initialize()` knob (themeVariables, flowchart, sequence,
- * gantt, look, layout, …) lives at the top level alongside the
- * dmc-side render knobs (responsiveSvg, centerLabels, outputDir, …).
+ * gantt, look, layout, ...) lives at the top level alongside the
+ * dmc-side render knobs (responsiveSvg, centerLabels, outputDir, ...).
  *
  * Every field is optional; an empty object keeps the bundled defaults
  * (light + dark themes, htmlLabels:false, flowchart spacing).
@@ -592,8 +592,8 @@ export interface MermaidTreemapConfig {
 export interface MermaidOptions {
 	// dmc render knobs
 	/**
-	 * Theme spec — single string (one render → `chartSvg` attr) or
-	 * `{ mode: theme }` map (per-mode render → `${mode}Svg` per entry).
+	 * Theme spec - single string (one render -> `chartSvg` attr) or
+	 * `{ mode: theme }` map (per-mode render -> `${mode}Svg` per entry).
 	 * Default `{ light: "default", dark: "dark" }` keeps the historical
 	 * `lightSvg` + `darkSvg` shape.
 	 */
@@ -665,7 +665,7 @@ export interface MermaidOptions {
  * native transformer and routes work through the sidecar.
  *
  * The `(string & {})` tail keeps the union open to plugin names dmc
- * doesn't yet recognise — the sidecar still receives them, they just
+ * doesn't yet recognise - the sidecar still receives them, they just
  * don't toggle a native opt-out.
  */
 export type SidecarPluginName =
@@ -717,7 +717,7 @@ export interface ContentOptions {
 	 *
 	 * Declare anything outside the source `.mdx` itself that your
 	 * preMdx plugins read (registry index JSON, sidebars, generated
-	 * tables, …). Globs are not supported — list concrete file paths
+	 * tables, ...). Globs are not supported - list concrete file paths
 	 * (relative to the build's `cwd` or absolute). Missing files are
 	 * silently skipped so a fresh checkout doesn't error.
 	 *
@@ -788,7 +788,7 @@ export interface DiagnosticReport {
 	severity: "bug" | "error" | "warning" | "help" | "note";
 	/** Human-readable summary line. */
 	message: string;
-	/** Optional follow-up hint (e.g. `bundled themes: …`). */
+	/** Optional follow-up hint (e.g. `bundled themes: ...`). */
 	help?: string;
 	/** First label's source-file path. */
 	file?: string;
@@ -857,7 +857,7 @@ type CbFn = (v: unknown, ctx: TransformCtx) => unknown;
 
 // The callback registry has to survive across separate module instances
 // of `@gentleduck/md`, because module loaders like tsx will load this
-// file twice in the same process — once when the user's config imports
+// file twice in the same process - once when the user's config imports
 // `s` to register transforms, and once when the runner imports `build()`
 // to consume them. Two `new Map()` instances at module top-level would
 // give us two disjoint registries; the schema produced by the config
@@ -922,7 +922,7 @@ export class SchemaBuilder<_T = unknown> {
 	 *
 	 * `validate` is a pass-through: actual validation runs server-side
 	 * inside the napi engine during `build()`. Calling `validate` here
-	 * does not exercise the rust validators — it only satisfies the
+	 * does not exercise the rust validators - it only satisfies the
 	 * standard-schema interface for tools that probe it.
 	 */
 	get '~standard'(): StandardSchemaV1Props<_T, _T> {
@@ -946,7 +946,7 @@ export class SchemaBuilder<_T = unknown> {
 	// Fluent helpers preserve the inferred output `_T` so chains like
 	// `s.string().max(99)` stay typed as `SchemaBuilder<string>` instead
 	// of decaying to `SchemaBuilder<unknown>`. Consumers reading
-	// `data.title` inside `.transform((data) => …)` then see `string`.
+	// `data.title` inside `.transform((data) => ...)` then see `string`.
 	optional(): SchemaBuilder<_T | undefined> {
 		return new SchemaBuilder<_T | undefined>({ kind: "optional", inner: this.toJSON() });
 	}
@@ -1378,9 +1378,9 @@ export function compileMany(sources: string[]): CompileOutput[] {
  * (`<output>/.cache/`):
  *
  *   <output>/.cache/
- *     ├── preprocessed/        (preMdx mirror + per-file manifest)
- *     ├── dmc/                 (native per-file compile records)
- *     └── math.json            (KaTeX/MathML render cache)
+ *     |-- preprocessed/        (preMdx mirror + per-file manifest)
+ *     |-- dmc/                 (native per-file compile records)
+ *     `-- math.json            (KaTeX/MathML render cache)
  *
  * One root means one `.gitignore` entry, one `rm -rf` to nuke
  * everything for a clean rebuild, and no cache files leaking into
@@ -1442,7 +1442,7 @@ async function preprocessMdxIntoMirror(
 			.join("\0"),
 	);
 
-	// User-declared extra inputs — files outside the source `.mdx` whose
+	// User-declared extra inputs - files outside the source `.mdx` whose
 	// content gates the cache (e.g. `__ui_registry__/index.ts` read by
 	// `rehypeComponent`). Missing files contribute the empty hash, so a
 	// fresh checkout doesn't error.
@@ -1511,7 +1511,7 @@ async function preprocessMdxIntoMirror(
 
 		// `remark-frontmatter` preserves YAML/TOML frontmatter as a
 		// dedicated mdast `yaml` / `toml` node so `remark-stringify`
-		// outputs `---\n…\n---` verbatim instead of mangling it into
+		// outputs `---\n...\n---` verbatim instead of mangling it into
 		// a thematic break.
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		let proc: any = unified()
@@ -1527,12 +1527,12 @@ async function preprocessMdxIntoMirror(
 			writeFileSync(mirrorAbs, dedented);
 			next[rel] = { sourceHash, pluginsHash, extraInputsHash };
 		} catch {
-			// Plugin failure → fall back to original source so the
+			// Plugin failure -> fall back to original source so the
 			// build doesn't lose the file. Diagnostics surface via the
 			// usual error reporting once native parse runs.
 			mkdirSync(dirname(mirrorAbs), { recursive: true });
 			writeFileSync(mirrorAbs, source);
-			// Don't cache a fall-back as if it were a successful run —
+			// Don't cache a fall-back as if it were a successful run -
 			// a transient plugin error should be retried next build.
 			delete next[rel];
 		}
@@ -1548,7 +1548,7 @@ async function preprocessMdxIntoMirror(
 			try {
 				rmSync(stale);
 			} catch {
-				// Best-effort: if the file is locked, skip — the next
+				// Best-effort: if the file is locked, skip - the next
 				// successful build will catch it.
 			}
 		}
@@ -1570,7 +1570,7 @@ async function preprocessMdxIntoMirror(
 /**
  * Remove the 2-space indent that `mdast-util-mdx-jsx` injects on flow
  * JSX-element children. We target only the OPEN-CLOSE JSX block shape
- * (e.g. `<Tag …>\n  body\n</Tag>`) so unrelated indentation elsewhere
+ * (e.g. `<Tag ...>\n  body\n</Tag>`) so unrelated indentation elsewhere
  * is untouched. dmc's parser then sees fenced code blocks at column
  * zero relative to the JSX block and recognises them as proper fences.
  */
@@ -1616,8 +1616,8 @@ function dedentJsxFlowChildren(src: string): string {
 		}
 
 		// Match a JSX tag at line start. mdast-mdx-jsx indents children
-		// of every flow JSX element — Capitalised (`<LinkedCard>`) AND
-		// lowercase host tags (`<div>`, `<svg>`, `<p>`) — by 2 spaces
+		// of every flow JSX element - Capitalised (`<LinkedCard>`) AND
+		// lowercase host tags (`<div>`, `<svg>`, `<p>`) - by 2 spaces
 		// per nesting level. The dedent walker has to bump depth on
 		// either, otherwise lowercase wrappers like `<svg>` leave a
 		// 4-space residue on their children, which CommonMark then
@@ -1634,7 +1634,7 @@ function dedentJsxFlowChildren(src: string): string {
 		out[i] = stripUpTo(line, depth * 2);
 		if (openMatch && openMatch[2] !== "/") {
 			const tag = openMatch[1];
-			// `<Tag>…</Tag>` on the same line is balanced — don't bump depth.
+			// `<Tag>...</Tag>` on the same line is balanced - don't bump depth.
 			const balanced = new RegExp(`</${tag}>\\s*$`).test(trimmed);
 			if (!balanced) depth++;
 		}
@@ -1695,9 +1695,9 @@ async function processWithUnified(
 		if (Array.isArray(p)) return proc.use(p[0] as Plugin, p[1]);
 		return proc.use(p);
 	};
-	// `remark-mdx` makes JSX nodes (`<ComponentSource path="…" />`,
-	// `<ComponentPreview name="…" />`, expressions, MDX import/export)
-	// parse as proper mdast JSX — `mdxJsxFlowElement` /
+	// `remark-mdx` makes JSX nodes (`<ComponentSource path="..." />`,
+	// `<ComponentPreview name="..." />`, expressions, MDX import/export)
+	// parse as proper mdast JSX - `mdxJsxFlowElement` /
 	// `mdxJsxTextElement` with `name` + `attributes`. The
 	// `passThrough` option on `remark-rehype` forwards them into hast
 	// untouched so user rehype plugins can visit + mutate them.
@@ -1732,7 +1732,7 @@ async function processWithUnified(
 /**
  * Lower mdxJsxFlowElement / mdxJsxTextElement to plain hast `element`
  * nodes (lowercased tagName + attributes flattened into properties).
- * mdxFlowExpression / mdxTextExpression / mdxjsEsm get dropped — they
+ * mdxFlowExpression / mdxTextExpression / mdxjsEsm get dropped - they
  * only make sense inside an MDX runtime, not in stringified HTML.
  */
 function rehypeMdxJsxToHast() {
