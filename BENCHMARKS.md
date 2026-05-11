@@ -37,6 +37,26 @@ Notes:
 | `parse + render_html` | medium | 2.5543 ms | 40.2 |
 | `parse + render_html` | large | 215.59 ms | 24.3 |
 
+## Full `dmc-core` compile pipeline
+
+`cargo bench -p dmc-core --bench compile` — drives `Compiler::compile`
+(lex → parse → default transform pipeline → HTML + MDX codegen + metadata
+/ TOC / excerpt extraction), plus a parse-only baseline on the same input.
+
+| Benchmark | Input | Time / iter |
+| --- | --- | ---: |
+| `compile fixture` (frontmatter + headings + lists + fenced code, ~260 B) | full pipeline | 121.63 µs |
+| `compile simple` (`# Hello\n\nworld\n`, 15 B) | full pipeline | 5.163 µs |
+| `parse fixture` (same fixture as above) | parse only | 3.079 µs |
+
+So end-to-end compile is ~40× the bare parse on the fixture: the cost is
+the transform-pipeline setup (incl. syntax-highlighter load), the passes
+themselves, and rendering the document twice (HTML + MDX) on top of
+deriving metadata/TOC/excerpt. Throughput at this fixture size is ≈2 MB/s
+for full compile vs ≈85 MB/s for parse-only — for bulk parsing use
+`dmc_parser::parse` directly; `Compiler::compile` is the one-shot
+"render this MDX file" entry point.
+
 ## Claim audit
 
 No `500M tok/s` claim is present in the repo docs, README files, or source comments, so no wording change was needed.
