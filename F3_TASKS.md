@@ -32,10 +32,10 @@ Status legend: `[ ]` pending, `[~]` in progress, `[x]` done.
 
 ## Phase G2 — Fuzzing
 
-- [ ] G2.1 `cargo fuzz init` under `dmc-parser/fuzz`.
-- [ ] G2.2 Targets: `parse`, `parse_with(cm_strict=true)`, `render_html(parse(...))`.
-- [ ] G2.3 Seed corpus from CM + GFM spec examples.
-- [ ] G2.4 Run 24h on each target. Fix any crashes.
+- [x] G2.1 `cargo-fuzz` crate at repo-root `fuzz/` (workspace-excluded). `cargo +nightly fuzz run <target>` works.
+- [x] G2.2 Targets `fuzz_lex` / `fuzz_parse` / `fuzz_parse_strict` / `fuzz_roundtrip` / `fuzz_compile` (the last covers the full `Compiler::compile` pipeline). Non-fuzzer smoke in `dmc-parser/tests/fuzz_smoke.rs`.
+- [x] G2.3 `fuzz/seeds/` = one file per CM 0.31.2 + GFM 0.29 spec example (working corpus / artifacts git-ignored).
+- [x] G2.4 Time-boxed runs (not 24h). Found + fixed: two parser DoS inputs (exponential nested-`[` link-label re-parse; infinite loop on a tab-indented list-item code block) and a `bare-url` transformer slice panic on a `www.`-only run. After fixes, 120s/target with the seed corpus is crash-free.
 
 ## Phase G3 — Refactor
 
