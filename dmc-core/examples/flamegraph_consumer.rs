@@ -39,7 +39,10 @@ use std::time::Instant;
 fn load_corpus() -> (Vec<(String, String)>, &'static str) {
   // (path, kind) - first existing wins.
   let candidates = [
-    ("/run/media/wildduck/duck1/wildduck/@duck/@duck-ui/apps/duck/content/.dmc-cache/preprocessed", "preprocessed mirror"),
+    (
+      "/run/media/wildduck/duck1/wildduck/@duck/@duck-ui/apps/duck/content/.dmc-cache/preprocessed",
+      "preprocessed mirror",
+    ),
     ("../@duck-ui/apps/duck/content/.dmc-cache/preprocessed", "preprocessed mirror"),
     ("../../@duck-ui/apps/duck/content/.dmc-cache/preprocessed", "preprocessed mirror"),
     // Raw-content fallback (no preMdx mirror generated yet).
@@ -96,10 +99,8 @@ fn compile_one(rel: &str, source: &str, pipeline: &Pipeline) {
 }
 
 fn main() {
-  let out_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-    .parent()
-    .unwrap()
-    .join("duck-benchmarks/phase-7-g-hardening/flamegraph");
+  let out_dir =
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).parent().unwrap().join("duck-benchmarks/phase-7-g-hardening/flamegraph");
   fs::create_dir_all(&out_dir).unwrap();
   let svg_path = out_dir.join("duck-ui.svg");
   let txt_path = out_dir.join("duck-ui.txt");
