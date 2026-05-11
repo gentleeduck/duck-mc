@@ -260,6 +260,62 @@ fn options_serde_full_round_trip() {
   assert_eq!(opts.default_mode.as_deref(), Some("light"));
 }
 
+/// Recursively collect every `<span>` element in the subtree.
+fn collect_spans<'a>(el: &'a JsxElement, out: &mut Vec<&'a JsxElement>) {
+  if el.name == "span" {
+    out.push(el);
+  }
+  for c in &el.children {
+    if let Node::JsxElement(child) = c {
+      collect_spans(child, out);
+    }
+  }
+}
+
+/// Recursively count elements by tag name.
+fn count_tag(el: &JsxElement, name: &str) -> usize {
+  let mut n = if el.name == name { 1 } else { 0 };
+  for c in &el.children {
+    if let Node::JsxElement(child) = c {
+      n += count_tag(child, name);
+    }
+  }
+  n
+}
+
+#[test]
+fn classed_emits_span_class_not_inline_style() {
+  let mut d = dmc_parser::parse("```rust\nfn main() {}\n```\n");
+  let pc = PrettyCode::from_options(&PrettyCodeOptions { classed: Some(true), ..Default::default() });
+  Pipeline::new().add(pc).run_silent(&mut d);
+
+  let fragment = first_jsx(&d);
+  // Exactly one <pre> -- no per-theme duplication.
+  assert_eq!(count_tag(fragment, "pre"), 1, "classed: expected exactly one <pre>");
+
+  let pre = theme_divs(fragment).into_iter().next().expect("a <pre>");
+  assert!(
+    matches!(attr(pre, "class"), Some(JsxAttrValue::String(s)) if s == "dmc-pre"),
+    "classed: <pre> should carry class=\"dmc-pre\""
+  );
+
+  let mut spans = Vec::new();
+  collect_spans(fragment, &mut spans);
+  // No span carries an inline `style` attr.
+  for s in &spans {
+    assert!(attr(s, "style").is_none(), "classed: token <span> must not have an inline style attr");
+  }
+  // At least one deepest token span has a `class` of the color-tuple
+  // shape `dmc-<6 hex digits>...` (not the line class).
+  fn is_color_tuple_class(c: &str) -> bool {
+    let Some(rest) = c.strip_prefix("dmc-") else { return false };
+    rest.len() >= 6 && rest.as_bytes()[..6].iter().all(|b| b.is_ascii_hexdigit())
+  }
+  let has_token_class =
+    spans.iter().any(|s| matches!(attr(s, "class"), Some(JsxAttrValue::String(c)) if is_color_tuple_class(c)));
+  assert!(has_token_class, "classed: expected at least one token <span> with a dmc-<hex> class");
+}
+
 #[test]
 fn mermaid_codeblock_is_left_for_other_transformer() {
   let mut d = dmc_parser::parse("```mermaid\ngraph TD; a-->b\n```\n");

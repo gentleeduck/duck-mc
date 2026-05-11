@@ -684,6 +684,7 @@ dependencies = [
  "criterion",
  "dmc-codegen",
  "dmc-diagnostic",
+ "dmc-highlight",
  "dmc-lexer",
  "dmc-parser",
  "dmc-schema",
