@@ -19,6 +19,9 @@ and this project adheres to
 - `dmc-parser`: finished the GFM push from `0/670` to `670/670`.
 - `dmc-parser`: split the block parser into
   `block/{mod,list,blockquote,code,heading,html}.rs`.
+- workspace: tightened clippy + rustdoc hygiene, verified
+  multi-codepoint HTML entity decoding, and documented the remaining
+  Unicode reference-label case-fold approximation.
 
 ### Added
 

@@ -76,8 +76,8 @@ Status legend: `[ ]` pending, `[~]` in progress, `[x]` done.
 ## Phase G8 — Stability
 
 - [ ] G8.1 Run full workspace `cargo +nightly miri test -p dmc-parser`.
-- [ ] G8.2 Run `cargo clippy --workspace --all-targets -- -D warnings`. Fix new warnings.
-- [ ] G8.3 Verify `cargo doc --workspace --no-deps` builds without warnings.
+- [x] G8.2 Run `cargo clippy --workspace --all-targets -- -D warnings`. Fix new warnings.
+- [x] G8.3 Verify `cargo doc --workspace --no-deps` builds without warnings.
 
 ## Stop conditions per phase
 
