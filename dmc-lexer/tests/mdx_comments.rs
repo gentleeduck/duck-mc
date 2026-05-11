@@ -1,6 +1,7 @@
 mod common;
 use common::*;
 use dmc_lexer::token::TokenKind;
+use pretty_assertions::assert_eq;
 
 #[test]
 fn mdx_comment_basic() {
@@ -34,6 +35,38 @@ fn mdx_comment_with_stars_inside() {
 #[test]
 fn unterminated_mdx_comment_does_not_panic() {
   let _ = lex_kinds("{/* never closes\n");
+}
+
+#[test]
+fn mdx_comment_keeps_nested_braces_verbatim() {
+  let pairs = lex_pairs("{/* {x} */}");
+  assert_eq!(
+    pairs,
+    vec![
+      (TokenKind::MdxCommentOpen, "{/*".to_string()),
+      (TokenKind::Text, " {x} ".to_string()),
+      (TokenKind::MdxCommentClose, "*/}".to_string()),
+      (TokenKind::Eof, String::new()),
+    ]
+  );
+}
+
+#[test]
+fn mdx_comment_stays_atomic_inside_text() {
+  let pairs = lex_pairs("before {/* mid */} after");
+  assert_eq!(
+    pairs,
+    vec![
+      (TokenKind::Text, "before".to_string()),
+      (TokenKind::Whitespace(1), " ".to_string()),
+      (TokenKind::MdxCommentOpen, "{/*".to_string()),
+      (TokenKind::Text, " mid ".to_string()),
+      (TokenKind::MdxCommentClose, "*/}".to_string()),
+      (TokenKind::Whitespace(1), " ".to_string()),
+      (TokenKind::Text, "after".to_string()),
+      (TokenKind::Eof, String::new()),
+    ]
+  );
 }
 
 #[test]

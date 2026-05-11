@@ -62,10 +62,12 @@ Status legend: `[ ]` pending, `[~]` in progress, `[x]` done.
 
 ## Phase G6 — MDX completeness
 
-- [ ] G6.1 JSX TS generics: `<Foo<T> />` parsing.
-- [ ] G6.2 JSX comments inside expressions: `{/* comment */}` round-trip tests.
-- [ ] G6.3 ESM `import` / `export` body must lex as JS — at least balanced braces + strings, no markdown inside.
-- [ ] G6.4 MDX 3 expression typing: `{...spread}`, optional-chaining, JSX-in-expr.
+- [~] G6.1 JSX TS generics: `<Foo<T> />` parsing.
+  - Current lexer still misroutes `<Foo<T> />` as text plus nested JSX; widening the JSX path safely needs a more invasive generic/type-arg parser, so this is deferred rather than risking regressions.
+- [x] G6.2 JSX comments inside expressions: `{/* comment */}` round-trip tests.
+- [x] G6.3 ESM `import` / `export` body must lex as JS — at least balanced braces + strings, no markdown inside.
+- [~] G6.4 MDX 3 expression typing: `{...spread}`, optional-chaining, JSX-in-expr.
+  - `{...spread}` already works for JSX attribute spread, but broader MDX 3 expression typing is out of scope for this phase.
 
 ## Phase G7 — Diagnostics
 

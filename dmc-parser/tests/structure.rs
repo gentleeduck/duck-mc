@@ -35,6 +35,30 @@ fn parses_export() {
 }
 
 #[test]
+fn preserves_multiline_import_body_verbatim() {
+  let src = "import {\n  A,\n  B,\n} from \"./{brace}.js\"\n# H\n";
+  let d = parse_doc(src);
+  let imp = d.children.iter().find_map(|n| match n {
+    Node::Import(i) => Some(i),
+    _ => None,
+  });
+  let imp = imp.expect("expected Import node");
+  assert_eq!(imp.raw, "import {\n  A,\n  B,\n} from \"./{brace}.js\"");
+}
+
+#[test]
+fn preserves_export_body_with_markdownish_strings() {
+  let src = "export const z = { text: \"# not heading\", link: \"[x](y)\", braces: \"{}\" }\n# H\n";
+  let d = parse_doc(src);
+  let export = d.children.iter().find_map(|n| match n {
+    Node::Export(e) => Some(e),
+    _ => None,
+  });
+  let export = export.expect("expected Export node");
+  assert_eq!(export.raw, "export const z = { text: \"# not heading\", link: \"[x](y)\", braces: \"{}\" }");
+}
+
+#[test]
 fn frontmatter_then_import_then_heading() {
   let src = "---\ntitle: T\n---\nimport X from 'x'\n# H\n";
   let d = parse_doc(src);
