@@ -26,8 +26,8 @@ Status legend: `[ ]` pending, `[~]` in progress, `[x]` done.
 - [x] G1.1 Add `dmc-parser/benches/parse.rs` using `criterion`.
   - Inputs: small / medium / large MD (1 KB / 100 KB / 5 MB).
   - Compare: `pulldown_cmark::Parser::new`, `markdown::Markdown::parse`, optional `comrak`.
-- [ ] G1.2 Run + record results in `BENCHMARKS.md`.
-- [ ] G1.3 Verify 500M tok/s claim or correct it.
+- [x] G1.2 Run + record results in `BENCHMARKS.md`.
+- [x] G1.3 Verify 500M tok/s claim or correct it.
 - [ ] G1.4 Add `bench-regress.yml` in CI to fail on >10% regression.
 
 ## Phase G2 — Fuzzing
