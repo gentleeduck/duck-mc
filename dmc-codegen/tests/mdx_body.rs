@@ -66,3 +66,28 @@ fn expression_passed_through() {
   let s = body("Hello {name}");
   assert!(s.contains("name"), "got:\n{}", s);
 }
+
+/// Regression: a raw-HTML inline span (`Node::Html`) sitting between
+/// text nodes inside a JSX-element body must NOT leak a stack frame
+/// in the body emitter. Before the fix, `Node::Html` fell through to
+/// the default `_ => open_frame` arm in `enter()`, but `close_frame`
+/// short-circuited via `is_container` (Html is not a container) and
+/// never popped the frame -- so every following sibling, and every
+/// enclosing JSX element, drained into a dropped frame and disappeared
+/// from the output. The production trigger was an `<AccordionContent>`
+/// body containing an inline `<code className="...">x</code>` -- the
+/// entire `<Accordion>` subtree silently vanished from the body.
+#[test]
+fn inline_raw_html_does_not_drop_enclosing_jsx_element() {
+  // UNINDENTED -- mirrors the production preMdx pipeline output.
+  let src = "<Acc>\n<Item>\nNo. <code className=\"x\">react</code>, more.\n</Item>\n</Acc>\n";
+  let s = body(src);
+  // The enclosing JSX call sites must be present.
+  assert!(s.contains("jsx(Acc,") || s.contains("jsxs(Acc,"), "no `jsx(Acc,` in body:\n{}", s);
+  assert!(s.contains("jsx(Item,") || s.contains("jsxs(Item,"), "no `jsx(Item,` in body:\n{}", s);
+  // The inline raw HTML is emitted as a `dangerouslySetInnerHTML` div.
+  assert!(s.contains("dangerouslySetInnerHTML"), "raw HTML not emitted:\n{}", s);
+  // The trailing text after `</code>` survives.
+  assert!(s.contains("\"react\""), "text inside <code> dropped:\n{}", s);
+  assert!(s.contains("\"more.\""), "trailing text dropped:\n{}", s);
+}

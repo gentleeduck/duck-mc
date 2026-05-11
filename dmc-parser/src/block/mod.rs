@@ -158,7 +158,24 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
           | Some(TokenKind::OrderedListMarker(_))
           | Some(TokenKind::BlockQuoteMarker)
       );
-      if next_is_inline {
+      // CM 4.4 indented code blocks do not apply to the children of a
+      // JSX container. An MDX shape like
+      //
+      //   <Outer>
+      //     <Inner attr="...">
+      //       text. <code className="...">x</code> more.
+      //     </Inner>
+      //   </Outer>
+      //
+      // routes every nested-child / inline-paragraph line through
+      // `parse_jsx`'s children loop with a leading `Whitespace(>=4)`
+      // token. Without this guard the fallback would sweep all those
+      // lines into a single indented code block, silently dropping the
+      // inner JSX children from the AST. Real indented code inside a
+      // JSX body still works via fenced code blocks or via the lexer-
+      // classified `Whitespace + IndentedCodeLine` pair (handled by
+      // the dispatcher above).
+      if next_is_inline && self.jsx_open_stack.is_empty() {
         return Some(self.parse_indented_code_fallback());
       }
     }

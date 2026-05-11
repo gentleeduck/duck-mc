@@ -184,6 +184,97 @@ fn tabs_document_parses_with_correct_nesting() {
   }
 }
 
+/// Regression: a nest of PascalCase JSX elements indented 2 / 4 / 6
+/// spaces, carrying inline content with a lowercase HTML tag that
+/// itself has a JSX-style attribute (`<code className="...">x</code>`),
+/// must NOT silently fold its inner JSX children into an indented
+/// `CodeBlock`. The fallback indented-code detection used to fire on
+/// every indented line of a JSX container, swallowing the whole body
+/// (and effectively dropping the inner components from the AST).
+#[test]
+fn lowercase_html_tag_with_jsx_attr_inline_does_not_drop_enclosing_jsx() {
+  let mdx = "# H\n\n<Outer>\n  <Inner attr=\"a\">\n    <InnerInner className=\"b\">\n      No. <code className=\"x\">react</code>, more.\n    </InnerInner>\n  </Inner>\n</Outer>\n";
+  let doc = dmc_parser::parse(mdx);
+  let outer = first_jsx_element(&doc.children, "Outer").expect("<Outer> dropped from the AST");
+  // All three nested JSX elements survive.
+  let inner = first_jsx_element(&outer.children, "Inner").expect("<Inner> missing under <Outer>");
+  let inner_inner = first_jsx_element(&inner.children, "InnerInner").expect("<InnerInner> missing under <Inner>");
+  // The inner body must NOT have collapsed into an indented CodeBlock.
+  fn collect_code_blocks(nodes: &[Node], out: &mut usize) {
+    for n in nodes {
+      if matches!(n, Node::CodeBlock(_)) {
+        *out += 1;
+      }
+      collect_code_blocks(Node::children_of(n), out);
+    }
+  }
+  let mut n_code = 0;
+  collect_code_blocks(&inner_inner.children, &mut n_code);
+  assert_eq!(n_code, 0, "<InnerInner> body should not contain a CodeBlock; got {:#?}", inner_inner.children);
+  // The inline `<code className=\"x\">react</code>` round-trips as raw
+  // HTML (CM 6.6) and carries the attribute / whitespace intact.
+  let mut html_values = Vec::new();
+  fn collect_html(nodes: &[Node], out: &mut Vec<String>) {
+    for n in nodes {
+      if let Node::Html(h) = n {
+        out.push(h.value.clone());
+      }
+      collect_html(Node::children_of(n), out);
+    }
+  }
+  collect_html(&inner_inner.children, &mut html_values);
+  assert!(
+    html_values.iter().any(|v| v == "<code className=\"x\">"),
+    "inline `<code className=...>` should survive as raw HTML; got {:?}",
+    html_values
+  );
+  assert!(
+    html_values.iter().any(|v| v == "</code>"),
+    "inline `</code>` close tag should survive as raw HTML; got {:?}",
+    html_values
+  );
+}
+
+/// Regression (UNINDENTED): the production preMdx pipeline re-serializes
+/// MDX with everything at column 0 -- no indentation inside JSX blocks.
+/// An `<AccordionContent>` whose body paragraph contains an inline
+/// `<code className="...">react</code>` must not drop the enclosing
+/// `<Accordion>` / `<AccordionItem>` / `<AccordionContent>` from the AST.
+#[test]
+fn unindented_lowercase_html_with_jsx_attr_inline_does_not_drop_enclosing_jsx() {
+  let mdx = "# H\n\n<Accordion type=\"multiple\" collapsible className=\"w-full\">\n<AccordionItem value=\"x\">\n<AccordionTrigger>Q?</AccordionTrigger>\n\n<AccordionContent className=\"text-muted-foreground\">\nNo. <code className=\"rounded bg-muted px-2 py-1\">react</code>, more text.\n</AccordionContent>\n</AccordionItem>\n</Accordion>\n";
+  let doc = dmc_parser::parse(mdx);
+  let accordion = first_jsx_element(&doc.children, "Accordion").expect("<Accordion> dropped from the AST");
+  let item =
+    first_jsx_element(&accordion.children, "AccordionItem").expect("<AccordionItem> missing under <Accordion>");
+  let _trigger =
+    first_jsx_element(&item.children, "AccordionTrigger").expect("<AccordionTrigger> missing under <AccordionItem>");
+  let content =
+    first_jsx_element(&item.children, "AccordionContent").expect("<AccordionContent> missing under <AccordionItem>");
+  // The inline `<code className="...">react</code>` round-trips as raw
+  // HTML; the enclosing AccordionContent body still parses.
+  fn collect_html(nodes: &[Node], out: &mut Vec<String>) {
+    for n in nodes {
+      if let Node::Html(h) = n {
+        out.push(h.value.clone());
+      }
+      collect_html(Node::children_of(n), out);
+    }
+  }
+  let mut html_values = Vec::new();
+  collect_html(&content.children, &mut html_values);
+  assert!(
+    html_values.iter().any(|v| v == "<code className=\"rounded bg-muted px-2 py-1\">"),
+    "inline `<code className=...>` should survive as raw HTML; got {:?}",
+    html_values
+  );
+  assert!(
+    html_values.iter().any(|v| v == "</code>"),
+    "inline `</code>` close tag should survive as raw HTML; got {:?}",
+    html_values
+  );
+}
+
 /// No regression: a lowercase `<p>foo</p>` and a bare `</div>` inside a
 /// paragraph still round-trip as raw HTML, not as terminators.
 #[test]

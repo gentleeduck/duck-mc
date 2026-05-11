@@ -71,6 +71,25 @@ impl NodeSink for MdxBodyEmitter {
       },
       Node::JsxExpression(j) => self.push_part(j.value.trim().to_string()),
 
+      // Raw HTML node: emit via `dangerouslySetInnerHTML` (matches the
+      // inline-expr path). Without this explicit arm `Node::Html` would
+      // fall into the `_ => open_frame` default below, but `is_container`
+      // returns false for it -- so `leave`'s `close_frame` would bail
+      // out without popping, leaking the frame and silently dropping
+      // every sibling and ancestor expression that follows. The
+      // production symptom: an `<AccordionContent>` whose body has an
+      // inline `<code className="...">x</code>` (parsed as raw HTML
+      // span) dropped the entire enclosing `<Accordion>` from the
+      // emitted MDX body.
+      Node::Html(h) => {
+        let tag = self.jsx_tag_ref("div");
+        self.push_part(format!(
+          "jsx({}, {{ dangerouslySetInnerHTML: {{ __html: {} }} }})",
+          tag,
+          Self::js_string(&h.value)
+        ));
+      },
+
       Node::Table(t) => {
         let expr = self.table_expr(t);
         self.push_part(expr);
