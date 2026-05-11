@@ -348,4 +348,82 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         | Some(TokenKind::LinkRefDef)
     )
   }
+
+  pub(super) fn try_promote_text_list_marker(&mut self) -> bool {
+    let Some(tok) = self.peek() else {
+      return false;
+    };
+    if !matches!(tok.kind, TokenKind::Text) {
+      return false;
+    }
+    let has_space_after =
+      matches!(self.tokens.get(self.pos + 1).map(|t| &t.kind), Some(TokenKind::Whitespace(w)) if *w > 0);
+    if !has_space_after {
+      return false;
+    }
+    let raw = tok.raw;
+    let kind = match raw {
+      "-" | "*" | "+" => Some(TokenKind::UnorderedListMarker),
+      _ => {
+        let digits_end = raw.find(|c: char| !c.is_ascii_digit()).unwrap_or(raw.len());
+        if digits_end == 0 || digits_end + 1 != raw.len() {
+          None
+        } else {
+          match raw.as_bytes()[digits_end] {
+            b'.' => Some(TokenKind::OrderedListMarker(dmc_lexer::token::OrderedSep::Period)),
+            b')' => Some(TokenKind::OrderedListMarker(dmc_lexer::token::OrderedSep::Paren)),
+            _ => None,
+          }
+        }
+      },
+    };
+    if let Some(kind) = kind {
+      self.tokens[self.pos].kind = kind;
+      true
+    } else {
+      false
+    }
+  }
+
+  pub(super) fn try_continue_same_list_after_blankline(
+    &mut self,
+    ordered: bool,
+    indent: usize,
+    items: &mut Vec<Node>,
+    span: &duck_diagnostic::Span,
+    saw_blank_between_items: &mut bool,
+  ) -> bool {
+    if !matches!(self.peek_kind(), Some(TokenKind::BlankLine)) {
+      return false;
+    }
+    let blank_pos = self.pos;
+    self.advance();
+    let ws_pos = match self.peek_kind() {
+      Some(TokenKind::Whitespace(_)) => Some(self.pos),
+      _ => None,
+    };
+    if ws_pos.is_some() {
+      self.advance();
+    }
+    let next_is_marker = match self.peek_kind() {
+      Some(TokenKind::UnorderedListMarker) if !ordered => true,
+      Some(TokenKind::OrderedListMarker(_)) if ordered => true,
+      _ => false,
+    };
+    let next_indent =
+      if let Some(pos) = ws_pos { self.tokens.get(pos).map(|t| t.raw.chars().count()).unwrap_or(0) } else { 0 };
+    let same_list_indent = if indent > 0 { next_indent == indent } else { next_indent <= 3 };
+    if !next_is_marker || !same_list_indent {
+      self.pos = blank_pos;
+      return false;
+    }
+    if let Some(pos) = ws_pos {
+      self.pos = pos;
+    }
+    *saw_blank_between_items = true;
+    if let Some(last) = items.last_mut() {
+      Self::ensure_loose_item(last, span);
+    }
+    true
+  }
 }
