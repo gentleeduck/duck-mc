@@ -1183,6 +1183,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     let mut diag = duck_diagnostic::DiagnosticEngine::<dmc_diagnostic::Code>::new();
     let mut parser = Parser::new(tokens, self.meta.clone(), &mut diag);
     parser.refs = self.refs.clone();
+    parser.source = self.source;
     parser.collect_inline(&|k| matches!(k, TokenKind::Eof))
   }
 
@@ -1205,6 +1206,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     let mut diag = duck_diagnostic::DiagnosticEngine::<dmc_diagnostic::Code>::new();
     let mut parser = Parser::new(tokens, self.meta.clone(), &mut diag);
     parser.refs = self.refs.clone();
+    parser.source = self.source;
     parser.collect_inline_into(&|k| matches!(k, TokenKind::Eof), out, delims);
   }
 
