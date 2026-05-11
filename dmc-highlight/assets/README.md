@@ -8,23 +8,27 @@ itself ships.
 
 ```
 assets/
-  themes-json/     65  VS Code .json themes (raw shiki output)
-  grammars-json/  253  .tmLanguage.json grammars (raw shiki output)
-  themes/              .tmTheme plist (converted, syntect-loadable)  -- TODO
-  grammars/            .sublime-syntax / .tmLanguage (plist)         -- TODO
-  themes.packdump      serialised SyntaxSet                          -- TODO build.rs
-  grammars.packdump    serialised ThemeSet                           -- TODO build.rs
+  themes-json/      65  VS Code .json themes (raw shiki output, source of truth)
+  grammars-json/   253  .tmLanguage.json grammars (raw shiki output, source of truth)
+  themes-bat/           .tmTheme plist XML  (syntect-loadable; embedded by lib.rs)
+  grammars-sublime/     .sublime-syntax YAML (syntect-loadable; embedded by lib.rs)
 ```
 
-## Conversion gap
+`build.rs` scans `themes-bat/*.tmTheme` and
+`grammars-sublime/*.sublime-syntax` and emits `Theme` / `Grammar`
+enums into `$OUT_DIR/assets_gen.rs`. At runtime `src/lib.rs` embeds
+those two dirs verbatim via `include_dir!`, so the highlighter has no
+filesystem dependency. The `*-json/` dirs are NOT embedded; they are
+the upstream raw form, kept so the syntect-format dirs can be
+regenerated.
 
-`syntect` does **not** read VS Code JSON themes or `.tmLanguage.json`
-grammars natively. It needs `.tmTheme` (plist XML) and `.sublime-syntax`
-(YAML) or `.tmLanguage` (plist XML).
+## Why two formats
 
-The raw JSON is bundled as the upstream source of truth. A `build.rs`
-script (TODO) converts to syntect's accepted formats at build time and
-serialises into `.packdump` files for fast runtime load.
+`syntect` does not read VS Code JSON themes or `.tmLanguage.json`
+grammars. It needs `.tmTheme` (plist XML) and `.sublime-syntax` (YAML)
+or `.tmLanguage` (plist XML). The raw JSON is the upstream source of
+truth; `scripts/convert-shiki-assets.mjs` converts a selected subset
+into the `themes-bat/` + `grammars-sublime/` forms that get bundled.
 
 ## Update workflow
 
@@ -32,8 +36,9 @@ serialises into `.packdump` files for fast runtime load.
 git clone --depth 1 https://github.com/shikijs/textmate-grammars-themes /tmp/shiki-tmt
 rm -rf themes-json grammars-json
 mkdir -p themes-json grammars-json
-cp /tmp/shiki-tmt/packages/tm-themes/themes/*.json   themes-json/
+cp /tmp/shiki-tmt/packages/tm-themes/themes/*.json     themes-json/
 cp /tmp/shiki-tmt/packages/tm-grammars/grammars/*.json grammars-json/
+node ../scripts/convert-shiki-assets.mjs   # refresh themes-bat/ + grammars-sublime/
 ```
 
 ## Licenses
@@ -41,5 +46,5 @@ cp /tmp/shiki-tmt/packages/tm-grammars/grammars/*.json grammars-json/
 Per-file headers retain upstream license info. Grammars draw from many
 upstream sources (VS Code language extensions, Sublime packages, etc),
 mostly MIT/BSD/Apache. Themes are mostly MIT (creator-attributed).
-Verify per-file header before redistributing as a binary blob if
+Verify the per-file header before redistributing as a binary blob if
 licensing matters for your build.

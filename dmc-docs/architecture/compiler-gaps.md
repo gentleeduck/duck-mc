@@ -1,18 +1,24 @@
-# dmc compiler — gaps surfaced by the duck-ui–style example
+# dmc compiler - gaps surfaced by the duck-ui-style example
 
-Side-by-side runs of three apps:
+> Historical note: `examples/nextjs-dmc-full` has since been removed.
+> Part 2 below (and the `bun install` / `bun run content` commands that
+> reference it) is kept as a record of what that run found; it is no
+> longer reproducible as written. Part 1 (`examples/nextjs` vs
+> `examples/nextjs-velite`) still runs.
+
+Side-by-side runs:
 
 | dir | runner | source |
 | --- | --- | --- |
 | `examples/nextjs` | dmc native pipeline | `content/docs/{hello,kitchen-sink}.mdx` |
 | `examples/nextjs-velite` | velite (remark/rehype JS plugins) | same MDX, separate copy |
-| `examples/nextjs-dmc-full` | dmc native, duck-ui–style config | `content/docs/duck-{ui,hooks}/**` |
+| `examples/nextjs-dmc-full` (removed) | dmc native, duck-ui-style config | `content/docs/duck-{ui,hooks}/**` |
 
 Run `bun run content` in each. dmc binaries live at
 `dmc-napi/dmc.linux-x64-gnu.node`; the workspace examples reach it via the
 `@gentleduck/md` package.
 
-## Part 1 — dmc vs velite on the kitchen-sink MDX
+## Part 1 - dmc vs velite on the kitchen-sink MDX
 
 Same source, two compile chains.
 
@@ -24,25 +30,25 @@ Same source, two compile chains.
 | code-block `<figure>` attr | `data-dmc-figure` | `data-rehype-pretty-code-figure` |
 | code-block `<figcaption>` attr | `data-dmc-title` | `data-rehype-pretty-code-title` |
 | `<pre>` per code block | one (dual theme via custom props) | two (light + dark) |
-| `<pre>` style | `background-color:#1e1e2e;--dmc-light-bg:#eff1f5` | `--shiki-light:#…;--shiki-dark:#…;--shiki-light-bg:#…;--shiki-dark-bg:#…` |
-| token span style | `color:#cdd6f4;--dmc-light:#4c4f69` | `--shiki-light:#…;--shiki-dark:#…` |
+| `<pre>` style | `background-color:#1e1e2e;--dmc-light-bg:#eff1f5` | `--shiki-light:#...;--shiki-dark:#...;--shiki-light-bg:#...;--shiki-dark-bg:#...` |
+| token span style | `color:#cdd6f4;--dmc-light:#4c4f69` | `--shiki-light:#...;--shiki-dark:#...` |
 | `<span data-line>` | `data-line` (boolean attr, no value) | `data-line=""` (empty string) |
-| heading anchor | `<a href="#…" title="Link to section">` | `<a href="#…">` (no title) |
+| heading anchor | `<a href="#..." title="Link to section">` | `<a href="#...">` (no title) |
 | heading anchor link text | leading space (`<a> Inline marks</a>`) | tight (`<a>Inline marks</a>`) |
 | task-list `<ul>` class | none | `class="contains-task-list"` (rehype-task-list) |
-| void-tag close style | `<input … />`, `<img … />` (XHTML self-close) | `<input …>`, `<img …>` (HTML5) |
-| math | inline `<math>…</math>` (browser MathML) | `<span class="katex">…</span>` (KaTeX HTML; needs CDN CSS) |
+| void-tag close style | `<input ... />`, `<img ... />` (XHTML self-close) | `<input ...>`, `<img ...>` (HTML5) |
+| math | inline `<math>...</math>` (browser MathML) | `<span class="katex">...</span>` (KaTeX HTML; needs CDN CSS) |
 
 Tag counts otherwise match (h1/h2/h3, p, code, ul/ol/li, table/tr/td, blockquote,
 strong/em/del, hr, figure, pre, math/mrow/mi/mo/msup/mn). Span counts: dmc
-710 vs velite 672 — dmc emits an extra wrapping span per highlighted line
+710 vs velite 672 - dmc emits an extra wrapping span per highlighted line
 because each token carries its own `--dmc-light` custom property, while
 shiki coalesces same-color runs.
 
 ### `data-theme` value
 
 - dmc: `dark:Catppuccin Mocha light:Catppuccin Latte` (single string,
-  custom property–driven theme switch)
+  custom property-driven theme switch)
 - velite: `catppuccin-latte catppuccin-mocha` (space-separated; one `<pre>`
   per theme is rendered with a sibling block, CSS toggles by `[data-theme]`)
 
@@ -54,18 +60,18 @@ hr, GFM strikethrough, autolinks, and emoji, the two pipelines produce
 all in the code-highlighting envelope, the math envelope, and trivial
 HTML-vs-XHTML self-close style.
 
-## Part 2 — dmc on a duck-ui–style example (`nextjs-dmc-full`)
+## Part 2 - dmc on a duck-ui-style example (`nextjs-dmc-full`)
 
 Goal: stress the surfaces real component-library docs depend on.
 
 What was exercised:
 
-- multi-line JSX attribute lists (`<ComponentPreview\n  name="…"\n  />`)
-- block JSX with markdown children (`<Tabs>\n\n<TabsList>…</TabsList>\n\n…\n</Tabs>`)
+- multi-line JSX attribute lists (`<ComponentPreview\n  name="..."\n  />`)
+- block JSX with markdown children (`<Tabs>\n\n<TabsList>...</TabsList>\n\n...\n</Tabs>`)
 - backtick template literal in JSX expression
-  (`<MermaidDiagram chart={\`graph TD\n…\n\`} />`)
+  (`<MermaidDiagram chart={\`graph TD\n...\n\`} />`)
 - nested JSX in attribute value (`icon={<Zap />}`)
-- compound components (`<Steps><Step>…</Step></Steps>`)
+- compound components (`<Steps><Step>...</Step></Steps>`)
 - per-package collections (`duckUi`, `duckHooks`)
 - `s.transform()` projection on `s.object()` schema
 
@@ -75,7 +81,7 @@ What now compiles cleanly (was broken before this round):
   `\n` between attrs (new `skip_jsx_tag_ws`).
 - backtick template literals in JSX expressions. Both
   `lex_jsx_attr_expr` and `lex_expression` now track an in-quote /
-  in-template state, so `}` and `\n` inside `` `…` ``, `"…"`, `'…'`
+  in-template state, so `}` and `\n` inside `` `...` ``, `"..."`, `'...'`
   do not prematurely close the expression.
 - nested JSX inside an attribute value. dmc-codegen's `jsx_props` now
   re-runs `dmc_parser::parse_inline_str` on any expression whose
@@ -95,8 +101,8 @@ What now compiles cleanly (was broken before this round):
    Emitted:
    ```js
    jsxs(TabsList, { children: [
-     jsxs("p", { children: ["  ", jsxs(TabsTrigger, …) ] }), // ← extra <p>
-     jsxs("p", { children: ["  ", jsxs(TabsTrigger, …) ] }),
+     jsxs("p", { children: ["  ", jsxs(TabsTrigger, ...) ] }), // <- extra <p>
+     jsxs("p", { children: ["  ", jsxs(TabsTrigger, ...) ] }),
    ]})
    ```
    The leading two spaces on each child line are kept as a Text node and
@@ -126,9 +132,9 @@ What now compiles cleanly (was broken before this round):
    ```
    `yarn run` / `pnpm run` are not equivalent to `npx`. The native
    `pm-tabs` transformer should either:
-   (a) only fire for `npm install …` / `npm i …` style commands, not
+   (a) only fire for `npm install ...` / `npm i ...` style commands, not
        arbitrary `npx` invocations, or
-   (b) translate `npx` → `yarn dlx` / `pnpm dlx` / `bunx`, not `… run`.
+   (b) translate `npx` -> `yarn dlx` / `pnpm dlx` / `bunx`, not `... run`.
    File: `dmc-transform/src/pm_tabs.rs` (or wherever `PackageManagerTabs`
    synthesis lives).
 
@@ -145,7 +151,7 @@ What now compiles cleanly (was broken before this round):
      jsxs("td", { children: [jsx("code", { children: "type" })] }),
      jsxs("td", { children: [jsx("code", { children: "\"single\" \\" })] }),
      jsxs("td", { children: ["\"multiple\"", jsx("code", { children: "" })] }),
-     // ← columns 3+4+5 are now misaligned; "\"single\"" was supposed to be
+     // <- columns 3+4+5 are now misaligned; "\"single\"" was supposed to be
      //   a single Type cell containing "single" \| "multiple"
    ]})
    ```
@@ -156,11 +162,11 @@ What now compiles cleanly (was broken before this round):
 
 4. **Square brackets inside table cells get parsed as link syntax**.
    Source: `| `string \| string[]` | `-` |`
-   Emitted contains `jsxs("a", { href: "", children: [""] })` — an
+   Emitted contains `jsxs("a", { href: "", children: [""] })` - an
    empty `<a>`. The cell-inline parser ran the link-detector across
    the cell text and matched `string[]` as a link reference with no
    target. Fix: the `[` / `]` link path should require a following
-   `(…)` or `[…]` reference; bare `[…]` should remain text. Likely
+   `(...)` or `[...]` reference; bare `[...]` should remain text. Likely
    already correct in the inline parser but the table cell path uses
    a slightly different inline path that mis-fires here.
    File: `dmc-parser/src/inline.rs` (link rule reused by table cells).
@@ -168,18 +174,18 @@ What now compiles cleanly (was broken before this round):
 5. **`<` followed by uppercase inside a code span string still emits as
    raw JSX in some edge cases**.
    Source: `React.HTMLProps<HTMLDivElement>` inside an inline `\``-fenced
-   span renders fine — the inline-code path treats it as text and the
+   span renders fine - the inline-code path treats it as text and the
    codegen wraps it in `js_string`. **No regression here**, but worth a
-   regression test: `<Btn` immediately after `\``…`\`` with no whitespace
+   regression test: `<Btn` immediately after `\``...`\`` with no whitespace
    has historically been a confusion point.
 
 6. **Schema strictness diverges from velite**.
-   velite's `s.object({…}).transform(…)` returns *only* the fields you
+   velite's `s.object({...}).transform(...)` returns *only* the fields you
    declared (plus what `transform` adds). dmc returns those fields plus
    the engine's default fields (`body`, `content`, `contentType`,
    `excerpt`, `flattenedPath`, `html`, `metadata`, `sourceFileDir`,
-   `sourceFileName`, `sourceFilePath`, `toc`). Either intentional —
-   dmc surfaces more by default — or a strict-mode flag should opt
+   `sourceFileName`, `sourceFilePath`, `toc`). Either intentional - dmc
+   surfaces more by default - or a strict-mode flag should opt
    out of the engine default fields when the user has supplied a
    schema. File: `dmc-core/src/collection.rs`.
 
@@ -193,13 +199,13 @@ What now compiles cleanly (was broken before this round):
 
 ### Things that work cleanly (verified)
 
-- multi-line JSX attribute lists → attrs round-trip as expected.
-- backtick template literal in JSX expression → preserved verbatim.
-- nested JSX in attribute value → compiled.
-- multi-line block JSX `<Tabs>…</Tabs>` with embedded markdown
-  (headings, code fences, paragraphs) → children are real AST nodes
+- multi-line JSX attribute lists -> attrs round-trip as expected.
+- backtick template literal in JSX expression -> preserved verbatim.
+- nested JSX in attribute value -> compiled.
+- multi-line block JSX `<Tabs>...</Tabs>` with embedded markdown
+  (headings, code fences, paragraphs) -> children are real AST nodes
   and the wrapping JSX call is shaped correctly.
-- per-package collections + `s.transform` → both `DuckUi.json` and
+- per-package collections + `s.transform` -> both `DuckUi.json` and
   `DuckHooks.json` emit, with `slug` / `permalink` derived from the
   source path via the transform.
 - frontmatter typing reaches the emitted `index.d.ts` via
@@ -216,7 +222,7 @@ bun run --cwd dmc-napi build
 (cd examples/nextjs && bun run content)
 (cd examples/nextjs-velite && bun run content)
 
-# duck-ui–style stress test
+# duck-ui-style stress test
 (cd examples/nextjs-dmc-full && bun install && bun run content)
 
 # diff the two kitchen-sink HTMLs
