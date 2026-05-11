@@ -59,7 +59,7 @@ Status legend: `[ ]` pending, `[~]` in progress, `[x]` done.
 - [x] G5.1 Replace `htmlentity` crate or build full HTML5 entity table (covers `&ngE;` etc with multi-codepoint output).
 - [~] G5.2 Replace approximate Unicode case-fold (`ẞ → ss`) with `icu_normalizer` or `unicode-case-mapping` crate.
   - Left the in-tree approximation in place; current code documents the limitation and keeps the CommonMark-critical `ß` / `ẞ` behavior covered.
-- [ ] G5.3 Replace approximate Unicode punctuation table with proper general-category lookup.
+- [x] G5.3 Replace approximate Unicode punctuation table with proper general-category lookup — DONE: `is_unicode_punct` now uses the `unicode-general-category` crate (P* + S* categories), exact CM 6.4 classification.
 
 ## Phase G6 — MDX completeness
 
