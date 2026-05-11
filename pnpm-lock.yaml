@@ -174,37 +174,6 @@ importers:
         specifier: ^6
         version: 6.0.3
 
-  examples/nextjs-dmc-full:
-    dependencies:
-      '@gentleduck/md':
-        specifier: file:../../dmc-napi
-        version: link:../../dmc-napi
-      next:
-        specifier: ^16
-        version: 16.2.4(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
-      react:
-        specifier: ^19
-        version: 19.2.5
-      react-dom:
-        specifier: ^19
-        version: 19.2.5(react@19.2.5)
-    devDependencies:
-      '@types/node':
-        specifier: ^25
-        version: 25.6.0
-      '@types/react':
-        specifier: ^19
-        version: 19.2.14
-      '@types/react-dom':
-        specifier: ^19
-        version: 19.2.3(@types/react@19.2.14)
-      tsx:
-        specifier: ^4
-        version: 4.21.0
-      typescript:
-        specifier: ^6
-        version: 6.0.3
-
   examples/nextjs-velite:
     dependencies:
       next:
