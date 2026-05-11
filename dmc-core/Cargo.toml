@@ -58,10 +58,15 @@ predicates.workspace = true
 insta.workspace = true
 criterion.workspace = true
 plotters.workspace = true
+
 # `pprof` runs in-process via `setitimer(ITIMER_PROF)` - no kernel
 # `perf_event_open` access needed, which is what `samply` / `cargo
 # flamegraph` require but `perf_event_paranoid=2` blocks. Lets the
 # `flamegraph` example produce a real folded-stack SVG without sudo.
+# Unix-only: pprof's signal sampler relies on `nix` / POSIX `libc`, so it
+# does not build on Windows. The `flamegraph*` examples compile to a stub
+# `main` there.
+[target.'cfg(unix)'.dev-dependencies]
 pprof = { version = "0.14", features = ["flamegraph"] }
 
 [[bench]]
