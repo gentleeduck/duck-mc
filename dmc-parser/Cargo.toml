@@ -24,7 +24,11 @@ unicode-general-category = "1.1.0"
 
 [dev-dependencies]
 pretty_assertions.workspace = true
-dmc-codegen = { version = "0.2.3", path = "../dmc-codegen" }
+# Path-only (no `version =`): used only by the in-workspace spec-suite
+# tests. Keeping a version req here would form a publish cycle with
+# `dmc-codegen` (which has a normal dep on `dmc-parser`); cargo strips a
+# path-only dev-dep from the published manifest, which breaks the cycle.
+dmc-codegen = { path = "../dmc-codegen" }
 criterion.workspace = true
 
 [[bin]]
