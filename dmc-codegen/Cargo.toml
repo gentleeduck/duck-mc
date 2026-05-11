@@ -13,7 +13,7 @@ description = "HTML and MDX body emitters for the dmc compiler"
 readme = "README.md"
 
 [dependencies]
-dmc-parser = { version = "0.2.2", path = "../dmc-parser" }
+dmc-parser = { version = "0.2.3", path = "../dmc-parser" }
 dmc-diagnostic = { workspace = true, features = ["codegen"] }
 duck-diagnostic.workspace = true
 
@@ -30,12 +30,12 @@ default = ["bin"]
 bin = ["dep:dmc-lexer", "dep:dmc-transform", "dep:serde_json"]
 
 [dependencies.dmc-lexer]
-version = "0.2.2"
+version = "0.2.3"
 path = "../dmc-lexer"
 optional = true
 
 [dependencies.dmc-transform]
-version = "0.2.2"
+version = "0.2.3"
 path = "../dmc-transform"
 optional = true
 
