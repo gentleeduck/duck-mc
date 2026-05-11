@@ -23,6 +23,32 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     name_tok.raw.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
   }
 
+  /// True when the cursor is at a `JsxCloseTagStart` whose tag name
+  /// matches one of the JSX elements currently being parsed (see
+  /// `Parser::jsx_open_stack`). Such a close tag belongs to an enclosing
+  /// `parse_jsx` frame, so inline / block collection must stop and leave
+  /// the close-tag tokens for that frame's children loop rather than
+  /// emitting them as literal text. Lowercase HTML close tags never
+  /// match because lowercase tags never enter the stack.
+  pub(crate) fn jsx_close_tag_closes_enclosing(&self) -> bool {
+    if self.jsx_open_stack.is_empty() {
+      return false;
+    }
+    let Some(open) = self.tokens.get(self.pos) else {
+      return false;
+    };
+    if !matches!(open.kind, TokenKind::JsxCloseTagStart) {
+      return false;
+    }
+    let Some(name_tok) = self.tokens.get(self.pos + 1) else {
+      return false;
+    };
+    if !matches!(name_tok.kind, TokenKind::JsxTagName) {
+      return false;
+    }
+    self.jsx_open_stack.iter().any(|n| n == name_tok.raw)
+  }
+
   pub(crate) fn is_htmlish_jsx_tag(&self) -> bool {
     let Some(open) = self.tokens.get(self.pos) else {
       return false;
@@ -186,6 +212,14 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       },
     }
 
+    // Track this element on the open-tag stack so child inline / block
+    // collection knows that a `</name>` close tag belongs to us and must
+    // not be swallowed as literal text. Fragments use a distinct close
+    // token (`JsxFragmentClose`), so only named elements push here.
+    if !name.is_empty() {
+      self.jsx_open_stack.push(name.clone());
+    }
+
     let mut children = Vec::new();
     loop {
       match self.peek_kind() {
@@ -212,6 +246,10 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
           }
         },
       }
+    }
+
+    if !name.is_empty() {
+      self.jsx_open_stack.pop();
     }
 
     let children = unwrap_jsx_only_paragraphs(children);

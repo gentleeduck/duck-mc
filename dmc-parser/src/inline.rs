@@ -518,6 +518,14 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       if stop(&kind) {
         break;
       }
+      // A `</name>` close tag for a JSX element we are currently inside
+      // belongs to that enclosing `parse_jsx` frame; stop here and leave
+      // the close-tag tokens for its children loop instead of emitting
+      // them as literal `</`, name, `>` text. (Stray / non-matching
+      // close tags still fall through to the dispatch below.)
+      if matches!(kind, TokenKind::JsxCloseTagStart) && self.jsx_close_tag_closes_enclosing() {
+        break;
+      }
 
       let span = t.span.clone();
       match &kind {

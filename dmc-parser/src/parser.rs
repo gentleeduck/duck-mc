@@ -49,6 +49,15 @@ pub struct Parser<'eng, 'tokens> {
   /// (CM forbids links inside link text), so this only bounds adversarial
   /// `[[[[[...` input.
   pub link_label_depth: u16,
+  /// Names of the JSX elements currently being parsed (outermost first).
+  /// `parse_jsx` pushes the open-tag name before walking the element's
+  /// children and pops it afterwards. Inline / block collection consults
+  /// this stack so a `JsxCloseTagStart` that closes an *enclosing* JSX
+  /// element terminates the run instead of being emitted as literal
+  /// `</`, tag-name, `>` text. Empty at top level; lowercase HTML tags
+  /// never enter here (they route through the CM raw-HTML path), so the
+  /// stack only ever holds MDX component names.
+  pub jsx_open_stack: Vec<String>,
 }
 
 /// Maximum `[...]` link-label nesting before `[` is treated as literal.
@@ -75,6 +84,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       options: ParseOptions::default(),
       source: None,
       link_label_depth: 0,
+      jsx_open_stack: Vec::new(),
     }
   }
 
@@ -85,7 +95,17 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     diag_engine: &'eng mut DiagnosticEngine<Code>,
     options: ParseOptions,
   ) -> Self {
-    Self { tokens, meta, pos: 0, refs: RefMap::new(), diag_engine, options, source: None, link_label_depth: 0 }
+    Self {
+      tokens,
+      meta,
+      pos: 0,
+      refs: RefMap::new(),
+      diag_engine,
+      options,
+      source: None,
+      link_label_depth: 0,
+      jsx_open_stack: Vec::new(),
+    }
   }
 
   /// Attach the original source string so verbatim-slice reconstruction
