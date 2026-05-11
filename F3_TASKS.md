@@ -13,7 +13,13 @@ Status legend: `[ ]` pending, `[~]` in progress, `[x]` done.
   - Baseline file: `dmc-parser/tests/fixtures/gfm_baseline.txt`.
   - Initial baseline: 0; bump on first run.
 - [x] F4.3 Triage GFM failures by section (tables / strike / tasklists / autolinks / footnotes / disallowed-raw-HTML).
-- [x] F4.4 Push GFM baseline ≥95% — DONE: **656/670 (97.9%)**. Remaining 14 = spec-version (CM 0.29 vs 0.31 emphasis), email autolinks (needs new lexer arm), strike-across-blank, raw-HTML disallow on inline Html (needs codegen flag).
+- [x] F4.4 Push GFM baseline ≥95% — DONE: **670/670 (100%)**.
+  - Email autolink extension (`a@b.c` → `mailto:`), incl. `_`-token spanning local-part.
+  - Strikethrough doesn't pair across blank lines.
+  - GFM tagfilter / disallowed raw HTML via `RenderOptions { gfm_disallowed_raw_html }`.
+  - Legacy GFM-0.29 emphasis via `ParseOptions { legacy_gfm_emphasis }` (flattens redundant nested `<strong>`/`<em>` without changing CM 0.31.2 behavior).
+  - GFM tables: missing outer pipes, header/separator col-count match, row pad/truncate, blank-line stop, no-pipe continuation rows.
+  - Newline-separated table tags to match GFM reference HTML layout.
 
 ## Phase G1 — Bench
 
