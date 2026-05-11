@@ -66,7 +66,16 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     meta: Arc<SourceMeta>,
     diag_engine: &'eng mut DiagnosticEngine<Code>,
   ) -> Self {
-    Self { tokens, meta, pos: 0, refs: RefMap::new(), diag_engine, options: ParseOptions::default(), source: None, link_label_depth: 0 }
+    Self {
+      tokens,
+      meta,
+      pos: 0,
+      refs: RefMap::new(),
+      diag_engine,
+      options: ParseOptions::default(),
+      source: None,
+      link_label_depth: 0,
+    }
   }
 
   /// Build a parser with explicit `ParseOptions`.

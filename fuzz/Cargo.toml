@@ -7,20 +7,14 @@ edition = "2024"
 [package.metadata]
 cargo-fuzz = true
 
-[features]
-default = []
-# Parse + compile fuzz targets currently blocked on dmc-parser API drift.
-# Re-enable with `--features parse` once the parser is migrated to the new
-# token enum.
-parse = ["dep:dmc-parser", "dep:dmc-core"]
-
 [dependencies]
 libfuzzer-sys = "0.4"
 dmc-lexer = { path = "../dmc-lexer" }
+dmc-parser = { path = "../dmc-parser" }
+dmc-codegen = { path = "../dmc-codegen" }
+dmc-core = { path = "../dmc-core" }
 dmc-diagnostic = { path = "../dmc-diagnostic", features = ["lexer"] }
 duck-diagnostic = "0.7.1"
-dmc-parser = { path = "../dmc-parser", optional = true }
-dmc-core = { path = "../dmc-core", optional = true }
 
 [[bin]]
 name = "fuzz_lex"
@@ -35,7 +29,20 @@ path = "fuzz_targets/fuzz_parse.rs"
 test = false
 doc = false
 bench = false
-required-features = ["parse"]
+
+[[bin]]
+name = "fuzz_parse_strict"
+path = "fuzz_targets/fuzz_parse_strict.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_roundtrip"
+path = "fuzz_targets/fuzz_roundtrip.rs"
+test = false
+doc = false
+bench = false
 
 [[bin]]
 name = "fuzz_compile"
@@ -43,4 +50,3 @@ path = "fuzz_targets/fuzz_compile.rs"
 test = false
 doc = false
 bench = false
-required-features = ["parse"]
