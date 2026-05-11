@@ -1,0 +1,58 @@
+name: Bench regression
+
+# Runs the dmc-parser criterion benchmarks and compares against the
+# committed baseline. Fails the build if any benchmark regresses by
+# more than 10%. Runs on PRs that touch the parser/lexer/codegen so
+# unrelated PRs aren't slowed by a full bench cycle.
+
+on:
+  pull_request:
+    paths:
+      - "dmc-lexer/**"
+      - "dmc-parser/**"
+      - "dmc-codegen/**"
+      - "dmc-transform/**"
+      - ".github/workflows/bench-regress.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  bench:
+    name: cargo bench (parser)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install critcmp
+        run: cargo install critcmp --locked
+
+      # Save the PR-branch numbers under the `pr` name.
+      - name: Bench PR branch
+        run: cargo bench -p dmc-parser --bench parse -- --save-baseline pr
+
+      # Check out the merge base and bench it under `base`.
+      - name: Bench base branch
+        run: |
+          git fetch origin ${{ github.event.pull_request.base.sha }} --depth=1
+          git checkout ${{ github.event.pull_request.base.sha }}
+          cargo bench -p dmc-parser --bench parse -- --save-baseline base
+          git checkout -
+
+      # Fail if any benchmark is >10% slower on the PR branch.
+      - name: Compare
+        run: |
+          critcmp base pr
+          critcmp base pr --threshold 10 --fail-on-regression
