@@ -31,7 +31,7 @@ ms). S1 alone misses the <=800 ms gate; remaining 720 ms is split
 across the surviving JS plugins (math + katex + emoji + slug +
 autolink). S2 + S8 + S9 are the next levers.
 
-The `sidecar+pretty-code` row is now mis-named: with native enabled and
+The `sidecar+pretty-code` row is now misnamed: with native enabled and
 no other plugins, the gate skips the sidecar entirely. The 529 ms is
 native compile + native syntect highlighting, no Node round-trip. So
 that variant is already at the floor for "highlighter + nothing else."

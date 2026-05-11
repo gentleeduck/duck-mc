@@ -17,6 +17,11 @@ extend-exclude = [
   "duck-benchmarks/**/*.svg",
   "dmc-highlight/assets/",
   "*.svg",
+  # CommonMark / GFM spec suites and fuzz corpus: byte-exact test data,
+  # the "misspellings" are part of the cases.
+  "dmc-parser/tests/fixtures/",
+  "fuzz/seeds/",
+  "fuzz/corpus/",
 ]
 
 [default]

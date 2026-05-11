@@ -214,7 +214,7 @@ impl Mermaid {
   }
 
   /// Apply optional SVG post-processing: responsive width, centered
-  /// labels. Both default-on; togglable via `MermaidOptions`.
+  /// labels. Both default-on; toggleable via `MermaidOptions`.
   fn post_process(&self, svg: &str) -> String {
     let mut out = svg.to_string();
     if self.opts.responsive_svg.unwrap_or(true) {

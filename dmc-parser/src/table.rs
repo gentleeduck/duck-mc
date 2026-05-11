@@ -189,8 +189,8 @@ fn parse_alignment_row(s: &str) -> Option<Vec<TableAlign>> {
 /// Pipes inside an inline-code span (`` ` `` ... `` ` ``) and pipes
 /// escaped with `\|` are *content*, not delimiters. GFM's table grammar
 /// requires this; without it, a row like
-/// `` | `"single" \| "multiple"` | `"single"` | `` is mis-split into
-/// three cells. Track the escape and code-span state while walking the
+/// `` | `"single" \| "multiple"` | `"single"` | `` is split into the
+/// wrong three cells. Track the escape and code-span state while walking the
 /// row.
 fn split_cells(s: &str) -> Vec<String> {
   let t = s.trim();

@@ -168,7 +168,7 @@ What now compiles cleanly (was broken before this round):
    target. Fix: the `[` / `]` link path should require a following
    `(...)` or `[...]` reference; bare `[...]` should remain text. Likely
    already correct in the inline parser but the table cell path uses
-   a slightly different inline path that mis-fires here.
+   a slightly different inline path that misfires here.
    File: `dmc-parser/src/inline.rs` (link rule reused by table cells).
 
 5. **`<` followed by uppercase inside a code span string still emits as
