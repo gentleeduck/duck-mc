@@ -157,8 +157,11 @@ impl Apply {
       let raw = &after[..url_end];
       let (url, trailing_punct) = trim_trailing(raw);
       // GFM: `www.` autolinks require a `.` in the body after the prefix
-      // (the prefix itself ends with `.`).
-      if prefix == "www." && !url[prefix.len()..].contains('.') {
+      // (the prefix itself ends with `.`). `trim_trailing` can shave the
+      // body down to (or below) the prefix length -- eg `www.` alone, or
+      // `www.` followed only by trailing punctuation -- so look up the
+      // body fallibly instead of slicing `url[prefix.len()..]` blindly.
+      if prefix == "www." && !url.get(prefix.len()..).is_some_and(|body| body.contains('.')) {
         out.push(Piece::Text(format!("{}{}", before, prefix)));
         rest = &after[prefix.len()..];
         continue;
