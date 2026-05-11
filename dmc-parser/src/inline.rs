@@ -151,11 +151,6 @@ fn is_unicode_punct(c: char) -> bool {
   )
 }
 
-/// Strip lexer-emitted inline markers (`*`, `_`, backticks) from a
-/// raw text run so image alt text renders as plain text per CM 6.3.
-fn strip_inline_markers(s: &str) -> String {
-  s.chars().filter(|c| !matches!(c, '*' | '_' | '`')).collect()
-}
 
 /// Flatten an inline node into a label string that preserves emphasis
 /// markers and link / image bracketing -- used to reconstruct the
@@ -327,10 +322,7 @@ fn split_email_autolinks(s: &str, span: &duck_diagnostic::Span) -> Option<Vec<No
   let mut i = 0;
   let flush_text = |text: &mut String, out: &mut Vec<Node>| {
     if !text.is_empty() {
-      out.push(Node::Text(Text {
-        value: Parser::unescape_markdown(text),
-        span: span.clone(),
-      }));
+      out.push(Node::Text(Text { value: Parser::unescape_markdown(text), span: span.clone() }));
       text.clear();
     }
   };

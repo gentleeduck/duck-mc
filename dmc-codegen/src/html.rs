@@ -472,39 +472,6 @@ fn is_disallowed_raw_html(name: &str) -> bool {
   )
 }
 
-/// Walk a raw-HTML string and escape the leading `<` of any tag whose
-/// name matches the GFM disallowed-raw-HTML set.
-fn escape_disallowed_raw_html(s: &str) -> String {
-  let bytes = s.as_bytes();
-  let mut out = String::with_capacity(s.len());
-  let mut i = 0;
-  while i < bytes.len() {
-    if bytes[i] == b'<' {
-      let close = bytes.get(i + 1).copied() == Some(b'/');
-      let name_start = if close { i + 2 } else { i + 1 };
-      let mut j = name_start;
-      while j < bytes.len() && (bytes[j].is_ascii_alphanumeric() || bytes[j] == b'-') {
-        j += 1;
-      }
-      if j > name_start {
-        let name = std::str::from_utf8(&bytes[name_start..j]).unwrap_or("");
-        if is_disallowed_raw_html(name) {
-          out.push_str("&lt;");
-          if close {
-            out.push('/');
-          }
-          out.push_str(name);
-          i = j;
-          continue;
-        }
-      }
-    }
-    out.push(bytes[i] as char);
-    i += 1;
-  }
-  out
-}
-
 pub fn render_html(doc: &Document) -> String {
   let mut e = HtmlEmitter::new();
   Walker::new(doc).walk(&mut [&mut e]);
