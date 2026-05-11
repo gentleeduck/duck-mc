@@ -44,16 +44,6 @@ impl Engine {
       }
     }
 
-    // Class-based pretty-code accumulates token classes in a
-    // process-global registry; clear it so watch-mode rebuilds don't
-    // carry stale classes from a previous run into the emitted CSS.
-    #[cfg(feature = "pretty-code")]
-    if let Some(pc) = &cfg.compile.pretty_code
-      && pc.classed == Some(true)
-    {
-      dmc_highlight::reset_token_classes();
-    }
-
     std::fs::create_dir_all(&cfg.output_dir).map_err(|e| {
       diag!(
         Code::Custom { code: String::from("N001"), severity: duck_diagnostic::Severity::Note },
@@ -81,33 +71,6 @@ impl Engine {
     let format = cfg.output_format.as_deref().unwrap_or("esm");
     index::write_index(&cfg.output_dir, &cfg.collections, format, config_path)?;
 
-    // Class-based pretty-code: write one `dmc.<mode>.css` (or `dmc.css`
-    // for a single unnamed theme) per configured theme to the output dir.
-    #[cfg(feature = "pretty-code")]
-    if let Some(pc) = &cfg.compile.pretty_code
-      && pc.classed == Some(true)
-    {
-      write_theme_css(&cfg.output_dir, pc)?;
-    }
-
     Ok(())
   }
-}
-
-/// Write the per-theme syntax-highlight stylesheets used by class-based
-/// pretty-code output. One `dmc.<mode>.css` per `mode -> theme` entry in
-/// a multi-theme map (every rule scoped under `[data-theme="<mode>"]`),
-/// or a single unscoped `dmc.css` for a single unnamed theme. The class
-/// rules come from the process-global token-class registry populated
-/// during rendering (see `dmc_highlight::token_css`).
-#[cfg(feature = "pretty-code")]
-fn write_theme_css(out_dir: &Path, pc: &dmc_transform::PrettyCodeOptions) -> DiagResult {
-  let include_bg = pc.include_pre_background.unwrap_or(true);
-  for (idx, (mode, theme_name)) in pc.resolved_themes().iter().enumerate() {
-    let css = dmc_highlight::token_css(idx, mode, theme_name, include_bg);
-    let file = if mode.is_empty() { "dmc.css".to_string() } else { format!("dmc.{mode}.css") };
-    let path = out_dir.join(&file);
-    std::fs::write(&path, css).map_err(|e| diag!(Code::IoWrite, format!("write theme css {}: {e}", path.display())))?;
-  }
-  Ok(())
 }

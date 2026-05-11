@@ -55,10 +55,6 @@ struct ShapeOpts {
   skip_languages: Vec<String>,
   tab_size: Option<u32>,
   multi_theme_strategy: MultiThemeStrategy,
-  /// Emit class-based `<span class="dmc-...">` tokens once instead of
-  /// per-theme inline-style spans. CSS is written separately at build
-  /// end (see `dmc-core` engine). Default `false`.
-  classed: bool,
 }
 
 impl ShapeOpts {
@@ -76,7 +72,6 @@ impl ShapeOpts {
       skip_languages: o.skip_languages.clone(),
       tab_size: o.tab_size,
       multi_theme_strategy: o.multi_theme_strategy.unwrap_or_default(),
-      classed: o.classed.unwrap_or(false),
     }
   }
 }
@@ -98,20 +93,37 @@ impl PrettyCode {
   /// the first key in the theme map.
   pub fn from_options(opts: &PrettyCodeOptions) -> Self {
     let shape = ShapeOpts::from_options(opts);
-    // Single source of truth for theme ordering: light, dark, then the
-    // rest alphabetically (single-theme -> one empty-key pair).
-    let themes = opts.resolved_themes();
-    let default_mode = match &opts.theme {
-      PrettyCodeTheme::Single(_) => String::new(),
-      PrettyCodeTheme::Multi(map) => opts
-        .default_mode
-        .clone()
-        .filter(|m| map.contains_key(m))
-        .or_else(|| if map.contains_key("dark") { Some("dark".into()) } else { None })
-        .or_else(|| themes.first().map(|(k, _)| k.clone()))
-        .unwrap_or_default(),
-    };
-    Self { themes, default_mode, shape }
+    match &opts.theme {
+      PrettyCodeTheme::Single(name) => {
+        Self { themes: vec![(String::new(), name.clone())], default_mode: String::new(), shape }
+      },
+      PrettyCodeTheme::Multi(map) => {
+        // Order modes the way shiki/rehype-pretty-code does: light first,
+        // then dark, then any other custom mode in alphabetical order. The
+        // user-facing data is theme-key -> theme-name, so sorting at the
+        // boundary lets consumers diff against shiki output without having
+        // to maintain insertion-ordered config maps in Rust.
+        let mut themes: Vec<(String, String)> = map.iter().map(|(k, v)| (k.clone(), v.clone())).collect();
+        themes.sort_by(|a, b| {
+          fn rank(k: &str) -> u8 {
+            match k {
+              "light" => 0,
+              "dark" => 1,
+              _ => 2,
+            }
+          }
+          rank(&a.0).cmp(&rank(&b.0)).then_with(|| a.0.cmp(&b.0))
+        });
+        let default_mode = opts
+          .default_mode
+          .clone()
+          .filter(|m| map.contains_key(m))
+          .or_else(|| if map.contains_key("dark") { Some("dark".into()) } else { None })
+          .or_else(|| themes.first().map(|(k, _)| k.clone()))
+          .unwrap_or_default();
+        Self { themes, default_mode, shape }
+      },
+    }
   }
 }
 
@@ -281,16 +293,8 @@ fn render_code_block(
     },
     _ => cb.value.as_str(),
   };
-  let span = cb.span.clone();
-
-  // Class-based output: highlight once, emit `<span class="dmc-...">`
-  // tokens, no per-theme loop, no inline colors. The matching CSS is
-  // written separately by the engine (see `dmc-core`).
-  if shape.classed {
-    return Some(render_classed(cb, meta, source, resolved_lang, themes, &theme_names, shape, span));
-  }
-
   let lines = highlight_code_multi(source, Some(resolved_lang), &theme_names);
+  let span = cb.span.clone();
 
   let bundle = SyntaxBundle::get();
   let foregrounds: Vec<Option<dmc_highlight::Color>> =
@@ -375,147 +379,6 @@ fn render_code_block(
     children: fragment_children,
     span,
   })
-}
-
-/// Class-based renderer: ONE `<pre class="dmc-pre">` -> `<code>` ->
-/// per-line `<span class="<line_class>">` -> per-run
-/// `<span class="dmc-<hex>...">text</span>`. No theme loop, no
-/// `data-theme` attrs, no inline colors - the colors live in the
-/// `dmc.<mode>.css` files the engine writes at build end. Highlights
-/// once via `highlight_code_multi` (same call the non-classed path
-/// makes) and maps each token's per-theme styles to a color-tuple class
-/// via `dmc_highlight::token_class_name`. Keeps the optional
-/// `<figcaption data-dmc-title>` and `<div data-dmc-fragment>` wrapper.
-#[allow(clippy::too_many_arguments)]
-fn render_classed(
-  cb: &CodeBlock,
-  meta: &CodeMeta,
-  source: &str,
-  resolved_lang: &str,
-  themes: &[(String, String)],
-  theme_names: &[&str],
-  shape: &ShapeOpts,
-  span: duck_diagnostic::Span,
-) -> JsxElement {
-  let lines = highlight_code_multi(source, Some(resolved_lang), theme_names);
-  let bundle = SyntaxBundle::get();
-  let default_fgs: Vec<Option<dmc_highlight::Color>> =
-    themes.iter().map(|(_, name)| bundle.themes.themes.get(name).and_then(|t| t.settings.foreground)).collect();
-
-  let mut line_children: Vec<Node> = Vec::with_capacity(lines.len());
-  for (line_i, tokens) in lines.iter().enumerate() {
-    let line_no = (line_i + 1) as u32;
-    // Coalesce adjacent tokens that resolve to the same class (None as a
-    // distinct "no class" bucket). `MultiToken` already coalesces by
-    // full style, so adjacent same-class is just adjacent same-`cls`.
-    let mut runs: Vec<(Option<String>, String)> = Vec::with_capacity(tokens.len());
-    for tok in tokens.iter() {
-      let cls = dmc_highlight::token_class_name(&tok.styles, &default_fgs);
-      match runs.last_mut() {
-        Some(last) if last.0 == cls => last.1.push_str(tok.text),
-        _ => runs.push((cls, tok.text.to_string())),
-      }
-    }
-    let mut tok_children: Vec<Node> = Vec::with_capacity(runs.len());
-    for (cls, text) in runs {
-      let text_node = Node::Text(Text { value: text, span: span.clone() });
-      let attrs = match cls {
-        Some(c) => vec![JsxAttr { name: "class".into(), value: JsxAttrValue::String(c), span: span.clone() }],
-        None => Vec::new(),
-      };
-      tok_children.push(Node::JsxElement(JsxElement {
-        name: "span".into(),
-        attrs,
-        children: vec![text_node],
-        span: span.clone(),
-      }));
-    }
-    let mut line_attrs =
-      vec![JsxAttr { name: "class".into(), value: JsxAttrValue::String(shape.line_class.clone()), span: span.clone() }];
-    if meta.line_marks.iter().any(|m| m.contains(line_no)) {
-      line_attrs.push(JsxAttr {
-        name: shape.highlighted_line_attr.clone(),
-        value: JsxAttrValue::String(String::new()),
-        span: span.clone(),
-      });
-    }
-    line_children.push(Node::JsxElement(JsxElement {
-      name: "span".into(),
-      attrs: line_attrs,
-      children: tok_children,
-      span: span.clone(),
-    }));
-  }
-
-  let mut code_attrs: Vec<JsxAttr> = Vec::new();
-  if shape.include_data_language {
-    code_attrs.push(JsxAttr {
-      name: "data-language".into(),
-      value: JsxAttrValue::String(resolved_lang.to_string()),
-      span: span.clone(),
-    });
-  }
-  let code_el = Node::JsxElement(JsxElement {
-    name: "code".into(),
-    attrs: code_attrs,
-    children: line_children,
-    span: span.clone(),
-  });
-
-  let mut pre_attrs: Vec<JsxAttr> =
-    vec![JsxAttr { name: "class".into(), value: JsxAttrValue::String("dmc-pre".into()), span: span.clone() }];
-  if shape.keep_raw_string {
-    pre_attrs.push(JsxAttr {
-      name: "__dmcRaw__".into(),
-      value: JsxAttrValue::String(cb.value.clone()),
-      span: span.clone(),
-    });
-  }
-  if shape.include_data_language {
-    pre_attrs.push(JsxAttr {
-      name: "data-language".into(),
-      value: JsxAttrValue::String(resolved_lang.to_string()),
-      span: span.clone(),
-    });
-  }
-  let pre_el =
-    Node::JsxElement(JsxElement { name: "pre".into(), attrs: pre_attrs, children: vec![code_el], span: span.clone() });
-
-  let mut fragment_children: Vec<Node> = Vec::new();
-  if shape.render_title
-    && let Some(title) = &meta.title
-  {
-    let mut figcaption_attrs =
-      vec![JsxAttr { name: "data-dmc-title".into(), value: JsxAttrValue::String(String::new()), span: span.clone() }];
-    if shape.include_data_language {
-      figcaption_attrs.push(JsxAttr {
-        name: "data-language".into(),
-        value: JsxAttrValue::String(cb.lang.clone().unwrap_or_default()),
-        span: span.clone(),
-      });
-    }
-    fragment_children.push(Node::JsxElement(JsxElement {
-      name: "figcaption".into(),
-      attrs: figcaption_attrs,
-      children: vec![Node::Text(Text { value: title.clone(), span: span.clone() })],
-      span: span.clone(),
-    }));
-  }
-  fragment_children.push(pre_el);
-
-  if !shape.fragment_wrapper {
-    return JsxElement { name: "div".into(), attrs: Vec::new(), children: fragment_children, span };
-  }
-  JsxElement {
-    name: "div".into(),
-    attrs: vec![JsxAttr {
-      name: "data-dmc-fragment".into(),
-      value: JsxAttrValue::String(String::new()),
-      span: span.clone(),
-    }],
-    children: fragment_children,
-    span,
-  }
 }
 
 /// Build the `<pre><code>...</code></pre>` for one theme. Honors every

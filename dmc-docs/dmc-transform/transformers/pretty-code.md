@@ -82,47 +82,6 @@ export default defineConfig({
 | `includeDataLanguage` | `true` | Include `data-language` attr on `<pre>` and `<code>`. |
 | `skipLanguages` | `[]` | Languages to pass through unchanged. `mermaid` is always skipped (owned by the mermaid transformer). |
 | `tabSize` | unset | Expand tab characters to N spaces before highlighting. |
-| `classed` | `false` | Emit class-based `<span class="dmc-<hex>...">` tokens once + write `dmc.<mode>.css` per theme, instead of per-token inline styles. See "Class-based output" below. |
-
-## Class-based output (`classed`)
-
-By default every syntax token gets an inline `<span style="color:#hex">`,
-and with a `light` + `dark` theme map each code block is rendered twice
-(one `<pre>` per theme). For a large docs set that inline hex on every
-token - duplicated per theme - is the bulk of the compiled output.
-
-Set `classed: true` to switch to a class-based scheme:
-
-- Tokens are rendered ONCE as `<span class="dmc-<hex>...">`. The class
-  name is a color tuple: one lowercase 6-digit hex foreground per
-  configured theme, joined by `-`, in canonical theme order (light,
-  dark, then any other modes alphabetically) - e.g. `dmc-89b4fa-8839ef`
-  for a `light`+`dark` map, or `dmc-89b4fa` for a single theme. A
-  font-style suffix is appended when the default-mode token is bold /
-  italic / underline: `-b`, `-i`, `-u`, or a combo like `-bi` (order
-  b, i, u). Tokens whose foreground equals every theme's default
-  foreground (and have no font style) get no class and inherit from the
-  `<pre>`. The `<pre>` carries `class="dmc-pre"`. There is no per-theme
-  `<pre>` duplication and no inline-style objects in the MDX body, so
-  `className: "dmc-..."` beats `style: { color: "#..." }` outright.
-- At the end of the build, one stylesheet per configured theme is
-  written to the output data dir: `dmc.<mode>.css` for each `mode ->
-  theme` entry in a multi-theme map (e.g. `dmc.dark.css`,
-  `dmc.light.css`), or a single `dmc.css` for a single unnamed theme.
-  Each rule in a per-mode file is scoped under `[data-theme="<mode>"] `
-  (a root `[data-theme="<mode>"] .dmc-pre { color; background-color }`
-  rule plus one `[data-theme="<mode>"] .dmc-<class> { color; ... }` rule
-  per recorded token class), so the consumer loads every theme CSS file
-  and an ancestor `[data-theme]` attribute selects which colors apply.
-  The single-theme `dmc.css` has bare, unscoped rules.
-- Size: the output shrinks a lot. The token class names are short and
-  repeat across the whole corpus (they coalesce exactly like the old
-  color-based runs), the highlight pass runs once instead of once per
-  theme, and the colors live in a handful of small shared CSS files
-  instead of an inline hex string on every token in every page.
-- `includePreBackground: false` drops the `background-color` from the
-  `.dmc-pre` root rule (the foreground stays) so consumer chrome can
-  own the surface color.
 
 ## Meta syntax
 

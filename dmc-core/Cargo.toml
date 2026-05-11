@@ -17,7 +17,7 @@ readme = "README.md"
 default = ["cli", "watch", "pretty-code", "math", "emoji"]
 cli = ["dep:clap", "dep:toml"]
 watch = ["dep:notify", "dep:notify-debouncer-mini"]
-pretty-code = ["dmc-transform/pretty-code", "dep:dmc-highlight"]
+pretty-code = ["dmc-transform/pretty-code"]
 math = ["dmc-transform/math"]
 emoji = ["dmc-transform/emoji"]
 
@@ -38,7 +38,6 @@ duck-diagnostic.workspace = true
 dmc-parser = { version = "0.2.3", path = "../dmc-parser" }
 dmc-codegen = { version = "0.2.3", path = "../dmc-codegen" }
 dmc-transform = { version = "0.2.3", path = "../dmc-transform" }
-dmc-highlight = { version = "0.2.3", path = "../dmc-highlight", optional = true }
 dmc-schema = { version = "0.2.3", path = "../dmc-schema" }
 serde_yaml.workspace = true
 notify = { workspace = true, optional = true }

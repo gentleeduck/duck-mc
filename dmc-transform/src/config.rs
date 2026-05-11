@@ -148,13 +148,6 @@ pub struct PrettyCodeOptions {
   /// (velite parity, ~2x the AST nodes). Single-theme mode ignores this
   /// - there's only one tree either way.
   pub multi_theme_strategy: Option<MultiThemeStrategy>,
-  /// Class-based output. When `true`, tokens are emitted once as
-  /// `<span class="dmc-...">` (theme-agnostic scope classes, no inline
-  /// colors, no per-theme `<pre>` duplication) and the build writes one
-  /// `dmc.<mode>.css` (or `dmc.css` for a single unnamed theme) per
-  /// configured theme to the output data dir, scoped under
-  /// `[data-theme="<mode>"]`. Default `false` (inline-style modes).
-  pub classed: Option<bool>,
   /// Keep the `__dmcRaw__` attribute on each `<pre>` so consumer
   /// `<PreBlock>` can offer a Copy button without re-parsing the tree.
   /// Default `true`.
@@ -196,34 +189,6 @@ pub struct PrettyCodeOptions {
   /// Expand tab characters to N spaces before highlighting. `None`
   /// preserves original tabs.
   pub tab_size: Option<u32>,
-}
-
-impl PrettyCodeOptions {
-  /// Canonical ordered `(mode_key, theme_name)` list - the order token
-  /// styles are produced in and the order CSS files are written in. A
-  /// single theme yields one pair with an empty mode key. A multi-theme
-  /// map is sorted: `"light"` first, `"dark"` next, then any others
-  /// alphabetically. This is the single source of truth for theme
-  /// ordering shared by `PrettyCode` and the engine's CSS writer.
-  pub fn resolved_themes(&self) -> Vec<(String, String)> {
-    match &self.theme {
-      PrettyCodeTheme::Single(name) => vec![(String::new(), name.clone())],
-      PrettyCodeTheme::Multi(map) => {
-        let mut themes: Vec<(String, String)> = map.iter().map(|(k, v)| (k.clone(), v.clone())).collect();
-        themes.sort_by(|a, b| {
-          fn rank(k: &str) -> u8 {
-            match k {
-              "light" => 0,
-              "dark" => 1,
-              _ => 2,
-            }
-          }
-          rank(&a.0).cmp(&rank(&b.0)).then_with(|| a.0.cmp(&b.0))
-        });
-        themes
-      },
-    }
-  }
 }
 
 /// Mermaid theme spec. Either a single theme name (renders once,

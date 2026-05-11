@@ -296,16 +296,6 @@ export interface PrettyCodeOptions {
 	skipLanguages?: string[];
 	/** Expand tab characters to N spaces before highlighting. */
 	tabSize?: number;
-	/**
-	 * Class-based output. When `true`, tokens render once as
-	 * `<span class="dmc-<hex>">` (the class name is a per-theme
-	 * hex-foreground color tuple, e.g. `dmc-89b4fa-8839ef`, optionally
-	 * with a `-b`/`-i`/`-u` font-style suffix) -- no inline colors, no
-	 * per-theme `<pre>` -- and the build writes one `dmc.<mode>.css`
-	 * (or `dmc.css` for a single unnamed theme) per configured theme,
-	 * scoped under `[data-theme="<mode>"]`. Default `false`.
-	 */
-	classed?: boolean;
 }
 
 /**
