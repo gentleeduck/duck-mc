@@ -78,7 +78,8 @@ Status legend: `[ ]` pending, `[~]` in progress, `[x]` done.
 
 ## Phase G8 — Stability
 
-- [ ] G8.1 Run full workspace `cargo +nightly miri test -p dmc-parser`.
+- [x] G8.1 Run `cargo +nightly miri test -p dmc-parser`.
+  - Found + fixed real Stacked Borrows UB: `raw_source_for_token_range` used `slice::from_raw_parts` from one token's ptr spanning others' provenance. Replaced with checked byte-offset reslice into a threaded `source: Option<&str>` (per-token concat fallback). `MIRIFLAGS=-Zmiri-disable-isolation cargo +nightly miri test -p dmc-parser --test commonmark_spec` now clean.
 - [x] G8.2 Run `cargo clippy --workspace --all-targets -- -D warnings`. Fix new warnings.
 - [x] G8.3 Verify `cargo doc --workspace --no-deps` builds without warnings.
 
