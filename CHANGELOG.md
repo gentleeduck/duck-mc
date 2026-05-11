@@ -8,6 +8,30 @@ and this project adheres to
 
 ## [Unreleased]
 
+### Changed
+
+- `dmc-parser`: finished the CommonMark grind and moved the spec
+  baseline from `118/652` to `652/652`.
+- `dmc-parser`: added explicit dialect flags via
+  `ParseOptions::{cm_strict_html_blocks, gfm_autolinks, legacy_gfm_emphasis}`.
+- `dmc-codegen`: added `RenderOptions::gfm_disallowed_raw_html` for
+  the GFM tagfilter/disallowed-raw-HTML mode.
+- `dmc-parser`: finished the GFM push from `0/670` to `670/670`.
+- `dmc-parser`: split the block parser into
+  `block/{mod,list,blockquote,code,heading,html}.rs`.
+
+### Added
+
+- `dmc-parser` Criterion parse benches and recorded baselines in
+  [`BENCHMARKS.md`](./BENCHMARKS.md).
+
+### Docs
+
+- Refreshed parser and lexer roadmaps to reflect current spec status.
+- Rewrote crate READMEs for `dmc-lexer`, `dmc-parser`,
+  `dmc-codegen`, and `dmc-transform` around current public APIs and
+  compliance status.
+
 ## [0.2.2](https://github.com/gentleeduck/duck-mc/compare/dmc-lexer-v0.2.1...dmc-lexer-v0.2.2) - 2026-05-07
 
 ### Other
