@@ -307,6 +307,84 @@ fn utf8_char_len(b: u8) -> usize {
   }
 }
 
+/// GFM "extended email autolink": `local@domain` where `local` is
+/// `[A-Za-z0-9._+-]+`, `domain` is `[A-Za-z0-9-_]+(\.[A-Za-z0-9-_]+)+`,
+/// the domain has at least one `.`, and the final domain label does
+/// not end with `-` or `_`. Returns `Some(pieces)` when at least one
+/// email was found, mixing `Text` and `Link` nodes; `None` otherwise
+/// so the caller emits a single plain `Text`.
+fn split_email_autolinks(s: &str, span: &duck_diagnostic::Span) -> Option<Vec<Node>> {
+  fn is_local(b: u8) -> bool {
+    b.is_ascii_alphanumeric() || matches!(b, b'.' | b'_' | b'+' | b'-')
+  }
+  fn is_domain(b: u8) -> bool {
+    b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_')
+  }
+  let bytes = s.as_bytes();
+  let mut out: Vec<Node> = Vec::new();
+  let mut emitted_text = String::new();
+  let mut found = false;
+  let mut i = 0;
+  let flush_text = |text: &mut String, out: &mut Vec<Node>| {
+    if !text.is_empty() {
+      out.push(Node::Text(Text {
+        value: Parser::unescape_markdown(text),
+        span: span.clone(),
+      }));
+      text.clear();
+    }
+  };
+  while i < bytes.len() {
+    if bytes[i] == b'@' {
+      // Walk back over local-part chars.
+      let mut local_start = i;
+      while local_start > 0 && is_local(bytes[local_start - 1]) {
+        local_start -= 1;
+      }
+      // Walk forward over domain chars + `.`.
+      let mut domain_end = i + 1;
+      while domain_end < bytes.len() && (is_domain(bytes[domain_end]) || bytes[domain_end] == b'.') {
+        domain_end += 1;
+      }
+      let local = &s[local_start..i];
+      // Trim trailing `.` (sentence punctuation) from the domain run.
+      let raw_domain = &s[i + 1..domain_end];
+      let domain = raw_domain.trim_end_matches('.');
+      let valid = !local.is_empty()
+        && !domain.is_empty()
+        && domain.contains('.')
+        && domain.split('.').all(|lbl| !lbl.is_empty())
+        && {
+          let last = domain.rsplit('.').next().unwrap_or("");
+          !last.ends_with('-') && !last.ends_with('_') && !last.is_empty()
+        };
+      if valid {
+        // Pull any local-part bytes already in emitted_text out of it.
+        if emitted_text.ends_with(local) {
+          let keep = emitted_text.len() - local.len();
+          emitted_text.truncate(keep);
+        }
+        flush_text(&mut emitted_text, &mut out);
+        let email = format!("{}@{}", local, domain);
+        out.push(Node::Link(Link {
+          href: format!("mailto:{}", email),
+          title: None,
+          children: vec![Node::Text(Text { value: email.clone(), span: span.clone() })],
+          span: span.clone(),
+        }));
+        found = true;
+        i = i + 1 + domain.len();
+        continue;
+      }
+    }
+    let n = utf8_char_len(bytes[i]);
+    emitted_text.push_str(&s[i..i + n]);
+    i += n;
+  }
+  flush_text(&mut emitted_text, &mut out);
+  if found { Some(out) } else { None }
+}
+
 impl<'eng, 'tokens> Parser<'eng, 'tokens> {
   /// Accumulate inline nodes until any top-level break token.
   pub(crate) fn collect_inline_until_break(&mut self) -> Vec<Node> {
@@ -374,9 +452,22 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       let span = t.span.clone();
       match &kind {
         TokenKind::Text => {
-          let raw = Self::unescape_markdown(t.raw);
+          let raw_lexeme: &'tokens str = self.peek_raw().unwrap_or("");
+          let span_clone = span.clone();
+          let gfm = self.options.gfm_autolinks;
           self.advance();
-          out.push(Node::Text(Text { value: raw, span }));
+          // GFM email autolink extension: scan the text for
+          // `local@domain` patterns and split into Text + Link runs.
+          // Only active under `gfm_autolinks`; default MDX path leaves
+          // the transformer to do it.
+          if gfm
+            && raw_lexeme.contains('@')
+            && let Some(pieces) = split_email_autolinks(raw_lexeme, &span_clone)
+          {
+            out.extend(pieces);
+          } else {
+            out.push(Node::Text(Text { value: Self::unescape_markdown(raw_lexeme), span: span_clone }));
+          }
         },
         TokenKind::Autolink(kind) => {
           let kind = *kind;
