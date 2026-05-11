@@ -24,7 +24,12 @@ htmlentity = "1.3"
 [dev-dependencies]
 pretty_assertions.workspace = true
 dmc-codegen = { version = "0.2.1", path = "../dmc-codegen" }
+criterion.workspace = true
 
 [[bin]]
 name = "parse"
 path = "./parse-samples/parse.rs"
+
+[[bench]]
+name = "parse"
+harness = false

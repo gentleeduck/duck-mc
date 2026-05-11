@@ -750,6 +750,7 @@ dependencies = [
 name = "dmc-parser"
 version = "0.2.1"
 dependencies = [
+ "criterion",
  "dmc-codegen",
  "dmc-diagnostic",
  "dmc-lexer",

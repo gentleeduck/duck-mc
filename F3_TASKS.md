@@ -23,7 +23,7 @@ Status legend: `[ ]` pending, `[~]` in progress, `[x]` done.
 
 ## Phase G1 — Bench
 
-- [ ] G1.1 Add `dmc-parser/benches/parse.rs` using `criterion`.
+- [x] G1.1 Add `dmc-parser/benches/parse.rs` using `criterion`.
   - Inputs: small / medium / large MD (1 KB / 100 KB / 5 MB).
   - Compare: `pulldown_cmark::Parser::new`, `markdown::Markdown::parse`, optional `comrak`.
 - [ ] G1.2 Run + record results in `BENCHMARKS.md`.
