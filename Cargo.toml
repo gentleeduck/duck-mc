@@ -61,7 +61,7 @@ notify-debouncer-mini = "0.4"
 rayon = "1"
 base64 = "0.22"
 regex = "1"
-fancy-regex = "0.16"
+fancy-regex = "0.18"
 unicode-segmentation = "1"
 pulldown-latex = "0.7"
 # katex backend differs per platform: quick-js on POSIX (faster), duktape
