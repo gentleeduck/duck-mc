@@ -8,6 +8,14 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [0.3.0](https://github.com/gentleeduck/duck-mc/compare/dmc-parser-v0.2.3...dmc-parser-v0.3.0) - 2026-05-12
+
+### Fixed
+
+- *(dmc-parser)* MDX-classed <div> with component children parses as JSX
+- *(dmc-codegen,dmc-parser)* inline raw-HTML no longer drops enclosing JSX block
+- *(dmc-parser)* JSX close tag of an enclosing element no longer swallowed as text
+
 ### Changed
 
 - `dmc-parser`: finished the CommonMark grind and moved the spec
