@@ -22,7 +22,7 @@
     "remark-emoji": "^5",
     "remark-gfm": "^4",
     "remark-math": "^6",
-    "shiki": "^1.29.2",
+    "shiki": "^4.0.2",
     "velite": "^0.3"
   },
   "devDependencies": {
