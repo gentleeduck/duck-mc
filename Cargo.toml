@@ -57,7 +57,7 @@ dmc-schema = { version = "0.3.1", path = "dmc-schema" }
 blake3 = "1"
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp", "gif"] }
 notify = "8"
-notify-debouncer-mini = "0.4"
+notify-debouncer-mini = "0.7"
 rayon = "1"
 base64 = "0.22"
 regex = "1"
