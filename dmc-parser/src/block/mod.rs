@@ -180,6 +180,28 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       }
     }
 
+    // MDX: a lowercase block-level JSX tag that carries JSX attribute
+    // syntax (`className`, an expression value, a `{...spread}`), has an
+    // uppercase component descendant, or sits inside another JSX element
+    // is a JSX element -- not a CommonMark raw-HTML blob. Routing it
+    // through `parse_jsx` keeps those attributes and any nested
+    // components, so e.g. `<div className="grid"><LinkedCard>...` compiles
+    // to nested `jsx(...)` calls instead of one verbatim `<div>` string.
+    {
+      let has_ws = matches!(self.peek_kind(), Some(TokenKind::Whitespace(_)));
+      let tag_at = if has_ws { self.pos + 1 } else { self.pos };
+      if matches!(self.tokens.get(tag_at).map(|t| &t.kind), Some(TokenKind::JsxOpenTagStart)) {
+        let saved = self.pos;
+        if has_ws {
+          self.advance();
+        }
+        if self.lowercase_jsx_tag_is_mdx_element() {
+          return Some(self.parse_jsx());
+        }
+        self.pos = saved;
+      }
+    }
+
     // Whitespace-then-block-marker. CM allows up to 3 leading spaces
     // before any block-level marker, so when the lexer emitted a
     // leading Whitespace followed by a known block opener we drop the

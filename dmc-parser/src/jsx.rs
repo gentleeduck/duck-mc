@@ -49,6 +49,49 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     self.jsx_open_stack.iter().any(|n| n == name_tok.raw)
   }
 
+  /// MDX-mode decision: the cursor is at a lowercase block-level JSX
+  /// open tag (`<div ...>`, `<svg ...>`, ...). Should it be parsed as a
+  /// JSX element (so `className` / expression / `{...spread}` attributes
+  /// survive and component children compile) instead of being captured
+  /// verbatim as a CommonMark raw-HTML block?
+  ///
+  /// True when either: we're already inside a `parse_jsx` children loop
+  /// (every lowercase descendant of a JSX element is itself a JSX element
+  /// in mdast); or the open tag uses JSX attribute syntax (a `className`,
+  /// an expression-valued attribute, or a `{...spread}`). Always false in
+  /// `cm_strict_html_blocks` mode so the CommonMark spec suite keeps
+  /// treating these as raw HTML blocks. (Plain `<div>...</div>` blocks
+  /// with no JSX syntax stay verbatim raw-HTML nodes; an uppercase tag
+  /// name is not used as a signal here because all-caps HTML like `<XMP>`
+  /// would trip it.)
+  pub(crate) fn lowercase_jsx_tag_is_mdx_element(&self) -> bool {
+    if self.options.cm_strict_html_blocks {
+      return false;
+    }
+    if !matches!(self.peek_kind(), Some(TokenKind::JsxOpenTagStart)) || !self.is_plain_html_jsx_tag() {
+      return false;
+    }
+    if !self.jsx_open_stack.is_empty() {
+      // Inside another JSX element -- this lowercase tag is one of its
+      // mdast `mdxJsxFlowElement` children. (`parse_jsx` is robust to an
+      // unterminated open tag, so no matching-close check is needed.)
+      return true;
+    }
+    // At top level: only promote when the open tag carries JSX syntax.
+    let mut i = self.pos + 2;
+    loop {
+      match self.tokens.get(i).map(|t| &t.kind) {
+        Some(TokenKind::JsxAttributeName) if self.tokens[i].raw == "className" => return true,
+        Some(TokenKind::ExpressionStart) | Some(TokenKind::JsxAttributeSpread) => return true,
+        Some(TokenKind::JsxOpenTagEnd) | Some(TokenKind::JsxSelfClosingEnd) | Some(TokenKind::Eof) | None => {
+          return false;
+        },
+        _ => {},
+      }
+      i += 1;
+    }
+  }
+
   pub(crate) fn is_htmlish_jsx_tag(&self) -> bool {
     let Some(open) = self.tokens.get(self.pos) else {
       return false;
@@ -253,6 +296,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     }
 
     let children = unwrap_jsx_only_paragraphs(children);
+    let children = strip_jsx_layout_whitespace(children);
 
     if name.is_empty() {
       Node::JsxFragment(JsxFragment { children, span })
@@ -369,6 +413,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       }
     }
     let children = unwrap_jsx_only_paragraphs(children);
+    let children = strip_jsx_layout_whitespace(children);
     Node::JsxFragment(JsxFragment { children, span })
   }
 
@@ -428,6 +473,46 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
 /// `Paragraph` child, drop pure-whitespace `Text` nodes; if the
 /// remainder is one or more JSX nodes only, splice them in as direct
 /// children. Otherwise the paragraph stays.
+/// Drop the indentation / line-break noise that block-level JSX
+/// formatting leaves between element children. JSX itself ignores
+/// whitespace that sits between elements on their own lines; mirroring
+/// that keeps `<div>\n  <Card/>\n  <Card/>\n</div>` from emitting stray
+/// `"  "` / `"\n"` text children (which would otherwise become extra
+/// flex/grid items). Only applied when the element looks like a *flow*
+/// container -- every non-blank child is itself an element or block. If
+/// there is loose inline content (`<b>hello world</b>`) the inter-word
+/// whitespace is meaningful, so the list is returned untouched.
+fn strip_jsx_layout_whitespace(children: Vec<Node>) -> Vec<Node> {
+  let is_flow_child = |n: &Node| {
+    is_whitespace_text(n)
+      || matches!(
+        n,
+        Node::JsxElement(_)
+          | Node::JsxSelfClosing(_)
+          | Node::JsxFragment(_)
+          | Node::Paragraph(_)
+          | Node::List(_)
+          | Node::Blockquote(_)
+          | Node::CodeBlock(_)
+          | Node::Heading(_)
+          | Node::HorizontalRule(_)
+          | Node::Table(_)
+          | Node::Html(_)
+      )
+  };
+  if !children.iter().all(is_flow_child) {
+    return children;
+  }
+  children
+    .into_iter()
+    .filter(|n| match n {
+      n if is_whitespace_text(n) => false,
+      Node::Paragraph(p) => !p.children.iter().all(is_whitespace_text),
+      _ => true,
+    })
+    .collect()
+}
+
 fn unwrap_jsx_only_paragraphs(children: Vec<Node>) -> Vec<Node> {
   // Single-paragraph children unwrap: a JSX element like `<del>*foo*</del>`
   // (the only block child is one Paragraph) renders as raw HTML around

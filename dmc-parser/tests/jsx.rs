@@ -300,3 +300,91 @@ fn lowercase_html_tags_still_raw_html() {
   walk(&d2.children, &mut found_div);
   assert!(found_div, "bare </div> should stay raw HTML, got {:?}", d2.children);
 }
+
+/// A `<div className="...">` block with `<LinkedCard>` component
+/// children compiles as nested JSX elements -- not one verbatim raw-HTML
+/// blob (which would never instantiate the components and would render
+/// `className` as an inert HTML attribute). The lowercase `<svg>` /
+/// `<title>` / `<path>` / `<p>` descendants become JSX elements too, so
+/// their attributes survive. Inter-element indentation / line breaks are
+/// dropped (JSX ignores that whitespace).
+#[test]
+fn classed_div_with_component_children_parses_as_jsx() {
+  let src = "\
+<div className=\"mt-8 grid gap-4 sm:grid-cols-2\">
+  <LinkedCard href=\"/a\">
+    <svg viewBox=\"0 0 24 24\" className=\"h-10 w-10\" fill=\"currentColor\">
+      <title>Next.js</title>
+      <path d=\"M11\" />
+    </svg>
+    <p className=\"mt-2 font-medium\">Next.js</p>
+  </LinkedCard>
+  <LinkedCard href=\"/b\">
+    <p className=\"mt-2 font-medium\">Vite</p>
+  </LinkedCard>
+</div>
+";
+  let d = parse_doc(src);
+  let div = d
+    .children
+    .iter()
+    .find_map(|n| match n {
+      Node::JsxElement(e) if e.name == "div" => Some(e),
+      _ => None,
+    })
+    .unwrap_or_else(|| panic!("expected a <div> JsxElement, got {:?}", d.children));
+  assert!(div.attrs.iter().any(|a| a.name == "className"), "div className attr should survive, got {:?}", div.attrs);
+  // Two LinkedCard children, in order, no stray whitespace text nodes.
+  let cards: Vec<&JsxElement> = div
+    .children
+    .iter()
+    .map(|n| match n {
+      Node::JsxElement(e) if e.name == "LinkedCard" => e,
+      other => panic!("unexpected non-LinkedCard child of <div>: {:?}", other),
+    })
+    .collect();
+  assert_eq!(cards.len(), 2, "expected 2 LinkedCard children, got {:?}", div.children);
+  // First card: <svg> element (with its <title>/<path> kids) + a <p>.
+  let svg = cards[0]
+    .children
+    .iter()
+    .find_map(|n| match n {
+      Node::JsxElement(e) if e.name == "svg" => Some(e),
+      _ => None,
+    })
+    .unwrap_or_else(|| panic!("expected an <svg> child of LinkedCard, got {:?}", cards[0].children));
+  assert!(svg.attrs.iter().any(|a| a.name == "viewBox"), "svg viewBox should survive");
+  assert!(
+    svg.children.iter().any(|n| matches!(n, Node::JsxElement(e) if e.name == "title")),
+    "svg should keep its <title> element child, got {:?}",
+    svg.children
+  );
+  assert!(
+    svg.children.iter().any(|n| matches!(n, Node::JsxSelfClosing(e) if e.name == "path")),
+    "svg should keep its self-closing <path> child, got {:?}",
+    svg.children
+  );
+  assert!(
+    cards[0].children.iter().any(|n| matches!(n, Node::JsxElement(e) if e.name == "p"
+      && e.attrs.iter().any(|a| a.name == "className"))),
+    "first card should keep its <p className=...> child, got {:?}",
+    cards[0].children
+  );
+}
+
+/// A plain `<div>...</div>` with no JSX syntax and no component children
+/// still routes through the CommonMark raw-HTML block path.
+#[test]
+fn plain_div_block_stays_raw_html() {
+  let d = parse_doc("<div>\nhello\n</div>\n");
+  assert!(
+    d.children.iter().any(|n| matches!(n, Node::Html(_))),
+    "plain <div> block should be a raw-HTML node, got {:?}",
+    d.children
+  );
+  assert!(
+    !d.children.iter().any(|n| matches!(n, Node::JsxElement(e) if e.name == "div")),
+    "plain <div> block must not be a JsxElement, got {:?}",
+    d.children
+  );
+}

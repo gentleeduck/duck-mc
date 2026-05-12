@@ -91,3 +91,33 @@ fn inline_raw_html_does_not_drop_enclosing_jsx_element() {
   assert!(s.contains("\"react\""), "text inside <code> dropped:\n{}", s);
   assert!(s.contains("\"more.\""), "trailing text dropped:\n{}", s);
 }
+
+#[test]
+fn classed_div_with_component_children_compiles_to_nested_jsx() {
+  let s = body(
+    "\
+<div className=\"mt-8 grid gap-4 sm:grid-cols-2\">
+  <LinkedCard href=\"/a\">
+    <svg viewBox=\"0 0 24 24\" className=\"h-10 w-10\" fill=\"currentColor\">
+      <title>Next.js</title>
+      <path d=\"M11\" />
+    </svg>
+    <p className=\"mt-2 font-medium\">Next.js</p>
+  </LinkedCard>
+</div>
+",
+  );
+  // The wrapper <div> is an intrinsic element call carrying className,
+  // not a `dangerouslySetInnerHTML` blob.
+  assert!(s.contains("_components.div, { className: \"mt-8 grid gap-4 sm:grid-cols-2\""), "got:\n{}", s);
+  assert!(!s.contains("dangerouslySetInnerHTML"), "should not fall back to raw HTML:\n{}", s);
+  // The component child is instantiated and validated.
+  assert!(s.contains("const { LinkedCard } = _components;"), "got:\n{}", s);
+  assert!(s.contains("LinkedCard, { href: \"/a\""), "got:\n{}", s);
+  // Lowercase descendants keep their attributes.
+  assert!(s.contains("_components.svg, { viewBox: \"0 0 24 24\""), "got:\n{}", s);
+  assert!(s.contains("_components.path, { d: \"M11\" }"), "got:\n{}", s);
+  assert!(s.contains("_components.p, { className: \"mt-2 font-medium\", children: \"Next.js\" }"), "got:\n{}", s);
+  // No stray inter-element whitespace text children.
+  assert!(!s.contains("children: [\"  \""), "stray indentation text leaked:\n{}", s);
+}
