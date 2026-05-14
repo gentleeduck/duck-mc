@@ -171,7 +171,16 @@ jobs:
             cp "$dir"/*.node npm/ || true
             cp "$dir"/*.node . || true
           done
-          ls -la npm/
+          # The napi-rs shim (index.js + index.d.ts) is uploaded from the
+          # x86_64-linux-gnu matrix entry. mod.js requires('./index.js')
+          # at runtime, so without copying these into the publish dir the
+          # tarball ships without its dispatch table and consumers crash
+          # with "Cannot find module './index.js'".
+          if [ -d artifacts/napi-shim ]; then
+            cp artifacts/napi-shim/index.js .
+            cp artifacts/napi-shim/index.d.ts .
+          fi
+          ls -la
 
       - name: install deps + tsc
         working-directory: ${{ env.WORKDIR }}
