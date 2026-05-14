@@ -1,7 +1,6 @@
-//! `dmc-schema` descriptor -> TypeScript type emitter. Drives the typed
-//! interfaces in the generated `index.d.ts`. Mirrors the `kind`s accepted
-//! by `dmc_schema::compile_descriptor`; unknown shapes fall back to
-//! `unknown` so the build never fails on an unrecognised descriptor.
+//! `dmc-schema` descriptor -> TS type emitter for generated `index.d.ts`.
+//! Unknown shapes fall back to `unknown` (build never fails on an
+//! unrecognised descriptor).
 
 use serde_json::Value;
 
@@ -9,7 +8,6 @@ use crate::engine::utils::is_js_ident;
 
 const INDENT: &str = "  ";
 
-/// Descriptor -> TS type string at `indent` levels (0 = top of interface body).
 pub fn schema_to_ts(v: &Value, indent: usize) -> String {
   let kind = match v.get("kind").and_then(|k| k.as_str()) {
     Some(k) => k,
@@ -71,7 +69,6 @@ pub fn schema_to_ts(v: &Value, indent: usize) -> String {
       let r = v.get("right").map(|i| schema_to_ts(i, indent)).unwrap_or_else(|| "unknown".into());
       format!("{l} & {r}")
     },
-    // Unwrap-and-forward kinds.
     "optional" | "default" | "transform" | "refine" | "superRefine" | "super_refine" => {
       v.get("inner").map(|i| schema_to_ts(i, indent)).unwrap_or_else(|| "unknown".into())
     },
@@ -87,7 +84,6 @@ pub fn schema_to_ts(v: &Value, indent: usize) -> String {
   }
 }
 
-/// Render the top-level object body as a `{ ... }` block at indent 0.
 pub fn schema_to_ts_object(v: &Value) -> String {
   render_object(v, 0)
 }
@@ -117,7 +113,6 @@ fn render_object(v: &Value, indent: usize) -> String {
   out
 }
 
-/// JSON literal (string/number/bool/null) -> TS literal type string.
 fn literal_value(v: &Value) -> Option<String> {
   match v {
     Value::String(s) => Some(format!("'{}'", s.replace('\'', "\\'"))),

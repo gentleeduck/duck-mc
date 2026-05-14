@@ -1,8 +1,6 @@
 #![cfg(feature = "pretty-code")]
 
-//! End-to-end smoke for the native syntax highlighter: a fenced code block
-//! goes in, syntect-highlighted velite-shaped HTML comes out (one `<pre>`
-//! per theme, wrapped in `<div data-dmc-fragment>`).
+//! End-to-end smoke for the native syntax highlighter.
 
 use dmc::engine::compile::{CompileConfig, Compiler};
 use dmc_transform::{PrettyCodeOptions, PrettyCodeTheme};
@@ -48,10 +46,7 @@ fn line_marks_emit_data_highlighted_line() {
 
 #[test]
 fn default_compileconfig_yields_split_one_pre_per_mode() {
-  // Default strategy is `Split`: one `<pre data-theme="…">` per
-  // configured theme, each carrying solid token colours (no CSS
-  // custom properties). Consumer flips themes by toggling a single
-  // `[data-theme]` selector.
+  // Default `Split`: one `<pre data-theme>` per theme, solid colours.
   let html = compile("```rust\nfn main() {}\n```\n");
   assert!(html.contains("data-theme=\"light\""), "split: missing light <pre>:\n{html}");
   assert!(html.contains("data-theme=\"dark\""), "split: missing dark <pre>:\n{html}");
@@ -97,9 +92,6 @@ fn explicit_multi_theme_via_compileconfig_overrides_default_modes() {
     pretty_code: Some(PrettyCodeOptions {
       theme: PrettyCodeTheme::Multi(map),
       default_mode: Some("day".into()),
-      // Strategy now defaults to `Split`; force `CssVars` so this
-      // test continues to assert custom-property emission for the
-      // arbitrary `day` / `night` mode names.
       multi_theme_strategy: Some(MultiThemeStrategy::CssVars),
       ..Default::default()
     }),

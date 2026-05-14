@@ -31,9 +31,8 @@ export default defineConfig({
         .transform((data) => ({ ...data, permalink: data.slug.replace(/^docs\//, "") })),
     },
   },
-  // unified's plugin generic types diverge slightly across major
-  // versions, so we widen here to keep the example install lean
-  // (no per-plugin override types).
+  // unified plugin generics diverge across major versions; widen to
+  // avoid per-plugin override types in this example.
   // biome-ignore lint/suspicious/noExplicitAny: see comment above
   markdown: {
     remarkPlugins: [
@@ -53,7 +52,6 @@ export default defineConfig({
       [rehypeAutolinkHeadings, { behavior: "wrap" }],
       rehypeKatex,
     ],
-    // biome-ignore lint/suspicious/noExplicitAny: cast widens to bypass unified
-    // ^^^ vendored types skew between remark-* majors.
+    // biome-ignore lint/suspicious/noExplicitAny: see comment above
   } as any,
 });

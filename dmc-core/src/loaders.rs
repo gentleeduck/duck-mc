@@ -9,22 +9,20 @@ use std::path::Path;
 
 use crate::engine::compile::Compiler;
 
-/// One loaded source file: schema-validated `data` (frontmatter for mdx,
-/// the whole doc for yaml/json) plus the original `content` string.
+/// `data` is frontmatter for mdx, the whole doc for yaml/json.
 pub struct Loaded {
   pub data: Value,
   pub content: String,
 }
 
-/// Pluggable per-extension loader: `test` claims a path, `load` parses it.
 pub trait Loader: Send + Sync {
   fn test(&self, path: &Path) -> bool;
   fn load(&self, path: &Path, source: &str, diag_engine: &mut DiagnosticEngine<Code>) -> Result<Loaded, String>;
 }
 
-/// `.md` / `.mdx` / `.markdown` loader. Runs the full compile and stashes
-/// the `CompileOutput` under `data.__compiled` so the schema can refine it
-/// (e.g. `transform: ctx => ctx.html`).
+/// `.md` / `.mdx` / `.markdown`. Stashes `CompileOutput` under
+/// `data.__compiled` so the schema can refine it (e.g.
+/// `transform: ctx => ctx.html`).
 pub struct MatterLoader;
 
 impl Loader for MatterLoader {
@@ -46,8 +44,6 @@ impl Loader for MatterLoader {
   }
 }
 
-/// `.yaml` / `.yml` loader. Parses to `serde_yaml::Value`, then converts
-/// to `serde_json::Value` for schema interop.
 pub struct YamlLoader;
 
 impl Loader for YamlLoader {
@@ -62,7 +58,6 @@ impl Loader for YamlLoader {
   }
 }
 
-/// `.json` loader. Straight `serde_json::from_str`.
 pub struct JsonLoader;
 
 impl Loader for JsonLoader {
@@ -76,18 +71,16 @@ impl Loader for JsonLoader {
   }
 }
 
-/// Ordered loader chain; first match wins. Defaults: Matter, Yaml, Json.
+/// Ordered loader chain; first match wins.
 pub struct LoaderRegistry {
   loaders: Vec<Box<dyn Loader>>,
 }
 
 impl LoaderRegistry {
-  /// Registry pre-loaded with the three built-in loaders.
   pub fn with_defaults() -> Self {
     Self { loaders: vec![Box::new(MatterLoader), Box::new(YamlLoader), Box::new(JsonLoader)] }
   }
 
-  /// First loader whose `test()` accepts `path`, or `None`.
   pub fn pick(&self, path: &Path) -> Option<&dyn Loader> {
     self.loaders.iter().find(|l| l.test(path)).map(|l| l.as_ref())
   }

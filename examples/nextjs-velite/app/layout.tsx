@@ -1,8 +1,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import "./globals.css";
-// KaTeX needs its own stylesheet for glyph spacing.
-// Imported via CDN to keep the example install lean.
+// KaTeX stylesheet (CDN) is required for glyph spacing.
 
 export const metadata = {
 	title: "velite x Next.js - kitchen sink",

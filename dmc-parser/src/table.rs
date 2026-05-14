@@ -3,8 +3,8 @@ use crate::parser::Parser;
 use dmc_lexer::token::TokenKind;
 
 impl<'eng, 'tokens> Parser<'eng, 'tokens> {
-  /// Reconstruct the upcoming logical line from tokens, stopping at the first
-  /// break, EOF, or block-level boundary token. Returns `(text, token_count)`.
+  /// Reconstruct the upcoming logical line as `(text, token_count)`. Stops
+  /// at the first break, EOF, or block-level boundary token.
   fn collect_line_text(&self) -> Option<(String, usize)> {
     let mut text = String::new();
     let mut count = 0usize;
@@ -27,8 +27,8 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     if count == 0 { None } else { Some((text, count)) }
   }
 
-  /// Speculatively parse a GFM table at the cursor. Rolls back `pos` on any
-  /// mismatch so the caller can fall through to `parse_paragraph`.
+  /// Speculatively parse a GFM table. Rolls back `pos` on mismatch so the
+  /// caller can fall through to `parse_paragraph`.
   pub(crate) fn try_parse_table(&mut self) -> Option<Node> {
     let saved = self.pos;
     let span = self.current_span();
@@ -54,9 +54,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         return None;
       },
     };
-    // GFM table rule: separator column count must match the header
-    // column count -- otherwise the construct is not a table and the
-    // lines fall through to a paragraph.
+    // GFM: separator column count must match header column count.
     let header_cells_preview = split_cells(&line1);
     if header_cells_preview.len() != aligns.len() {
       self.pos = saved;
@@ -77,14 +75,12 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       if trimmed.is_empty() {
         break;
       }
-      // GFM 4.10: subsequent rows can omit all pipes ("bar" -> 1 cell
-      // padded to col_count). Block constructs still break out.
+      // GFM 4.10: subsequent rows can omit pipes; block constructs break out.
       if line_starts_block_construct(trimmed) {
         break;
       }
       let mut cells = split_cells(&line);
-      // GFM 4.10: pad rows that have fewer cells than the header with
-      // empty trailing cells; truncate rows that have more.
+      // GFM 4.10: pad short rows, truncate long ones.
       if cells.len() < col_count {
         cells.resize(col_count, String::new());
       } else if cells.len() > col_count {
@@ -102,9 +98,8 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
   }
 }
 
-/// GFM permits a table row with leading/trailing `|` optional, so we
-/// accept any line that contains at least one unescaped `|` and isn't a
-/// pure separator (those are caught later).
+/// GFM allows optional leading/trailing `|`; accept any line with at least
+/// one `|`. Pure-separator lines are caught by `parse_alignment_row`.
 fn looks_like_table_row(s: &str) -> bool {
   let t = s.trim();
   if t.is_empty() {
@@ -113,14 +108,13 @@ fn looks_like_table_row(s: &str) -> bool {
   t.matches('|').count() >= 1
 }
 
-/// Detect lines that should break out of an open table even when they
-/// have no `|`: block-construct openers (heading, fence, list, bq,
-/// thematic break).
+/// Lines that break out of an open table even without `|`: block openers
+/// (heading, fence, list, bq, thematic break).
 fn line_starts_block_construct(t: &str) -> bool {
   if t.starts_with('#') || t.starts_with('>') || t.starts_with("```") || t.starts_with("~~~") {
     return true;
   }
-  // Thematic break: 3+ of `-` / `*` / `_` optionally separated by ws.
+  // Thematic break: 3+ of `-`/`*`/`_`, optionally ws-separated.
   let bytes = t.as_bytes();
   if !bytes.is_empty() && matches!(bytes[0], b'-' | b'*' | b'_') {
     let marker = bytes[0];
@@ -137,7 +131,6 @@ fn line_starts_block_construct(t: &str) -> bool {
       return true;
     }
   }
-  // List marker: `-`/`*`/`+` + space, or digits + `.`/`)` + space.
   if t.len() >= 2 && matches!(bytes[0], b'-' | b'*' | b'+') && matches!(bytes.get(1).copied(), Some(b' ') | Some(b'\t'))
   {
     return true;
@@ -155,8 +148,7 @@ fn line_starts_block_construct(t: &str) -> bool {
   false
 }
 
-/// Parse the `|:---|---:|:---:|` alignment row. Leading/trailing `|`
-/// optional per GFM 4.10. `None` on any malformed cell.
+/// Parse `|:---|---:|:---:|`. Leading/trailing `|` optional (GFM 4.10).
 fn parse_alignment_row(s: &str) -> Option<Vec<TableAlign>> {
   let t = s.trim();
   let inner = t.strip_prefix('|').unwrap_or(t);
@@ -183,22 +175,14 @@ fn parse_alignment_row(s: &str) -> Option<Vec<TableAlign>> {
   Some(aligns)
 }
 
-/// Split `|a|b|c|` into the cell strings between pipes (no trim; caller
-/// trims when materialising the cell).
-///
-/// Pipes inside an inline-code span (`` ` `` ... `` ` ``) and pipes
-/// escaped with `\|` are *content*, not delimiters. GFM's table grammar
-/// requires this; without it, a row like
-/// `` | `"single" \| "multiple"` | `"single"` | `` is split into the
-/// wrong three cells. Track the escape and code-span state while walking the
-/// row.
+/// Split `|a|b|c|` into cell strings. Pipes inside `` `code` `` spans and
+/// `\|` escapes are content, not delimiters — required for GFM tables like
+/// `` | `"x" \| "y"` | `"z"` |``.
 fn split_cells(s: &str) -> Vec<String> {
   let t = s.trim();
   if t.is_empty() {
     return Vec::new();
   }
-  // GFM 4.10 allows omitting the leading and trailing `|`. Strip them
-  // when present so `bar | baz` parses identically to `| bar | baz |`.
   let inner = t.strip_prefix('|').unwrap_or(t);
   let inner = inner.strip_suffix('|').unwrap_or(inner);
 
@@ -209,9 +193,8 @@ fn split_cells(s: &str) -> Vec<String> {
   while let Some(c) = chars.next() {
     match c {
       '\\' => {
-        // GFM: `\|` inside a table cell is a literal pipe, not a delimiter.
-        // Forward the escaped character verbatim (without the backslash) so
-        // the inline parser sees the intended content.
+        // GFM: `\|` is a literal pipe; forward without the backslash so the
+        // inline parser sees the intended content.
         if let Some(&next) = chars.peek() {
           if next == '|' {
             chars.next();
@@ -237,9 +220,8 @@ fn split_cells(s: &str) -> Vec<String> {
   cells
 }
 
-/// Build one `TableRow` from raw cell strings. Each cell string is
-/// re-lexed and inline-parsed, so backticks, bold, italic, links, and
-/// other inline markdown render the same as in paragraphs.
+/// Build a `TableRow` from raw cell strings. Each cell is re-lexed +
+/// inline-parsed so inline markdown renders the same as in paragraphs.
 fn make_row(cells: &[String], span: &duck_diagnostic::Span) -> TableRow {
   TableRow {
     cells: cells

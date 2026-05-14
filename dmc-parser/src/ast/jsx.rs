@@ -13,8 +13,7 @@ pub enum JsxAttrValue {
   String(String),
   Expression(String),
   Boolean,
-  /// `{...rest}` spread attribute. The string is the raw expression
-  /// body (without the surrounding `{...}`). `JsxAttr.name` is empty
-  /// for spread attributes.
+  /// `{...rest}` spread. Stored without the surrounding `{...}`;
+  /// `JsxAttr.name` is empty for spreads.
   Spread(String),
 }

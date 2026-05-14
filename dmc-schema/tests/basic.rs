@@ -50,7 +50,7 @@ fn object_with_optional_and_default() {
   let out = schema.parse(&json!({"title": "Hello"}), &ctx()).unwrap();
   assert_eq!(out["title"], "Hello");
   assert_eq!(out["draft"], false);
-  assert!(out.get("tags").is_none()); // optional + omitted -> not present
+  assert!(out.get("tags").is_none());
 
   let out = schema.parse(&json!({"title": "Hi", "tags": ["a"]}), &ctx()).unwrap();
   assert_eq!(out["tags"], json!(["a"]));
@@ -89,7 +89,7 @@ fn refine_and_transform() {
 
 #[test]
 fn string_regex_with_lookbehind() {
-  // fancy-regex supports lookbehind (Rust regex crate doesn't)
+  // fancy-regex supports lookbehind; the `regex` crate does not.
   let schema = s::string().regex("(?<=foo)bar");
   assert!(schema.parse(&json!("foobar"), &ctx()).is_ok());
   assert!(schema.parse(&json!("bazbar"), &ctx()).is_err());
@@ -109,9 +109,7 @@ fn slug_kebab_check() {
   assert_eq!(schema.parse(&json!("my-post"), &ctx()).unwrap(), json!("my-post"));
   let ctx2 = ctx();
   schema.parse(&json!("my-post"), &ctx2).unwrap();
-  // duplicate in same context
   assert!(schema.parse(&json!("my-post"), &ctx2).is_err());
-  // bad shape
   assert!(schema.parse(&json!("MyPost"), &ctx()).is_err());
   assert!(schema.parse(&json!("my--post"), &ctx()).is_err());
   assert!(schema.parse(&json!("ab"), &ctx()).is_err());
@@ -123,7 +121,6 @@ fn unique_dedupes() {
   let ctx2 = ctx();
   schema.parse(&json!("hello"), &ctx2).unwrap();
   assert!(schema.parse(&json!("hello"), &ctx2).is_err());
-  // different bucket - independent
   let other = s::unique().by("authors");
   other.parse(&json!("hello"), &ctx2).unwrap();
 }
@@ -132,8 +129,7 @@ fn unique_dedupes() {
 fn metadata_and_excerpt_use_ctx() {
   use dmc_schema::Ctx;
   let mut c = Ctx::empty();
-  // `metadata` now reads `ctx.body` (raw post-frontmatter source) to
-  // match velite's `s.metadata()`; `excerpt` keeps using `plain_text`.
+  // `metadata` reads `ctx.body` (velite parity); `excerpt` reads `plain_text`.
   c.body = "alpha beta gamma delta epsilon zeta".repeat(20);
   c.plain_text = Some("alpha beta gamma delta epsilon zeta".repeat(20));
 

@@ -1,12 +1,4 @@
-//! Phase-by-phase timing for the native compile path. Without a real
-//! profiler available (perf_event_paranoid=2 here), we instrument each
-//! pipeline stage with `Instant::now()` and accumulate. Output:
-//!
-//!   lex       N us   M.M%
-//!   parse     N us   M.M%
-//!   transform N us   M.M%
-//!   codegen   N us   M.M%   (HTML + MDX body walk)
-//!
+//! Phase-by-phase timing via `Instant::now()` accumulation.
 //! Run: cargo run --release --example profile --features pretty-code
 
 use dmc_codegen::{HtmlEmitter, MdxBodyEmitter, NodeSink, Walker};
@@ -96,8 +88,7 @@ fn main() {
     pipeline.run(&mut doc, &meta, &mut diag);
     t_transform += t2.elapsed();
 
-    // Per-transformer fine-grained timing (using a separate fresh AST so
-    // each transformer sees the same input shape).
+    // Per-transformer timing: fresh AST so each sees identical input.
     let mut diag2 = DiagnosticEngine::<Code>::new();
     let mut lexer2 = Lexer::new(FIXTURE, meta.clone(), &mut diag2);
     let _ = lexer2.scan_tokens();

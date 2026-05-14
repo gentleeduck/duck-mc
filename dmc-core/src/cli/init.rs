@@ -9,7 +9,6 @@ pub struct InitCmd {
 }
 
 impl InitCmd {
-  /// Scaffold an annotated `dmc.toml` at `path`. Refuses to overwrite.
   pub fn run(self) -> DiagResult<Diagnostic<Code>> {
     if self.path.exists() {
       return Err(diag!(Code::ConfigExists, format!("refusing to overwrite existing {}", self.path.display())));

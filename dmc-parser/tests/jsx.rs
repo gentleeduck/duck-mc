@@ -83,7 +83,6 @@ fn nested_jsx() {
   assert!(found, "got {:?}", d.children);
 }
 
-/// Collect every `Node::Text` value found anywhere in the tree.
 fn collect_text_values(nodes: &[Node], out: &mut Vec<String>) {
   for n in nodes {
     if let Node::Text(t) = n {
@@ -107,15 +106,12 @@ fn first_jsx_element<'a>(nodes: &'a [Node], name: &str) -> Option<&'a JsxElement
   None
 }
 
-/// Regression: a `</B>` close tag inside a `<A>...</A>` body must close
-/// the inner `<B>`, not leak as `["</", "B", ">"]` text nodes and cause
-/// the following siblings to nest wrongly.
+/// `</B>` inside `<A>...</A>` closes the inner `<B>`, not leaking as
+/// `["</", "B", ">"]` text nodes.
 #[test]
 fn enclosing_jsx_close_tag_not_swallowed_as_text() {
   let d = parse_doc("<A>\n  <B>x</B>\n  <B>y</B>\n</A>\n");
   let a = first_jsx_element(&d.children, "A").expect("element A");
-  // Both <B> elements are children of <A> (possibly inside one wrapping
-  // paragraph), and exactly two of them exist.
   let mut bs: Vec<&JsxElement> = Vec::new();
   fn gather_b<'a>(nodes: &'a [Node], out: &mut Vec<&'a JsxElement>) {
     for n in nodes {
@@ -129,11 +125,9 @@ fn enclosing_jsx_close_tag_not_swallowed_as_text() {
   }
   gather_b(&a.children, &mut bs);
   assert_eq!(bs.len(), 2, "expected two <B> children, got {:?}", a.children);
-  // First <B> flattens to a single Text("x").
   let mut first_b_text = Vec::new();
   collect_text_values(&bs[0].children, &mut first_b_text);
   assert_eq!(first_b_text, vec!["x".to_string()], "first <B> children: {:?}", bs[0].children);
-  // No leaked close-tag fragments anywhere.
   let mut all_text = Vec::new();
   collect_text_values(&d.children, &mut all_text);
   for v in &all_text {
@@ -141,9 +135,7 @@ fn enclosing_jsx_close_tag_not_swallowed_as_text() {
   }
 }
 
-/// The original Tabs document from the bug report parses with proper
-/// nesting: `<TabsTrigger value="cli">` has child text "CLI" and the
-/// `value="manual"` trigger is its sibling, not its child.
+/// Sibling `<TabsTrigger>` elements stay siblings, with their text intact.
 #[test]
 fn tabs_document_parses_with_correct_nesting() {
   let src = "<Tabs defaultValue=\"cli\">\n\n<TabsList>\n  <TabsTrigger value=\"cli\">CLI</TabsTrigger>\n  <TabsTrigger value=\"manual\">Manual</TabsTrigger>\n</TabsList>\n\n<TabsContent value=\"cli\">\n\ncontent\n\n</TabsContent>\n\n</Tabs>\n";
@@ -162,7 +154,6 @@ fn tabs_document_parses_with_correct_nesting() {
   }
   gather(&list.children, &mut triggers);
   assert_eq!(triggers.len(), 2, "expected 2 TabsTrigger siblings under TabsList, got {:?}", list.children);
-  // Neither trigger nests the other.
   for t in &triggers {
     let mut nested = Vec::new();
     gather(&t.children, &mut nested);
@@ -171,7 +162,6 @@ fn tabs_document_parses_with_correct_nesting() {
   let mut first_text = Vec::new();
   collect_text_values(&triggers[0].children, &mut first_text);
   assert_eq!(first_text, vec!["CLI".to_string()], "first TabsTrigger text: {:?}", triggers[0].children);
-  // No leaked `</TabsTrigger>` / `</TabsList>` text fragments.
   let mut all_text = Vec::new();
   collect_text_values(&d.children, &mut all_text);
   for v in &all_text {
@@ -184,22 +174,16 @@ fn tabs_document_parses_with_correct_nesting() {
   }
 }
 
-/// Regression: a nest of PascalCase JSX elements indented 2 / 4 / 6
-/// spaces, carrying inline content with a lowercase HTML tag that
-/// itself has a JSX-style attribute (`<code className="...">x</code>`),
-/// must NOT silently fold its inner JSX children into an indented
-/// `CodeBlock`. The fallback indented-code detection used to fire on
-/// every indented line of a JSX container, swallowing the whole body
-/// (and effectively dropping the inner components from the AST).
+/// PascalCase JSX elements indented 2/4/6 spaces — with inline content that
+/// includes a lowercase HTML tag carrying a JSX-style attribute — must NOT
+/// fold into an indented CodeBlock, dropping the inner JSX from the AST.
 #[test]
 fn lowercase_html_tag_with_jsx_attr_inline_does_not_drop_enclosing_jsx() {
   let mdx = "# H\n\n<Outer>\n  <Inner attr=\"a\">\n    <InnerInner className=\"b\">\n      No. <code className=\"x\">react</code>, more.\n    </InnerInner>\n  </Inner>\n</Outer>\n";
   let doc = dmc_parser::parse(mdx);
   let outer = first_jsx_element(&doc.children, "Outer").expect("<Outer> dropped from the AST");
-  // All three nested JSX elements survive.
   let inner = first_jsx_element(&outer.children, "Inner").expect("<Inner> missing under <Outer>");
   let inner_inner = first_jsx_element(&inner.children, "InnerInner").expect("<InnerInner> missing under <Inner>");
-  // The inner body must NOT have collapsed into an indented CodeBlock.
   fn collect_code_blocks(nodes: &[Node], out: &mut usize) {
     for n in nodes {
       if matches!(n, Node::CodeBlock(_)) {
@@ -211,8 +195,6 @@ fn lowercase_html_tag_with_jsx_attr_inline_does_not_drop_enclosing_jsx() {
   let mut n_code = 0;
   collect_code_blocks(&inner_inner.children, &mut n_code);
   assert_eq!(n_code, 0, "<InnerInner> body should not contain a CodeBlock; got {:#?}", inner_inner.children);
-  // The inline `<code className=\"x\">react</code>` round-trips as raw
-  // HTML (CM 6.6) and carries the attribute / whitespace intact.
   let mut html_values = Vec::new();
   fn collect_html(nodes: &[Node], out: &mut Vec<String>) {
     for n in nodes {
@@ -235,11 +217,8 @@ fn lowercase_html_tag_with_jsx_attr_inline_does_not_drop_enclosing_jsx() {
   );
 }
 
-/// Regression (UNINDENTED): the production preMdx pipeline re-serializes
-/// MDX with everything at column 0 -- no indentation inside JSX blocks.
-/// An `<AccordionContent>` whose body paragraph contains an inline
-/// `<code className="...">react</code>` must not drop the enclosing
-/// `<Accordion>` / `<AccordionItem>` / `<AccordionContent>` from the AST.
+/// Same as above but column-0 (matches the production preMdx output, which
+/// has no indentation inside JSX blocks).
 #[test]
 fn unindented_lowercase_html_with_jsx_attr_inline_does_not_drop_enclosing_jsx() {
   let mdx = "# H\n\n<Accordion type=\"multiple\" collapsible className=\"w-full\">\n<AccordionItem value=\"x\">\n<AccordionTrigger>Q?</AccordionTrigger>\n\n<AccordionContent className=\"text-muted-foreground\">\nNo. <code className=\"rounded bg-muted px-2 py-1\">react</code>, more text.\n</AccordionContent>\n</AccordionItem>\n</Accordion>\n";
@@ -251,8 +230,6 @@ fn unindented_lowercase_html_with_jsx_attr_inline_does_not_drop_enclosing_jsx() 
     first_jsx_element(&item.children, "AccordionTrigger").expect("<AccordionTrigger> missing under <AccordionItem>");
   let content =
     first_jsx_element(&item.children, "AccordionContent").expect("<AccordionContent> missing under <AccordionItem>");
-  // The inline `<code className="...">react</code>` round-trips as raw
-  // HTML; the enclosing AccordionContent body still parses.
   fn collect_html(nodes: &[Node], out: &mut Vec<String>) {
     for n in nodes {
       if let Node::Html(h) = n {
@@ -275,18 +252,14 @@ fn unindented_lowercase_html_with_jsx_attr_inline_does_not_drop_enclosing_jsx() 
   );
 }
 
-/// No regression: a lowercase `<p>foo</p>` and a bare `</div>` inside a
-/// paragraph still round-trip as raw HTML, not as terminators.
+/// Lowercase `<p>foo</p>` and bare `</div>` round-trip as raw HTML.
 #[test]
 fn lowercase_html_tags_still_raw_html() {
   let d = parse_doc("<p>foo</p>\n");
-  // `<p>...</p>` becomes a raw-HTML block (Html node) -- it must not be
-  // routed through the JSX element path.
   let has_html = d.children.iter().any(|n| matches!(n, Node::Html(_)));
   assert!(has_html, "lowercase <p> should be raw HTML, got {:?}", d.children);
 
   let d2 = parse_doc("text </div> more\n");
-  // The `</div>` survives as raw HTML inside the paragraph.
   let mut found_div = false;
   fn walk(nodes: &[Node], found: &mut bool) {
     for n in nodes {
@@ -301,13 +274,10 @@ fn lowercase_html_tags_still_raw_html() {
   assert!(found_div, "bare </div> should stay raw HTML, got {:?}", d2.children);
 }
 
-/// A `<div className="...">` block with `<LinkedCard>` component
-/// children compiles as nested JSX elements -- not one verbatim raw-HTML
-/// blob (which would never instantiate the components and would render
-/// `className` as an inert HTML attribute). The lowercase `<svg>` /
-/// `<title>` / `<path>` / `<p>` descendants become JSX elements too, so
-/// their attributes survive. Inter-element indentation / line breaks are
-/// dropped (JSX ignores that whitespace).
+/// A `<div className="...">` with `<LinkedCard>` component children must
+/// parse as nested JSX (not one raw-HTML blob, which would never
+/// instantiate the components). Lowercase descendants stay JSX elements;
+/// inter-element whitespace is dropped.
 #[test]
 fn classed_div_with_component_children_parses_as_jsx() {
   let src = "\
@@ -334,7 +304,6 @@ fn classed_div_with_component_children_parses_as_jsx() {
     })
     .unwrap_or_else(|| panic!("expected a <div> JsxElement, got {:?}", d.children));
   assert!(div.attrs.iter().any(|a| a.name == "className"), "div className attr should survive, got {:?}", div.attrs);
-  // Two LinkedCard children, in order, no stray whitespace text nodes.
   let cards: Vec<&JsxElement> = div
     .children
     .iter()
@@ -344,7 +313,6 @@ fn classed_div_with_component_children_parses_as_jsx() {
     })
     .collect();
   assert_eq!(cards.len(), 2, "expected 2 LinkedCard children, got {:?}", div.children);
-  // First card: <svg> element (with its <title>/<path> kids) + a <p>.
   let svg = cards[0]
     .children
     .iter()
@@ -372,8 +340,7 @@ fn classed_div_with_component_children_parses_as_jsx() {
   );
 }
 
-/// A plain `<div>...</div>` with no JSX syntax and no component children
-/// still routes through the CommonMark raw-HTML block path.
+/// Plain `<div>...</div>` (no JSX syntax) stays a CM raw-HTML block.
 #[test]
 fn plain_div_block_stays_raw_html() {
   let d = parse_doc("<div>\nhello\n</div>\n");

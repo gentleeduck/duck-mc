@@ -1,6 +1,6 @@
-// User-facing walkthrough: ../dmc-docs/dmc-napi/
-// TS module surface for @gentleduck/md (npm). The Rust engine
-// lives in dmc-core; this file is the JS-facing API + cache layer.
+// TS module surface for @gentleduck/md. The Rust engine lives in
+// dmc-core; this file is the JS-facing API + cache layer.
+// Walkthrough: ../dmc-docs/dmc-napi/.
 
 import { createRequire } from "node:module";
 import {
@@ -74,7 +74,6 @@ export function definePlugin<P extends Plugin>(
 const require = createRequire(import.meta.url);
 const native = require("./index.js");
 
-// Resolve sidecar entry relative to @gentleduck/md package + propagate via env
 function resolveSidecar(): string | null {
 	const here = dirname(fileURLToPath(import.meta.url));
 	const candidates = [
@@ -855,15 +854,11 @@ export interface TransformCtx {
 
 type CbFn = (v: unknown, ctx: TransformCtx) => unknown;
 
-// The callback registry has to survive across separate module instances
-// of `@gentleduck/md`, because module loaders like tsx will load this
-// file twice in the same process - once when the user's config imports
-// `s` to register transforms, and once when the runner imports `build()`
-// to consume them. Two `new Map()` instances at module top-level would
-// give us two disjoint registries; the schema produced by the config
-// would carry callback ids that the runner's registry knows nothing
-// about, and every transform would silently be skipped. Stashing the
-// shared state on `globalThis` is the standard JS workaround.
+// Shared via `globalThis` because tsx (and similar) loads this file
+// twice per process: once when the config imports `s`, once when the
+// runner imports `build()`. Two module-local `Map`s would split the
+// registry — config-side ids would miss the runner-side lookup and
+// every transform would be silently skipped.
 interface DmcRegistryHolder {
 	__dmcRegistry__?: { map: Map<number, CbFn>; nextId: number };
 }
@@ -930,8 +925,7 @@ export class SchemaBuilder<_T = unknown> {
 			version: 1,
 			vendor: 'gentleduck-md',
 			validate: (value) => ({ value: value as _T }),
-			// `types` is a phantom for static type lookup; never read at
-			// runtime. Cast keeps the runtime object minimal.
+			// `types` is phantom (compile-time only); the cast keeps it absent at runtime.
 			types: undefined as unknown as { readonly input: _T; readonly output: _T },
 		};
 	}
@@ -943,10 +937,8 @@ export class SchemaBuilder<_T = unknown> {
 		for (const k of Object.keys(this)) out[k] = this[k];
 		return out;
 	}
-	// Fluent helpers preserve the inferred output `_T` so chains like
-	// `s.string().max(99)` stay typed as `SchemaBuilder<string>` instead
-	// of decaying to `SchemaBuilder<unknown>`. Consumers reading
-	// `data.title` inside `.transform((data) => ...)` then see `string`.
+	// Each helper threads `_T` through so `s.string().max(99)` stays
+	// `SchemaBuilder<string>` instead of decaying to `<unknown>`.
 	optional(): SchemaBuilder<_T | undefined> {
 		return new SchemaBuilder<_T | undefined>({ kind: "optional", inner: this.toJSON() });
 	}
@@ -1238,10 +1230,9 @@ function applyCallbacks(
 	ctx: TransformCtx,
 ): void {
 	for (const cb of cbs) {
-		// Root-level transform / refine: the descriptor is at the top of
-		// the schema (e.g. `s.object({...}).transform(fn)`). walkPath
-		// with an empty path returns nothing, so handle that case here
-		// by mutating the record in place from the callback's return.
+		// Root-level transform/refine (e.g. `s.object({...}).transform(fn)`):
+		// `walkPath` with an empty path returns nothing, so mutate the
+		// record in place from the callback's return.
 		if (cb.path.length === 0) {
 			if (cb.kind === "transform") {
 				try {
@@ -1341,9 +1332,7 @@ function adaptToBuildInput(
 		outputBase: cfg.output?.base,
 		outputName: cfg.output?.name,
 		outputFormat: cfg.output?.format,
-		// Single `content` block drives both `.md` and `.mdx` pipelines.
-		// Plugin lists feed both markdown- and mdx-side slots so a config
-		// without explicit per-extension overrides Just Works.
+		// One `content` block feeds both `.md` and `.mdx` slots.
 		markdownRemarkPlugins: cfg.content?.remarkPlugins,
 		markdownRehypePlugins: cfg.content?.rehypePlugins,
 		mdxRemarkPlugins: cfg.content?.remarkPlugins,
@@ -1369,22 +1358,11 @@ export function compileMany(sources: string[]): CompileOutput[] {
 }
 
 /**
- * Run user `preMdxPlugins` on each `.mdx` / `.md` source file via
+ * Run user `preMdxPlugins` on each `.mdx` / `.md` source via
  * `unified(remark-parse + remark-mdx + plugins + remark-stringify)`.
- * Writes processed copies into `<output>/.cache/preprocessed/<rel>`
- * and returns the mirror root path. Native build reads from there.
- *
- * Cache layout: every dmc-owned on-disk cache lives under one root
- * (`<output>/.cache/`):
- *
- *   <output>/.cache/
- *     |-- preprocessed/        (preMdx mirror + per-file manifest)
- *     |-- dmc/                 (native per-file compile records)
- *     `-- math.json            (KaTeX/MathML render cache)
- *
- * One root means one `.gitignore` entry, one `rm -rf` to nuke
- * everything for a clean rebuild, and no cache files leaking into
- * the source tree (the previous `<root>/.dmc-cache/` location).
+ * Writes processed copies under `<output>/.cache/preprocessed/<rel>`
+ * (alongside `dmc/` per-file compile records and `math.json`) and
+ * returns the mirror root path. Native build reads from there.
  */
 async function preprocessMdxIntoMirror(
 	input: UserConfig,
@@ -1399,8 +1377,7 @@ async function preprocessMdxIntoMirror(
 	const mirrorRoot = join(outputDir, ".cache", "preprocessed");
 	const manifestPath = join(mirrorRoot, ".manifest.json");
 
-	// Sweep legacy mirror locations: `<root>/.dmc-cache/` and
-	// `<output>/.dmc-cache/`. Current location is `<output>/.cache/preprocessed/`.
+	// Sweep legacy `.dmc-cache/` locations (current: `<output>/.cache/preprocessed/`).
 	for (const legacy of [join(root, ".dmc-cache"), join(outputDir, ".dmc-cache")]) {
 		if (existsSync(legacy) && resolve(legacy) !== resolve(join(outputDir, ".cache"))) {
 			try {
@@ -1425,11 +1402,8 @@ async function preprocessMdxIntoMirror(
 
 	const sha = (s: string | Buffer): string => createHash("sha256").update(s).digest("hex");
 
-	// Plugins: hash the function body + module path of each entry
-	// once per build. Captures source mutations to the plugin itself
-	// (e.g. editing `rehype-component.ts`) without dragging in a
-	// graph-wide module hasher. Falls back to the function `.toString()`
-	// when the plugin is an inline arrow.
+	// Hash each plugin's function body so editing the plugin source
+	// invalidates the cache, without a full module-graph hasher.
 	const pluginsHash = sha(
 		plugins
 			.map((p) => {
@@ -1442,10 +1416,8 @@ async function preprocessMdxIntoMirror(
 			.join("\0"),
 	);
 
-	// User-declared extra inputs - files outside the source `.mdx` whose
-	// content gates the cache (e.g. `__ui_registry__/index.ts` read by
-	// `rehypeComponent`). Missing files contribute the empty hash, so a
-	// fresh checkout doesn't error.
+	// Missing files contribute "missing" rather than erroring so a fresh
+	// checkout doesn't fail before the user-declared extra inputs exist.
 	const extraInputs = input.content?.preMdxCacheInputs ?? [];
 	const extraInputsHash = sha(
 		extraInputs
@@ -1492,9 +1464,7 @@ async function preprocessMdxIntoMirror(
 		const sourceHash = sha(source);
 		validRels.add(rel);
 
-		// Cache hit: source bytes, plugin set, AND every declared extra
-		// input identical to the last build. Trust the on-disk mirror
-		// and skip the unified pipeline for this file.
+		// Cache hit requires source + plugin set + extra inputs all unchanged.
 		const cached = prev[rel];
 		if (
 			cached &&
@@ -1509,10 +1479,8 @@ async function preprocessMdxIntoMirror(
 		}
 		misses++;
 
-		// `remark-frontmatter` preserves YAML/TOML frontmatter as a
-		// dedicated mdast `yaml` / `toml` node so `remark-stringify`
-		// outputs `---\n...\n---` verbatim instead of mangling it into
-		// a thematic break.
+		// `remark-frontmatter` keeps YAML/TOML as dedicated mdast nodes;
+		// otherwise `remark-stringify` would mangle `---` into a thematic break.
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		let proc: any = unified()
 			.use(remarkParse)
@@ -1527,20 +1495,16 @@ async function preprocessMdxIntoMirror(
 			writeFileSync(mirrorAbs, dedented);
 			next[rel] = { sourceHash, pluginsHash, extraInputsHash };
 		} catch {
-			// Plugin failure -> fall back to original source so the
-			// build doesn't lose the file. Diagnostics surface via the
-			// usual error reporting once native parse runs.
+			// Plugin failure: fall back to original source so the build
+			// doesn't lose the file. Don't cache: retry next build.
 			mkdirSync(dirname(mirrorAbs), { recursive: true });
 			writeFileSync(mirrorAbs, source);
-			// Don't cache a fall-back as if it were a successful run -
-			// a transient plugin error should be retried next build.
 			delete next[rel];
 		}
 	}
 
-	// Sweep mirror entries whose source no longer exists. Without
-	// this, deleting an `.mdx` from `content/docs/**` would leave a
-	// stale mirror file behind that the native build picks up.
+	// Sweep mirror entries for sources that no longer exist; otherwise a
+	// deleted `.mdx` leaves a stale file the native build would still read.
 	for (const rel of Object.keys(prev)) {
 		if (validRels.has(rel)) continue;
 		const stale = join(mirrorRoot, rel);
@@ -1548,8 +1512,7 @@ async function preprocessMdxIntoMirror(
 			try {
 				rmSync(stale);
 			} catch {
-				// Best-effort: if the file is locked, skip - the next
-				// successful build will catch it.
+				// best-effort
 			}
 		}
 	}
@@ -1557,8 +1520,7 @@ async function preprocessMdxIntoMirror(
 	try {
 		writeFileSync(manifestPath, JSON.stringify(next));
 	} catch {
-		// Manifest write failure degrades gracefully to "no cache" on
-		// the next build. Don't fail the build over it.
+		// Manifest write failure degrades to "no cache" next build.
 	}
 
 	const elapsed = (performance.now() - t0).toFixed(0);
@@ -1568,18 +1530,12 @@ async function preprocessMdxIntoMirror(
 }
 
 /**
- * Remove the 2-space indent that `mdast-util-mdx-jsx` injects on flow
- * JSX-element children. We target only the OPEN-CLOSE JSX block shape
- * (e.g. `<Tag ...>\n  body\n</Tag>`) so unrelated indentation elsewhere
- * is untouched. dmc's parser then sees fenced code blocks at column
- * zero relative to the JSX block and recognises them as proper fences.
- */
-/**
- * `mdast-util-mdx-jsx` indents flow JSX-element children by 2 spaces
- * per nesting level. Walk the source line-by-line tracking
- * (a) fence state and (b) JSX nesting depth; strip `depth * 2`
- * leading spaces from every line. Tags inside fenced code blocks are
- * literal text, not real JSX, so depth stays unchanged while in fence.
+ * Strip the 2-space-per-level indent that `mdast-util-mdx-jsx` injects
+ * on flow JSX-element children. Walk line-by-line tracking fence state
+ * and JSX depth; strip `depth * 2` leading spaces. Tags inside fenced
+ * code blocks are literal text, so depth is frozen while in fence.
+ * Without this, fenced code blocks nested inside JSX get treated as
+ * indented code by CommonMark.
  */
 function dedentJsxFlowChildren(src: string): string {
 	const lines = src.split("\n");
@@ -1615,14 +1571,11 @@ function dedentJsxFlowChildren(src: string): string {
 			continue;
 		}
 
-		// Match a JSX tag at line start. mdast-mdx-jsx indents children
-		// of every flow JSX element - Capitalised (`<LinkedCard>`) AND
-		// lowercase host tags (`<div>`, `<svg>`, `<p>`) - by 2 spaces
-		// per nesting level. The dedent walker has to bump depth on
-		// either, otherwise lowercase wrappers like `<svg>` leave a
-		// 4-space residue on their children, which CommonMark then
-		// re-classifies as an indented code block (so `<title>` and
-		// `<path>` inside an SVG get pretty-coded as plaintext).
+		// Match BOTH Capitalised (`<LinkedCard>`) and lowercase host tags
+		// (`<div>`, `<svg>`) — mdast-mdx-jsx indents children of both, so
+		// missing lowercase here leaves a 4-space residue that CommonMark
+		// reclassifies as an indented code block (e.g. `<title>` / `<path>`
+		// inside `<svg>` rendered as plaintext).
 		const openMatch = trimmed.match(/^<([A-Za-z][\w-]*)\b[^\n]*?(\/?)>/);
 		const closeOnlyMatch = /^<\/([A-Za-z][\w-]*)>\s*$/.exec(trimmed);
 
@@ -1634,7 +1587,7 @@ function dedentJsxFlowChildren(src: string): string {
 		out[i] = stripUpTo(line, depth * 2);
 		if (openMatch && openMatch[2] !== "/") {
 			const tag = openMatch[1];
-			// `<Tag>...</Tag>` on the same line is balanced - don't bump depth.
+			// `<Tag>...</Tag>` single-line is balanced; don't bump depth.
 			const balanced = new RegExp(`</${tag}>\\s*$`).test(trimmed);
 			if (!balanced) depth++;
 		}
@@ -1666,16 +1619,12 @@ function rewireMirrorPaths(report: BuildReport, originalRoot: string, mirrorRoot
 			}
 			writeFileSync(c.outputPath, JSON.stringify(records, null, 2));
 		} catch {
-			// best-effort; collection JSON may not exist on partial failures
+			// best-effort; collection JSON may be absent on partial failures
 		}
 	}
-	// Diagnostic spans carry the mirror path AND mirror line/column.
-	// Mirror line numbers don't match the original source (preMdx
-	// stringify reflows whitespace and JSX wrappers), so remapping
-	// the path alone would point users at the wrong line. Keep the
-	// mirror path verbatim so `path:line:col` stays consistent.
-	// Consumers who want to follow the path open the file under
-	// `.dmc-cache/preprocessed/...`.
+	// Diagnostic spans intentionally keep the mirror path: preMdx
+	// stringify reflows whitespace, so remapping the path without the
+	// line/col would point at the wrong source line.
 }
 
 async function processWithUnified(
@@ -1695,16 +1644,9 @@ async function processWithUnified(
 		if (Array.isArray(p)) return proc.use(p[0] as Plugin, p[1]);
 		return proc.use(p);
 	};
-	// `remark-mdx` makes JSX nodes (`<ComponentSource path="..." />`,
-	// `<ComponentPreview name="..." />`, expressions, MDX import/export)
-	// parse as proper mdast JSX - `mdxJsxFlowElement` /
-	// `mdxJsxTextElement` with `name` + `attributes`. The
-	// `passThrough` option on `remark-rehype` forwards them into hast
-	// untouched so user rehype plugins can visit + mutate them.
-	//
-	// `rehype-raw` is intentionally NOT used: it re-parses raw HTML and
-	// chokes on `mdxJsxFlowElement` nodes. With remark-mdx every JSX is
-	// already a typed node, so no raw-HTML round-trip is needed.
+	// `remark-mdx` keeps JSX as typed mdast nodes; `passThrough` carries
+	// them into hast so user rehype plugins can visit/mutate them.
+	// `rehype-raw` is intentionally OMITTED — it chokes on mdxJsxFlowElement.
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	let proc: any = unified().use(remarkParse).use(remarkMdx);
 	for (const p of remarkPlugins) proc = apply(proc, p);
@@ -1719,10 +1661,9 @@ async function processWithUnified(
 		],
 	});
 	for (const p of rehypePlugins) proc = apply(proc, p);
-	// Final pass: convert any remaining MDX JSX nodes to plain hast
-	// elements so `rehype-stringify` can serialize them. User plugins
-	// that read `node.name === 'ComponentSource'` etc still see them
-	// upstream; this only fires for nodes left untouched.
+	// Final pass lowers any leftover MDX JSX nodes to plain hast so
+	// `rehype-stringify` can serialise them. Upstream user plugins still
+	// see typed `mdxJsxFlowElement` nodes.
 	proc = proc.use(rehypeMdxJsxToHast).use(rehypeStringify, { allowDangerousHtml: true });
 
 	const file = await proc.process(markdown);
@@ -1730,10 +1671,9 @@ async function processWithUnified(
 }
 
 /**
- * Lower mdxJsxFlowElement / mdxJsxTextElement to plain hast `element`
- * nodes (lowercased tagName + attributes flattened into properties).
- * mdxFlowExpression / mdxTextExpression / mdxjsEsm get dropped - they
- * only make sense inside an MDX runtime, not in stringified HTML.
+ * Lower mdxJsx*Element to hast `element` (tagName + flattened attributes
+ * as properties). mdx{Flow,Text}Expression / mdxjsEsm are dropped — they
+ * only make sense at MDX runtime, not in stringified HTML.
  */
 function rehypeMdxJsxToHast() {
 	type MdxJsxAttr = {
@@ -1863,20 +1803,17 @@ export async function build(input: UserConfig): Promise<BuildReport> {
 		}
 	}
 
-	// Pre-MDX preprocessing: source-level remark plugins run BEFORE
-	// dmc's native parse + transform. Mutated source is written to a
-	// `.dmc-cache/preprocessed/` mirror dir; native build reads from
-	// the mirror. After build, source-path fields in the per-record
-	// JSON are rewritten back to original paths so consumers see
-	// untouched paths.
+	// Source-level remark plugins run BEFORE dmc's native parse. Mutated
+	// source goes to a mirror dir which the native build reads; record
+	// paths get rewritten back to the originals afterwards.
 	const preMdxPlugins = input.content?.preMdxPlugins ?? [];
 	let mirrorRoot: string | null = null;
 	if (preMdxPlugins.length) {
 		mirrorRoot = await preprocessMdxIntoMirror(input, preMdxPlugins);
 	}
 
-	// Strip JS plugin function refs from the napi input - they can't cross
-	// the FFI boundary. The in-process post-pass below applies them.
+	// JS plugin function refs can't cross the FFI boundary; strip them
+	// here and apply in the in-process post-pass below.
 	const stripped: UserConfig = {
 		...input,
 		root: mirrorRoot ?? input.root,
@@ -1895,7 +1832,7 @@ export async function build(input: UserConfig): Promise<BuildReport> {
 	}
 	await applyCustomLoaders(input, report);
 
-	// In-process unified pipeline - type-safe plugin refs run here.
+	// In-process unified pipeline — type-safe plugin refs run here.
 	const remark: Pluggable[] = (input.content?.remarkPlugins ?? []) as Pluggable[];
 	const rehype: Pluggable[] = (input.content?.rehypePlugins ?? []) as Pluggable[];
 	if (remark.length || rehype.length) {
@@ -1932,10 +1869,8 @@ export async function build(input: UserConfig): Promise<BuildReport> {
 		if (!cbs) continue;
 		const records = Array.isArray(data[c.name]) ? data[c.name] : [data[c.name]];
 		for (const record of records) {
-			// Build a velite-compatible ctx for the per-record transform.
-			// `path` comes from the engine-injected `sourceFilePath` field;
-			// fall back to the collection output path so the callback always
-			// receives a defined string instead of undefined.
+			// velite-compat ctx; engine injects `sourceFilePath`, fall back
+			// to the collection output path so the callback always sees a string.
 			let sourcePath: string = c.outputPath;
 			if (record && typeof record === "object") {
 				const sfp = (record as Record<string, unknown>).sourceFilePath;

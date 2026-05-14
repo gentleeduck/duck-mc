@@ -18,17 +18,12 @@
 //!
 //! Run:  cargo run --release --example bench
 //!
-//! No glaze:
-//!   - All sidecar variants reset the worker pool between scale points so
-//!     each measurement starts cold (no inter-scale plugin cache carryover).
-//!   - First run installs npm deps into `dmc-core/tmp/bench-deps/` once.
-//!     Subsequent runs reuse it. Plugin variants + velite skip silently
-//!     if `npm` is unavailable or the install fails.
-//!   - Mermaid intentionally NOT included in the kitchen-sink chain. The
-//!     pure-JS renderers all wrap puppeteer/playwright + a real browser,
-//!     which would dominate the wall time and obscure the parser+pipeline
-//!     comparison. Math is via katex (pure JS, no headless browser).
-//!   - Numbers come from one process on this host; variance is reported.
+//! Notes:
+//!   - Sidecar pool reset between scale points (no plugin cache carryover).
+//!   - npm deps installed once at `dmc-core/tmp/bench-deps/`; JS variants
+//!     skip silently if npm is missing.
+//!   - Mermaid omitted from kitchen-sink: JS renderers wrap a real
+//!     browser and would dominate wall time. Math uses katex.
 
 use std::fs;
 use std::io::Write as _;
@@ -48,7 +43,6 @@ use serde::Serialize;
 use serde_json::json;
 use tempfile::TempDir;
 
-/// Representative MDX fixture. Inlined so the bench is self-contained.
 const FIXTURE: &str = r#"---
 title: "Sample Doc"
 description: "A reasonably realistic mdx file used as the bench fixture."
@@ -111,9 +105,8 @@ Final paragraph plus a terminating thematic break.
 End.
 "#;
 
-/// Heavy fixture used by the kitchen-sink scenario. Adds math, emoji,
-/// footnotes, more code blocks, more headings, more paragraphs - so each
-/// added plugin actually has work to do.
+/// Heavy fixture: adds math, emoji, footnotes, code, prose so each
+/// kitchen-sink plugin has work to do.
 const HEAVY_FIXTURE: &str = r#"---
 title: "Heavy Doc"
 description: "Exercises the full plugin chain: gfm, math, emoji, shiki, slug, autolink."
@@ -328,8 +321,7 @@ fn check_sidecar_ready() -> Result<PathBuf, String> {
   Ok(path)
 }
 
-/// Persistent npm install for the heavy plugin variant + velite. One-time
-/// cost on first run. Cached at `dmc-core/tmp/bench-deps/`.
+/// One-time npm install at `dmc-core/tmp/bench-deps/`.
 fn ensure_bench_deps() -> Result<PathBuf, String> {
   check_node()?;
   let dir = out_dir().join("bench-deps");
@@ -363,9 +355,7 @@ fn ensure_bench_deps() -> Result<PathBuf, String> {
   let nm = dir.join("node_modules");
   if !nm.exists() {
     eprintln!("      installing bench deps in {} (one-time, ~30s)...", dir.display());
-    // --ignore-scripts skips native postinstall builds (e.g. velite -> sharp
-    // -> node-gyp) that fail without a system toolchain. Sharp's image
-    // processing is not exercised by plain-mdx fixtures.
+    // --ignore-scripts skips native postinstalls (velite -> sharp -> node-gyp).
     let status = Command::new("npm")
       .args(["install", "--no-fund", "--no-audit", "--silent", "--ignore-scripts"])
       .current_dir(&dir)
@@ -394,7 +384,7 @@ fn measure_per_file_with(body: &str) -> Stats {
   Stats::from_samples(samples)
 }
 
-/// Tiny fixture: 4 lines, ~80 bytes. Lower bound on per-file native cost.
+/// 4 lines, ~80 bytes. Lower bound on per-file native cost.
 const SHORT_FIXTURE: &str = r#"---
 title: "Tiny"
 ---
@@ -402,13 +392,11 @@ title: "Tiny"
 Hello, **world**.
 "#;
 
-/// Long fixture: heavy content repeated 50x to push the parser past 5k
-/// lines / ~250 KB. Stresses the lexer + per-node allocator + codegen
-/// writer at a single-file scale.
+/// 50x heavy fixture: 5k+ lines / ~250 KB single-file stress.
 fn long_fixture() -> String {
   let body = HEAVY_FIXTURE;
   let chunks = body.split("---\n").collect::<Vec<_>>();
-  // chunks[0] = "" (before first ---), chunks[1] = frontmatter, chunks[2] = body.
+  // chunks: ["", frontmatter, body]
   let frontmatter = chunks.get(1).copied().unwrap_or("");
   let body_only = chunks.get(2).copied().unwrap_or(body);
   let mut out = String::with_capacity(body.len() * 50);
@@ -501,13 +489,10 @@ fn measure_sidecar_scale(
   let output_dir = tmp.path().join(".dmc");
   let cfg = make_cfg(tmp.path(), &output_dir, remark, rehype);
 
-  // Reset the sidecar pool so each scale point starts cold (no plugin
-  // cache carryover from the previous N).
+  // Cold each scale point.
   shutdown_pool();
 
-  // Sidecar's userRequire resolves plugins from process.cwd()/package.json.
-  // For variants that need third-party plugins, chdir into bench-deps so
-  // the spawned node child inherits the right cwd.
+  // Sidecar resolves plugins from process.cwd(); chdir into bench-deps.
   let prev_cwd = std::env::current_dir().ok();
   if let Some(p) = cwd_for_plugin_resolution {
     std::env::set_current_dir(p).expect("chdir bench-deps");
@@ -531,20 +516,16 @@ fn measure_sidecar_scale(
   Stats::from_samples(samples)
 }
 
-/// Run velite against the same fixtures. Sets up a tempdir with a
-/// velite.config.ts, symlinks node_modules from bench-deps, then times
-/// `node node_modules/velite/dist/cli.js build` per scale point.
+/// Times `velite build` against the same fixtures.
 #[cfg(unix)]
 fn measure_velite_scale(n: usize, fixture: &str, deps: &Path, velite_config: &str) -> Result<Stats, String> {
   let tmp = TempDir::new().map_err(|e| e.to_string())?;
   write_fixtures_with(tmp.path(), n, fixture);
 
-  // Symlink node_modules so velite finds its own internals.
   std::os::unix::fs::symlink(deps.join("node_modules"), tmp.path().join("node_modules")).map_err(|e| e.to_string())?;
 
   fs::write(tmp.path().join("velite.config.ts"), velite_config).map_err(|e| e.to_string())?;
 
-  // Locate velite's CLI entry once.
   let cli_candidates = [
     deps.join("node_modules").join("velite").join("dist").join("cli.js"),
     deps.join("node_modules").join("velite").join("bin").join("velite.js"),

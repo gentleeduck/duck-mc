@@ -130,7 +130,6 @@ impl Visitor for Apply {
         diag!(Code::MissingComponentAttr, "component-source: missing required `path` attribute".to_string())
           .with_label(Label::primary(span, Some("on this <ComponentSource>".into()))),
       );
-      // Restore attrs since we took them
       if let Node::JsxSelfClosing(j) = node {
         j.attrs = attrs;
       } else if let Node::JsxElement(j) = node {

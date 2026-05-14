@@ -19,9 +19,8 @@ pub fn compile(source: String) -> Result<Value> {
   serde_json::to_value(&out).map_err(|e| Error::from_reason(e.to_string()))
 }
 
-/// Render a LaTeX fragment to KaTeX HTML via the embedded KaTeX engine.
-/// Output matches the JS chain `rehype-katex` byte-for-byte. Pair with
-/// the standard `katex.min.css` for glyph rendering.
+/// Render a LaTeX fragment to KaTeX HTML. Output is byte-compatible with
+/// `rehype-katex`; pair with `katex.min.css` for glyph rendering.
 #[napi]
 pub fn latex_to_html(latex: String, display: bool) -> Result<String> {
   let opts = katex::Opts::builder()
@@ -74,43 +73,17 @@ pub struct BuildInput {
   pub markdown_gfm: Option<bool>,
   pub include_html: Option<bool>,
   pub cache_enabled: Option<bool>,
-  /// Bypass the plugin gate for every plugin: every JS plugin runs
-  /// in the sidecar, every native transformer is dropped.
+  /// Route every plugin through the sidecar; drop every native transformer.
   pub force_sidecar: Option<bool>,
-  /// Per-plugin sidecar preference. Names listed here run in the
-  /// sidecar; the matching native transformer is dropped from the
-  /// pipeline. Names dmc recognises:
-  ///   "remark-gfm", "remark-math", "remark-emoji",
-  ///   "rehype-pretty-code", "shiki",
-  ///   "rehype-katex", "rehype-mathjax",
-  ///   "rehype-slug", "rehype-autolink-headings",
-  ///   "mermaid", "rehype-mermaid", "remark-mermaid"
+  /// Per-plugin sidecar preference. Each listed name routes through the
+  /// sidecar and drops its matching native transformer. Recognised names:
+  /// `remark-gfm`, `remark-math`, `remark-emoji`, `rehype-pretty-code`,
+  /// `shiki`, `rehype-katex`, `rehype-mathjax`, `rehype-slug`,
+  /// `rehype-autolink-headings`, `mermaid`, `rehype-mermaid`, `remark-mermaid`.
   pub prefer_sidecar: Option<Vec<String>>,
-  /// Mermaid render config. Free-form JSON deserialised into
-  /// `MermaidOptions`:
-  ///   theme:               string | { [mode: string]: string }
-  ///   config:              any (forwarded to mmdc --configFile)
-  ///   backgroundColor:     string ("transparent" by default)
-  ///   htmlLabels:          boolean (default false)
-  ///   responsiveSvg:       boolean (default true)
-  ///   centerLabels:        boolean (default true)
-  ///   outputDir:           string (disk SVG cache)
-  ///   puppeteerConfigFile: string
+  /// Free-form JSON, deserialised into `MermaidOptions`.
   pub mermaid: Option<Value>,
-  /// Pretty-code config. Free-form JSON deserialised into
-  /// `PrettyCodeOptions`:
-  ///   theme:               string | { [mode: string]: string }
-  ///   defaultMode:         string
-  ///   keepRawString:       boolean (default true)
-  ///   fragmentWrapper:     boolean (default true)
-  ///   lineClass:           string ("line" by default)
-  ///   highlightedLineAttr: string ("data-dmc-line-highlighted" by default)
-  ///   defaultLanguage:     string ("plaintext" by default)
-  ///   fallbackToPlaintext: boolean (default true)
-  ///   renderTitle:         boolean (default true)
-  ///   includeDataLanguage: boolean (default true)
-  ///   skipLanguages:       string[]
-  ///   tabSize:             number
+  /// Free-form JSON, deserialised into `PrettyCodeOptions`.
   pub pretty_code: Option<Value>,
 }
 
@@ -131,8 +104,7 @@ pub struct DiagnosticReport {
   pub message: String,
   /// Optional follow-up help text (e.g. `bundled themes: ...`).
   pub help: Option<String>,
-  /// First label's source-file path (when present). Lets the
-  /// JS-side formatter prefix `path:line:col` like rustc does.
+  /// First label's source-file path; enables `path:line:col` formatting JS-side.
   pub file: Option<String>,
   /// First label's 1-based line.
   pub line: Option<u32>,
@@ -214,21 +186,16 @@ pub fn build(input: BuildInput) -> Result<BuildReport> {
   };
 
   let mut diag = DiagnosticEngine::<Code>::new();
-  // `Engine::run` now returns `DiagResult`. The
-  // diagnostic carries `code` + `message`; we lose `help` / labels at
-  // the napi boundary because napi-rs needs a `String` error. The
-  // structured detail still ships back to JS via
-  // `BuildReport.diagnostics`, so the message-only conversion here is
-  // fine for the abort path.
+  // napi-rs only carries a `String` across the FFI boundary; `help` /
+  // labels survive only via `BuildReport.diagnostics`. This message-only
+  // conversion is the abort path; structured detail still ships back.
   if let Err(d) = Engine::run(&cfg, None, &mut diag) {
     use duck_diagnostic::DiagnosticCode;
     return Err(Error::from_reason(format!("{}: {}", d.code.code(), d.message)));
   }
 
-  // Surface enough collection metadata for the JS-side `build()` wrapper
-  // to do its in-process unified pipeline pass. Engine writes one JSON
-  // file per collection at `<output_dir>/<name>.json`; we count records
-  // by re-reading the file (cheap relative to the build itself).
+  // Engine writes `<output_dir>/<name>.json` per collection; re-read to
+  // get the record count so the JS wrapper can do its unified post-pass.
   let collections: Vec<BuildCollectionReport> = cfg
     .collections
     .iter()

@@ -1,12 +1,5 @@
-//! GitHub Flavored Markdown spec test runner. Vendored from
-//! https://github.com/github/cmark-gfm/blob/master/test/spec.txt
-//! (670 examples), exported to JSON via the same state machine used
-//! by `cmark-gfm/test/spec_tests.py`.
-//!
-//! Strategy mirrors `commonmark_spec.rs`: parse + render, normalize
-//! whitespace, diff. Track current pass count in `gfm_baseline.txt`.
-//! The test fails only when pass count regresses; bumping the baseline
-//! as GFM features land lets the suite move forward without flapping.
+//! GFM spec runner; vendored from cmark-gfm spec.txt (670 examples).
+//! Mirrors `commonmark_spec.rs` — pass count tracked in `gfm_baseline.txt`.
 
 use serde::Deserialize;
 use std::path::PathBuf;
@@ -94,7 +87,7 @@ fn gfm_spec_no_regression() {
   }
 }
 
-/// Dump the first `N` failures (`--ignored --nocapture`).
+/// `--ignored --nocapture` dumps first `N` failures.
 #[test]
 #[ignore]
 fn gfm_spec_dump_failures() {

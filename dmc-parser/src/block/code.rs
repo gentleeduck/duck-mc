@@ -4,10 +4,9 @@ use dmc_diagnostic::Code;
 use dmc_lexer::token::TokenKind;
 
 impl<'eng, 'tokens> Parser<'eng, 'tokens> {
-  /// CM 5.1 + 4.4: an indented code block inside a blockquote. Cursor is
-  /// at the leading Whitespace(>=4) immediately after the bq marker(s).
-  /// Reads one line of code, then continues across soft breaks when the
-  /// next bq line starts with another Whitespace(>=4).
+  /// CM 5.1 + 4.4: indented code inside a blockquote. Cursor at
+  /// `Whitespace(>=4)` right after the bq marker(s). Continues across soft
+  /// breaks while the next bq line also has `Whitespace(>=4)`.
   pub(super) fn parse_indented_code_in_bq(&mut self) -> Node {
     let span = self.current_span();
     let mut buf = String::new();
@@ -16,7 +15,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         Some(n) if n >= 4 => n,
         _ => break,
       };
-      self.advance(); // consume whitespace
+      self.advance();
       let visible = ws_visual.saturating_sub(4);
       if visible > 0 {
         buf.push_str(&" ".repeat(visible));
@@ -31,8 +30,6 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         }
       }
       buf.push('\n');
-      // Optional soft break + bq marker on next line; if the next non-
-      // marker peek isn't another Whitespace(>=4 visual), stop.
       let saved = self.pos;
       if !matches!(self.peek_kind(), Some(TokenKind::SoftBreak)) {
         break;
@@ -76,8 +73,8 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     }
 
     let span = self.current_span();
-    self.advance(); // content indent
-    self.advance(); // opener line
+    self.advance();
+    self.advance();
     if matches!(self.peek_kind(), Some(TokenKind::SoftBreak) | Some(TokenKind::HardBreak)) {
       self.advance();
     }
@@ -130,9 +127,9 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     Some(Node::CodeBlock(CodeBlock { lang: None, meta: None, value, span }))
   }
 
-  /// CM 4.4 fallback: build an indented code block by hand when the
-  /// lexer didn't pre-classify (eg between bq lines). Reads contiguous
-  /// `Whitespace(>=4) + line content` until the indent breaks.
+  /// CM 4.4 fallback when the lexer didn't pre-classify (eg between bq
+  /// lines). Reads contiguous `Whitespace(>=4) + line content` until indent
+  /// breaks.
   pub(super) fn parse_indented_code_fallback(&mut self) -> Node {
     let span = self.current_span();
     let mut buf = String::new();
@@ -141,7 +138,6 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         Some(t) if matches!(t.kind, TokenKind::Whitespace(_)) && t.raw.chars().count() >= 4 => t.raw.chars().count(),
         _ => break,
       };
-      // Only at col 0.
       if self.peek().is_none_or(|t| t.span.column != 1) {
         break;
       }
@@ -191,10 +187,8 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     Node::CodeBlock(CodeBlock { lang: None, meta: None, value: buf, span })
   }
 
-  /// 4-space indented code block (CM 4.4). Lexer pre-classifies a valid
-  /// indent line as `Whitespace(>=4) + IndentedCodeLine`; this method
-  /// concatenates consecutive pairs, joining with `\n` and stopping at
-  /// the first non-indented line.
+  /// 4-space indented code (CM 4.4). Lexer pre-classifies valid indent
+  /// lines as `Whitespace(>=4) + IndentedCodeLine`.
   pub(super) fn parse_indented_code(&mut self) -> Node {
     let span = self.current_span();
     let mut buf = String::new();
@@ -204,22 +198,11 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       if !starts_indent {
         break;
       }
-      // The lexer's Whitespace covers the entire leading run; CM 4.4
-      // strips exactly 4 spaces (or 1 tab) and keeps the rest as part
-      // of the rendered body. Compute the leftover indent from the
-      // whitespace token's raw byte count (each space = 1 col, tab
-      // expands to next 4-stop; a single tab fully consumes the
-      // 4-space strip).
+      // CM 4.4: strip exactly 4 spaces (or 1 tab); keep the rest as body
+      // indent. A single tab fully consumes the strip.
       let extra = self
         .peek()
-        .map(|t| {
-          if t.raw.starts_with('\t') {
-            // Tab fills first 4 cols. Remaining chars are extras.
-            t.raw.len() - 1
-          } else {
-            t.raw.len().saturating_sub(4)
-          }
-        })
+        .map(|t| if t.raw.starts_with('\t') { t.raw.len() - 1 } else { t.raw.len().saturating_sub(4) })
         .unwrap_or(0);
       self.advance();
       let mut body = match self.peek() {
@@ -228,9 +211,8 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
           self.advance();
           raw
         },
-        // Fallback: pre-rewrite path where the lexer didn't pre-classify
-        // (paragraph context, mid-list, etc.). Walk inline tokens until
-        // the next break.
+        // Lexer didn't pre-classify (paragraph context, mid-list). Walk
+        // inline tokens until the next break.
         _ => {
           let mut s = String::new();
           while let Some(t) = self.peek() {
@@ -245,27 +227,21 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
           s
         },
       };
-      // Prefix any leftover indent (whitespace beyond the 4-space
-      // strip) so deeper-indented code lines render with the visible
-      // extra leading spaces.
       if extra > 0 {
         body = " ".repeat(extra) + &body;
       }
       buf.push_str(&body);
       buf.push('\n');
-      // Continue across a soft break only if the next line is also
-      // indented. CM 4.4 also keeps blank lines inside the block when a
-      // later line resumes the indent; pick that up by buffering blanks
-      // and only emitting them when an indented line follows.
+      // CM 4.4: blank lines stay in the block when a later line resumes
+      // the indent. Buffer blanks; flush them only if an indented line
+      // follows.
       let saved = self.pos;
       let mut blanks: usize = 0;
       let mut blank_ws_visible: Vec<usize> = Vec::new();
       let mut consumed_softbreak = false;
       loop {
-        // CM 4.4: blank-with-whitespace lines between indented code
-        // lines stay in the body. Each such line is `Whitespace(N) +
-        // SoftBreak`. Capture the visible cols (N - 4) so the body
-        // renders the indent past the 4-space strip.
+        // CM 4.4 blank-with-whitespace line (`Whitespace(N) + SoftBreak`):
+        // keep N-4 cols of visible indent in the body.
         let ws_then_break = matches!(self.peek_kind(), Some(TokenKind::Whitespace(_)))
           && self.peek().is_some_and(|t| t.span.column == 1)
           && matches!(
@@ -292,8 +268,8 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
             self.advance();
             blanks += 1;
             consumed_softbreak = true;
-            // Don't break -- keep scanning so blank-with-ws lines
-            // following the soft break stay in the code body.
+            // Keep scanning so blank-with-ws lines after the soft break
+            // stay in the body.
           },
           Some(TokenKind::BlankLine) => {
             self.advance();
@@ -312,10 +288,9 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         self.pos = saved;
         break;
       }
-      // Push buffered blank-line content. The body already ended with
-      // one `\n` for the previous code line; emit per-blank visible
-      // spaces + `\n`. The terminating SoftBreak before the next code
-      // line is handled by the outer loop's `\n` push.
+      // Body already has the trailing `\n` from the previous code line;
+      // emit per-blank visible spaces + `\n`. The terminating SoftBreak
+      // before the next code line is handled by the outer loop's push.
       let blanks_to_emit = blanks.saturating_sub(1);
       for i in 0..blanks_to_emit {
         let visible = blank_ws_visible.get(i).copied().unwrap_or(0);
@@ -328,9 +303,8 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     Node::CodeBlock(CodeBlock { lang: None, meta: None, value: buf, span })
   }
 
-  /// Fenced code block. The first inline `Text` becomes the info string; the
-  /// body is concatenated until the matching `CodeEnd(n)`. The info string
-  /// splits at the first whitespace into `(lang, meta)`.
+  /// Fenced code block. Info string splits at first whitespace into
+  /// `(lang, meta)`.
   pub(super) fn parse_code_block(&mut self) -> Node {
     self.parse_code_block_with_blockquote_prefix(0)
   }
@@ -363,8 +337,8 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     let (lang, meta) = if info_trimmed.is_empty() {
       (None, None)
     } else {
-      // CM 4.5: info-string entity references (`&ouml;`) decode before
-      // the value reaches the renderer; backslash escapes resolve too.
+      // CM 4.5: info-string entity refs + backslash escapes resolve before
+      // the value reaches the renderer.
       let decode = |s: &str| crate::inline::decode_entities_in(&Self::unescape_markdown(s));
       match info_trimmed.split_once(char::is_whitespace) {
         Some((l, rest)) => {
@@ -423,15 +397,12 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       self.emit_diagnostic(diagnostic);
     }
 
-    // CM 4.5: fenced code-block content ends with a newline. The lexer
-    // strips the newline that precedes the closing fence; restore it
-    // so renderers emit `<pre><code>...\n</code></pre>` per spec.
+    // CM 4.5: fenced content ends with `\n`. Lexer strips it; restore.
     if !value.is_empty() && !value.ends_with('\n') {
       value.push('\n');
     }
-    // CM 4.5: a fence with N leading spaces strips up to N spaces of
-    // leading indent from every content line (capped at the actual
-    // run, never deeper than the line's own leading whitespace).
+    // CM 4.5: fence with N leading spaces strips up to N spaces from each
+    // content line (never deeper than the line's own leading whitespace).
     if fence_indent > 0 {
       let stripped = value
         .split_inclusive('\n')

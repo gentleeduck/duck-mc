@@ -14,7 +14,7 @@ fn parses_simple_table() {
       _ => None,
     })
     .expect("table");
-  assert_eq!(t.children.len(), 2); // header + 1 body
+  assert_eq!(t.children.len(), 2);
   assert_eq!(t.children[0].cells.len(), 2);
 }
 
@@ -35,7 +35,7 @@ fn parses_table_alignments() {
 
 #[test]
 fn non_table_paragraph_with_pipe() {
-  // single line with `|` and no alignment row should NOT be a table
+  // `|` without an alignment row is not a table.
   let d = parse_doc("a | b\n");
   assert!(!d.children.iter().any(|n| matches!(n, Node::Table(_))));
 }

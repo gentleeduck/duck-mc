@@ -19,10 +19,9 @@ pub mod utils;
 pub struct Engine;
 
 impl Engine {
-  /// Execute one build: optionally clean `output_dir`, process every
-  /// collection in parallel via rayon, then emit `index.js` + `index.d.ts`
-  /// re-exporting each `<name>.json`. With a TS/JS `config_path`, the
-  /// generated `index.d.ts` infers record types via `typeof import(...)`.
+  /// One build: optional clean, per-collection rayon parallel, then
+  /// emit `index.js` + `index.d.ts` re-exporting each `<name>.json`.
+  /// A TS/JS `config_path` makes `index.d.ts` infer types via `typeof import(...)`.
   pub fn run(cfg: &EngineConfig, config_path: Option<&Path>, diag_engine: &mut DiagnosticEngine<Code>) -> DiagResult {
     if cfg.clean && cfg.output_dir.exists() {
       let paths: Vec<_> = ["index.js", "index.d.ts", "index.cjs"]
@@ -61,7 +60,6 @@ impl Engine {
       let _ = c.process(cfg, diag_engine);
     }
 
-    // Flush math cache so the next build starts warm.
     #[cfg(feature = "math")]
     if cfg.cache_enabled {
       dmc_transform::Math::save_cache(&math_cache_path)?;

@@ -1,19 +1,14 @@
-//! GitHub-style heading-anchor slug generator.
+//! GitHub-style heading-anchor slug generator. Mirrors npm `github-slugger`
+//! (used by `rehype-slug`): punctuation is stripped, NOT replaced, so
+//! `0.4.3` -> `043` and `It's` -> `its` (matches velite output).
 //!
-//! Mirrors `github-slugger` (the npm package used by `rehype-slug`):
-//! lowercase, drop ASCII punctuation/symbols, drop control chars, replace
-//! whitespace runs with `-`, collapse repeated `-`, trim. Punctuation is
-//! stripped (NOT replaced), so `0.4.3` -> `043`, `It's` -> `its` -
-//! matching velite output.
-//!
-//! For dedupe (`#patch-changes`, `#patch-changes-1`, `#patch-changes-2`)
-//! use [`Slugger`], which threads a count map across one document's
-//! headings.
+//! For document-scoped dedupe (`#patch-changes`, `#patch-changes-1`, ...)
+//! use [`Slugger`].
 
 use std::collections::HashMap;
 
-/// Compute the GitHub-style slug for a single heading, ignoring dedupe.
-/// For document-wide dedupe, use [`Slugger::slug`].
+/// Compute the GitHub-style slug, ignoring dedupe. For document-wide
+/// dedupe, use [`Slugger::slug`].
 pub fn github_slugify(input: &str) -> String {
   let lower = input.trim().to_lowercase();
   let mut out = String::with_capacity(lower.len());
@@ -29,10 +24,9 @@ pub fn github_slugify(input: &str) -> String {
       }
       continue;
     }
-    // Keep letters, digits, '_', '-'. Drop everything else (`.`, `'`,
-    // `:`, etc) - github-slugger's "strip, don't replace" semantics.
+    // github-slugger "strip, don't replace": drop anything that isn't
+    // alphanumeric / `_` / `-`. Existing `-` collapses with whitespace runs.
     if ch.is_alphanumeric() || ch == '_' || ch == '-' {
-      // Treat existing '-' the same as ws so we collapse runs.
       if ch == '-' {
         if prev_dash {
           continue;
@@ -45,15 +39,13 @@ pub fn github_slugify(input: &str) -> String {
       }
     }
   }
-  // Trim trailing '-' (leading '-' was avoided by the empty-out guard).
   while out.ends_with('-') {
     out.pop();
   }
   out
 }
 
-/// Document-scoped slugger. Tracks how many times each base slug has
-/// already been emitted; collisions get a `-1`, `-2`, ... suffix.
+/// Document-scoped slugger. Collisions get a `-1`, `-2`, ... suffix.
 #[derive(Debug, Default)]
 pub struct Slugger {
   seen: HashMap<String, u32>,
@@ -64,9 +56,8 @@ impl Slugger {
     Self { seen: HashMap::new() }
   }
 
-  /// Compute the slug for `text`, suffixing with `-N` when the base slug
-  /// has been emitted `N` times before. Empty input -> empty string;
-  /// dedupe still applies, so two empty headings get `""` and `"-1"`.
+  /// Slug for `text`, with `-N` suffix on the N+1th collision. Empty input
+  /// -> empty string; dedupe still applies (`""`, then `"-1"`).
   pub fn slug(&mut self, text: &str) -> String {
     let base = github_slugify(text);
     let count = self.seen.entry(base.clone()).or_insert(0);

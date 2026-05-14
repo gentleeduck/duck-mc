@@ -5,9 +5,8 @@ use dmc_parser::ast::*;
 #[test]
 fn thematic_break_emits_node() {
   let d = parse_doc("---\n");
-  // first child may be HorizontalRule or might be a Paragraph if first-line --- is consumed by lex_frontmatter
-  // For `---` not at column 0 of file start, lexer emits ThematicBreak - but `---` IS at start.
-  // It will try to be frontmatter; without closing --- it falls back to ThematicBreak (per lex_frontmatter logic).
+  // `---` at file start tries frontmatter; with no closing `---` it falls
+  // back to ThematicBreak.
   let has_hr = d.children.iter().any(|n| matches!(n, Node::HorizontalRule(_)));
   assert!(has_hr, "got {:?}", d.children);
 }
@@ -37,14 +36,12 @@ fn blockquote_single_line() {
       _ => None,
     })
     .expect("bq");
-  // its first child is a Paragraph; that paragraph contains text
   assert!(!bq.children.is_empty());
 }
 
 #[test]
 fn blockquote_multi_line_collapses() {
-  // CommonMark: consecutive `>` lines join into one paragraph with a
-  // space between. Both lines must end up in the same paragraph.
+  // CM: consecutive `>` lines join into one paragraph, space-separated.
   let d = parse_doc("> one\n> two\n");
   let bq = d
     .children

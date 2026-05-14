@@ -3,10 +3,9 @@ use crate::parser::Parser;
 use dmc_lexer::token::TokenKind;
 
 impl<'eng, 'tokens> Parser<'eng, 'tokens> {
-  /// Build a blockquote tree from the cursor (on a `>`). Walks lines
-  /// keeping a stack: each line's marker count sets the live nesting
-  /// depth. A line with more markers grows the stack; a line with fewer
-  /// markers closes the deeper levels and folds them into their parent.
+  /// Cursor on `>`. Walks lines maintaining a stack of nesting levels:
+  /// more markers grows the stack, fewer markers closes inner levels and
+  /// folds them into the parent.
   pub(super) fn parse_blockquote(&mut self) -> Node {
     let span = self.current_span();
     let para_span = self.current_span();

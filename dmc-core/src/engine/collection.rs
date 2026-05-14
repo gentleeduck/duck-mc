@@ -27,9 +27,8 @@ pub struct Collection {
 }
 
 impl Collection {
-  /// Compile every file matched by `pattern` in parallel, validate
-  /// frontmatter against `schema`, optionally run JS sidecars + MDX module
-  /// wrap + minify, then write `{name}.json`.
+  /// Compile matched files in parallel, validate frontmatter, optionally
+  /// run JS sidecars + MDX module wrap + minify, write `{name}.json`.
   pub(crate) fn process(
     &self,
     cfg: &EngineConfig,
@@ -49,9 +48,6 @@ impl Collection {
         .ok()
     });
 
-    // Persistent per-file cache. Each record is keyed by
-    // (dmc_version, source_bytes, path, full-cfg-fingerprint) so any
-    // change to source or relevant config invalidates the entry.
     let cache = if cfg.cache_enabled { FileCache::open(cfg.output_dir.join(".cache").join("dmc")) } else { None };
     let cfg_fp = fingerprint(&(&cfg.compile, &cfg.include_html, &self.name, &self.schema, &cfg.output_format));
 
@@ -69,9 +65,6 @@ impl Collection {
           },
         };
 
-        // Cache lookup: skip lex/parse/transform/codegen + sidecar when
-        // (source + cfg) is unchanged. Hits the disk and returns the
-        // already-rendered Value directly.
         let cache_key = cache.as_ref().map(|_| FileCache::key(source.as_bytes(), path, &cfg_fp));
         if let (Some(c), Some(k)) = (cache.as_ref(), cache_key.as_ref())
           && let Some(hit) = c.get(k)
@@ -114,10 +107,7 @@ impl Collection {
         let include_html = cfg.include_html || use_sidecar;
         let rec = build_velite_record(compiled, validated_frontmatter, path, &self.base_dir, &self.name, include_html);
 
-        // Only cache clean runs. A run that produced errors (lex, parse,
-        // transform, frontmatter validation) re-runs every build until
-        // the source is fixed, so the user sees the diagnostics every
-        // time instead of getting a silent cache hit on poisoned output.
+        // Cache only clean runs so diagnostics re-fire until the source is fixed.
         let dirty = local_diag_engine.error_count() + local_diag_engine.bug_count() > 0;
         if !dirty && let (Some(c), Some(k)) = (cache.as_ref(), cache_key.as_ref()) {
           c.put(k, &rec);
@@ -130,7 +120,6 @@ impl Collection {
 
     let mut records: Vec<Value> = Vec::with_capacity(outcomes.len());
     for r in outcomes.into_iter().flatten() {
-      // diag_engine.extend(local_diag_engine);
       records.push(r);
     }
 

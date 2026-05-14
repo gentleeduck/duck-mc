@@ -1,5 +1,4 @@
 //! User-facing walkthrough: ../../dmc-docs/dmc-parser/
-//! Run `cargo doc --open -p dmc-parser` for the inline rustdoc.
 
 pub mod ast;
 mod block;

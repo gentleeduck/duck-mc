@@ -29,33 +29,18 @@ pub struct CompileConfig {
   pub copy_linked_files: bool,
   pub output_assets: Option<String>,
   pub output_base: Option<String>,
-  /// Pretty-code highlighter config. `None` = bundled defaults
-  /// (Catppuccin Latte/Mocha pair, dark primary, multi-mode CSS-vars
-  /// output). `Some` = explicit theme spec.
+  /// `None` = bundled defaults (Catppuccin Latte/Mocha, CSS-vars output).
   pub pretty_code: Option<PrettyCodeOptions>,
-  /// Mermaid render config. `None` = bundled defaults (light + dark
-  /// theme pair, `htmlLabels:false`, responsive SVG, centered labels).
-  /// `Some(MermaidOptions)` overrides theme set, mermaid initialize
-  /// config, post-process flags, etc.
+  /// `None` = bundled defaults (light+dark, `htmlLabels:false`, responsive SVG).
   pub mermaid: Option<MermaidOptions>,
-  /// LaTeX engine for `$...$` / `$$...$$`. `None` = KaTeX (slow, exact
-  /// rehype-katex parity). `Some(MathEngine::Mathml)` = pulldown-latex
-  /// MathML (fast, plainer visuals).
+  /// `None` = KaTeX (rehype-katex parity); `Some(Mathml)` = pulldown-latex (fast).
   pub math_engine: Option<MathEngine>,
-  /// Global override: when `true`, no plugin is treated as native-owned,
-  /// every listed JS plugin runs in the sidecar, every native transformer
-  /// is dropped from the pipeline.
+  /// Force every listed JS plugin to the sidecar; drop every native transformer.
   pub force_sidecar: bool,
-  /// Per-plugin override: names in this list are *not* stripped from the
-  /// sidecar payload, and the matching native transformer is dropped from
-  /// the pipeline. Use to keep one specific JS plugin and let dmc handle
-  /// everything else natively.
-  ///
-  /// Recognised entries:
-  ///   "remark-gfm", "remark-math", "remark-emoji",
-  ///   "rehype-pretty-code", "shiki",
-  ///   "rehype-katex", "rehype-mathjax",
-  ///   "rehype-slug", "rehype-autolink-headings"
+  /// Per-plugin sidecar override. Recognised entries: "remark-gfm",
+  /// "remark-math", "remark-emoji", "rehype-pretty-code", "shiki",
+  /// "rehype-katex", "rehype-mathjax", "rehype-slug",
+  /// "rehype-autolink-headings".
   pub prefer_sidecar: Vec<String>,
 }
 
@@ -95,11 +80,9 @@ impl CompileConfig {
       || !self.effective_mdx_rehype_plugins().is_empty()
   }
 
-  /// Plugin lists after stripping every JS plugin whose work is now done
-  /// by an in-process transformer (pretty-code/shiki, math, emoji). Used
-  /// both for the sidecar gate and for the request payload so the sidecar
-  /// never duplicates work. When the matching feature is off, that
-  /// plugin's name is left in the list and the sidecar runs it.
+  /// Drops JS plugins owned by an in-process transformer. When the
+  /// matching feature is off, the plugin stays in the list and the
+  /// sidecar runs it.
   pub fn effective_markdown_remark_plugins(&self) -> Vec<Value> {
     self.filter_native_owned_remark(&self.markdown_remark_plugins)
   }
@@ -116,9 +99,6 @@ impl CompileConfig {
     self.filter_native_owned_rehype(&self.mdx_rehype_plugins)
   }
 
-  /// `true` when the user wants the sidecar to handle this specific
-  /// plugin (either via `prefer_sidecar` per-plugin list or via the
-  /// global `force_sidecar` flag).
   fn user_forces_sidecar(&self, name: &str) -> bool {
     self.force_sidecar || self.prefer_sidecar.iter().any(|n| n == name)
   }
@@ -151,18 +131,14 @@ impl CompileConfig {
       .collect()
   }
 
-  /// Per-file compile config: turns off native HTML when sidecar will run.
+  /// Per-file config: native HTML off when sidecar will run.
   pub fn for_render(&self) -> Self {
     let mut c = self.clone();
     c.emit_html = !self.has_js_plugins();
     c
   }
 
-  /// Build the [`PipelineConfig`] consumed by
-  /// [`dmc_transform::Pipeline::with_defaults_for`]. `path` is the compiled
-  /// file's path,
-  /// used to resolve relative asset paths in the `copy-linked-files`
-  /// transformer.
+  /// `path` resolves relative assets for `copy-linked-files`.
   pub fn pipeline_config(&self, path: &Path) -> PipelineConfig {
     let copy_linked_files = if self.copy_linked_files
       && let (Some(assets), Some(public)) = (self.output_assets.as_ref(), self.output_base.as_ref())
@@ -175,9 +151,7 @@ impl CompileConfig {
     } else {
       None
     };
-    // Drop the native transformer when the user prefers the JS plugin
-    // for that role. Each `drop_*` flag flips the matching opt-out
-    // field in `PipelineConfig` so the transformer is not pushed.
+    // Drop the native transformer when the user prefers the JS plugin.
     let prefers = |needles: &[&str]| -> bool {
       self.force_sidecar || self.prefer_sidecar.iter().any(|n| needles.contains(&n.as_str()))
     };
@@ -203,9 +177,7 @@ impl CompileConfig {
   }
 }
 
-/// Extract the plugin name from either the bare string form
-/// (`"rehype-pretty-code"`) or the `[name, options]` array form used by
-/// unified-style plugin configs.
+/// Bare string or unified `[name, options]` array.
 fn plugin_name(plugin: &Value) -> Option<&str> {
   match plugin {
     Value::String(s) => Some(s.as_str()),
@@ -214,14 +186,10 @@ fn plugin_name(plugin: &Value) -> Option<&str> {
   }
 }
 
-/// `true` when `plugin` is a remark-side plugin whose work an in-process
-/// transformer now does. Stripped from the sidecar payload so the JS
-/// plugin chain does not redo native work.
+#[allow(clippy::match_like_matches_macro)]
 fn is_native_owned_remark(plugin: &Value) -> bool {
   let Some(name) = plugin_name(plugin) else { return false };
   match name {
-    // GFM tables, strikethrough, autolinks, task lists are handled by
-    // the dmc parser; remark-gfm in the sidecar is redundant.
     "remark-gfm" => true,
     "remark-math" => cfg!(feature = "math"),
     "remark-emoji" => cfg!(feature = "emoji"),
@@ -229,14 +197,12 @@ fn is_native_owned_remark(plugin: &Value) -> bool {
   }
 }
 
-/// Same for rehype-side plugins.
+#[allow(clippy::match_like_matches_macro)]
 fn is_native_owned_rehype(plugin: &Value) -> bool {
   let Some(name) = plugin_name(plugin) else { return false };
   match name {
     "rehype-pretty-code" | "shiki" => cfg!(feature = "pretty-code"),
     "rehype-katex" | "rehype-mathjax" => cfg!(feature = "math"),
-    // Heading slugs + anchor links handled by the AutolinkHeadings
-    // transformer in `Pipeline::with_defaults`.
     "rehype-slug" | "rehype-autolink-headings" => true,
     _ => false,
   }
@@ -245,26 +211,21 @@ fn is_native_owned_rehype(plugin: &Value) -> bool {
 pub struct Compiler;
 
 impl Compiler {
-  /// One-shot compile of `source` with the default pipeline. Use
-  /// [`Self::compile_with_pipeline`] for file-aware compilation with real
-  /// spans.
+  /// One-shot compile with default pipeline. Use
+  /// [`Self::compile_with_pipeline`] for real spans against a path.
   pub fn compile(source: &str, diag_engine: &mut DiagnosticEngine<Code>) -> CompileOutput {
-    // FIX:
     Self::compile_with_pipeline(source, Path::new("."), &CompileConfig::new(), diag_engine)
   }
 
-  /// Like [`Self::compile`] with a caller-supplied pipeline + path for spans.
   pub fn compile_with_pipeline(
     source: &str,
     path: &Path,
     compile_cfg: &CompileConfig,
     diag_engine: &mut DiagnosticEngine<Code>,
   ) -> CompileOutput {
-    // Each layer holds its own DiagnosticEngine, mirroring the Lexer pattern.
     let meta = Arc::from(SourceMeta { path: Arc::from(path.display().to_string()), origin: Origin::File(path.into()) });
-    // Source-level math: rewrite `$...$` / `$$...$$` to `<MathMl/>` JSX
-    // so the parser does not interpret `_` or `^` inside math as Markdown
-    // emphasis markers.
+    // Rewrite `$...$` / `$$...$$` to `<MathMl/>` so the parser does not
+    // treat `_` / `^` inside math as emphasis markers.
     #[cfg(feature = "math")]
     let preprocessed = dmc_transform::Math::preprocess_source(source);
     #[cfg(feature = "math")]
@@ -285,11 +246,8 @@ impl Compiler {
     Self::finalize(source, doc, compile_cfg, diag_engine)
   }
 
-  /// Pull frontmatter + imports/exports, render HTML + MDX body, derive
-  /// excerpt / metadata / TOC, pack into a `CompileOutput`. Each sink
-  /// owns a private `DiagnosticEngine` during the walk; we merge them
-  /// into the caller's `diag_engine` after the walk completes (avoids
-  /// `RefCell` overhead on every sink emit).
+  /// Per-sink `DiagnosticEngine`s merge into the caller's engine after
+  /// the walk (avoids `RefCell` overhead on every sink emit).
   fn finalize(
     source: &str,
     doc: Document,
@@ -336,8 +294,7 @@ impl Compiler {
   }
 }
 
-/// Reading-time + word-count from plain text. `reading_time` in minutes,
-/// ceil, min 1.
+/// `reading_time` in minutes (min 1).
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct Metadata {
@@ -345,7 +302,7 @@ pub struct Metadata {
   pub word_count: u32,
 }
 
-/// One TOC node. `url` is `#<heading-slug>`.
+/// `url` is `#<heading-slug>`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TocItem {
   pub title: String,
@@ -367,7 +324,6 @@ mod tests {
   #[test]
   fn arbitrary_remark_plugin_triggers_sidecar() {
     let mut cfg = CompileConfig::default();
-    // Pick a plugin not covered by any native transformer.
     cfg.markdown_remark_plugins.push(json!("remark-frontmatter"));
     assert!(cfg.has_js_plugins());
   }
@@ -419,8 +375,6 @@ mod tests {
   fn other_rehype_plugin_still_triggers_sidecar_even_with_native() {
     let mut cfg = CompileConfig::default();
     cfg.markdown_rehype_plugins.push(json!("rehype-pretty-code"));
-    // Any rehype plugin not absorbed by a native transformer keeps the
-    // sidecar alive. Pick something that no current native pass owns.
     cfg.markdown_rehype_plugins.push(json!("rehype-external-links"));
     assert!(cfg.has_js_plugins());
   }
@@ -434,8 +388,7 @@ mod tests {
   }
 }
 
-/// Compiled `.mdx` output. Every field is always populated; serialised
-/// camelCase for JS parity.
+/// Compiled `.mdx` output. All fields always populated; serialised camelCase.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CompileOutput {

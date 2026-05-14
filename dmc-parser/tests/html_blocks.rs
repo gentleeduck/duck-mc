@@ -1,5 +1,4 @@
-//! Raw HTML block coverage (CommonMark 4.6 types 1 + 6) re-routed
-//! through the parser when the lexer initially classified the open
+//! CM 4.6 raw HTML block coverage when the lexer first classified the open
 //! tag as JSX.
 
 mod common;
@@ -39,7 +38,6 @@ fn type6_div_closes_on_blank_line() {
   let h = first_html(&d);
   assert!(h.value.starts_with("<div"));
   assert!(h.value.contains("body"));
-  // Blank line ended the block; the paragraph is a sibling.
   assert!(d.children.iter().any(|n| matches!(n, Node::Paragraph(_))));
 }
 
@@ -60,8 +58,7 @@ fn standalone_close_tag_is_preserved_verbatim() {
 
 #[test]
 fn capital_tag_stays_jsx() {
-  // MDX dialect: capital-name tags are JSX components, never HTML
-  // blocks. Type-7 is intentionally not handled.
+  // MDX: capital-name tags are JSX components, never HTML blocks.
   let d = parse_doc("<Component>x</Component>\n");
   assert!(!d.children.iter().any(|n| matches!(n, Node::Html(_))));
 }

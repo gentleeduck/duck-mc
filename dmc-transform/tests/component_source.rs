@@ -4,11 +4,6 @@ use dmc_transform::{ComponentSource, Pipeline};
 
 #[test]
 fn component_source_injects_code_block_as_jsx_child() {
-  // The self-closing `<ComponentSource path="..." />` is rewritten
-  // to a populated `<ComponentSource>` JsxElement whose children are
-  // one `CodeBlock` per resolved file. The wrapper JSX stays so the
-  // consumer-side `<ComponentSource>` React component can render
-  // tab chrome around the highlighted source.
   let dir = tempfile::tempdir().unwrap();
   let path = dir.path().join("foo.tsx");
   std::fs::write(&path, "export const Foo = () => null\n").unwrap();
@@ -46,7 +41,6 @@ fn component_source_no_op_for_missing_file() {
   let mut doc = parse(src);
   let p = Pipeline::new().add(ComponentSource::with_base_dir(dir.path()));
   p.run_silent(&mut doc);
-  // original JSX node preserved when file not found
   let still_jsx = doc.children.iter().any(|n| matches!(n, Node::JsxSelfClosing(_) | Node::JsxElement(_)));
   assert!(still_jsx, "missing file should preserve JSX node");
 }

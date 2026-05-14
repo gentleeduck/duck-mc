@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use crate::{Engine, engine::config::EngineConfig};
 use dmc_diagnostic::{Code, DiagResult};
 use duck_diagnostic::{Diagnostic, DiagnosticEngine, diag};
+
 /// `dmc build`: load config, run the engine once, print the report.
 #[derive(clap::Args)]
 pub struct BuildCmd {
@@ -15,8 +16,6 @@ pub struct BuildCmd {
 }
 
 impl BuildCmd {
-  /// Load config, run the engine once, print the report. `strict` aborts
-  /// on the first validation failure; `clean` wipes `output_dir` first.
   pub fn run(self) -> DiagResult<Diagnostic<Code>> {
     let mut diag_engine = DiagnosticEngine::<Code>::new();
     let started = std::time::Instant::now();

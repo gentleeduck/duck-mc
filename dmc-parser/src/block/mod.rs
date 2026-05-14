@@ -9,16 +9,13 @@ mod heading;
 mod html;
 mod list;
 
-/// CommonMark 4.6 type-1: closes on the matching `</tag>`. Tag names
-/// here force the surrounding source into a raw HTML block even when
-/// the lexer routed them through JSX.
+/// CM 4.6 type-1: closes on matching `</tag>`. Forces a raw HTML block even
+/// if the lexer routed the opener through JSX.
 const HTML_BLOCK_TYPE1_TAGS: &[&str] = &["script", "pre", "style", "textarea"];
 
-/// CommonMark 4.6 type-6: block-level HTML tag set. Closes on the next
-/// blank line. Type-7 ("any other tag at column 0") is intentionally
-/// not handled -- in MDX the same shape means a JSX component, and
-/// reclassifying every capital-or-namespaced tag as HTML would break
-/// the dialect.
+/// CM 4.6 type-6: closes on next blank line. Type-7 is conditionally
+/// handled at the call site — MDX treats capital / namespaced tags as
+/// components, not type-7 HTML.
 const HTML_BLOCK_TYPE6_TAGS: &[&str] = &[
   "address",
   "article",
@@ -85,24 +82,20 @@ const HTML_BLOCK_TYPE6_TAGS: &[&str] = &[
 ];
 
 enum HtmlBlockMode {
-  /// Closes on matching `</tag>`. Carries the lowercased tag name.
+  /// Closes on matching `</tag>`. Carries lowercased tag name.
   Type1(String),
   /// Closes on blank line.
   Type6,
-  /// Type-7: any other lowercase tag at col 0. Closes on blank line.
-  /// Skipped for capital / namespaced tags (those stay as JSX so the
-  /// MDX dialect keeps `<MyComponent>` working).
+  /// Type-7: any other tag at col 0. Closes on blank line. Skipped for MDX
+  /// capital / namespaced tags so `<MyComponent>` stays JSX.
   Type7,
 }
 
 impl<'eng, 'tokens> Parser<'eng, 'tokens> {
-  /// Top-down dispatch: peek one token, route to the matching block parser.
-  /// `None` means the cursor advanced but emitted no node (e.g. a stray break
-  /// or a markdown comment).
+  /// Top-down block dispatch. `None` means the cursor advanced but emitted
+  /// no node (a stray break, a markdown comment, ...).
   pub(crate) fn parse_block(&mut self) -> Option<Node> {
-    // Indented code: lexer emits `Whitespace(_) + IndentedCodeLine` for
-    // any column-0 indent that reaches col 4 (4+ spaces, a tab, or a
-    // tab/space mix), so the parser just trusts the pair.
+    // Lexer pre-classifies col-0 indented code as `Whitespace + IndentedCodeLine`.
     let is_indented = matches!(self.peek_kind(), Some(TokenKind::Whitespace(_)))
       && matches!(self.tokens.get(self.pos + 1).map(|t| &t.kind), Some(TokenKind::IndentedCodeLine));
 
@@ -110,9 +103,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       return Some(self.parse_indented_code());
     }
 
-    // CM 4.8: a `Whitespace + SoftBreak | BlankLine | Eof` pair at col 0
-    // is a blank-with-whitespace line. It produces no block; advance
-    // and yield None so it acts like a normal blank line.
+    // CM 4.8: `Whitespace + break` at col 0 is a blank-with-whitespace line.
     if matches!(self.peek_kind(), Some(TokenKind::Whitespace(_)))
       && self.peek().is_some_and(|t| t.span.column == 1)
       && matches!(
@@ -129,10 +120,9 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       return None;
     }
 
-    // Fallback indented code: lexer didn't classify (because the prev
-    // token was inline content, eg a bq paragraph) but at top-level
-    // dispatch we know we're between blocks. Whitespace(>=4) followed
-    // by non-block content is an indented code block here.
+    // Fallback indented code: lexer didn't classify (prev token was inline
+    // content, eg a bq paragraph) but at top-level dispatch we know we're
+    // between blocks. `Whitespace(>=4)` + non-block content is indented code.
     if matches!(self.peek_kind(), Some(TokenKind::Whitespace(w)) if (*w as usize) >= 4)
       && self.peek().is_some_and(|t| t.span.column == 1)
     {
@@ -158,35 +148,22 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
           | Some(TokenKind::OrderedListMarker(_))
           | Some(TokenKind::BlockQuoteMarker)
       );
-      // CM 4.4 indented code blocks do not apply to the children of a
-      // JSX container. An MDX shape like
-      //
-      //   <Outer>
-      //     <Inner attr="...">
-      //       text. <code className="...">x</code> more.
-      //     </Inner>
-      //   </Outer>
-      //
-      // routes every nested-child / inline-paragraph line through
-      // `parse_jsx`'s children loop with a leading `Whitespace(>=4)`
-      // token. Without this guard the fallback would sweep all those
-      // lines into a single indented code block, silently dropping the
-      // inner JSX children from the AST. Real indented code inside a
-      // JSX body still works via fenced code blocks or via the lexer-
-      // classified `Whitespace + IndentedCodeLine` pair (handled by
-      // the dispatcher above).
+      // CM 4.4 indented code does NOT apply to JSX children: nested-child
+      // lines route through `parse_jsx` with a leading `Whitespace(>=4)`
+      // and the fallback would otherwise sweep them into one code block,
+      // dropping inner JSX from the AST. Real indented code inside a JSX
+      // body still works via fenced fences or the lexer-classified
+      // `Whitespace + IndentedCodeLine` pair handled above.
       if next_is_inline && self.jsx_open_stack.is_empty() {
         return Some(self.parse_indented_code_fallback());
       }
     }
 
-    // MDX: a lowercase block-level JSX tag that carries JSX attribute
-    // syntax (`className`, an expression value, a `{...spread}`), has an
-    // uppercase component descendant, or sits inside another JSX element
-    // is a JSX element -- not a CommonMark raw-HTML blob. Routing it
-    // through `parse_jsx` keeps those attributes and any nested
-    // components, so e.g. `<div className="grid"><LinkedCard>...` compiles
-    // to nested `jsx(...)` calls instead of one verbatim `<div>` string.
+    // MDX: a lowercase JSX tag with JSX-syntax attrs (`className`, an
+    // expression value, `{...spread}`) or sitting inside another JSX element
+    // routes through `parse_jsx` instead of becoming a raw-HTML blob. Keeps
+    // `<div className="grid"><LinkedCard>...` as nested `jsx(...)` calls
+    // instead of one verbatim `<div>` string.
     {
       let has_ws = matches!(self.peek_kind(), Some(TokenKind::Whitespace(_)));
       let tag_at = if has_ws { self.pos + 1 } else { self.pos };
@@ -202,10 +179,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       }
     }
 
-    // Whitespace-then-block-marker. CM allows up to 3 leading spaces
-    // before any block-level marker, so when the lexer emitted a
-    // leading Whitespace followed by a known block opener we drop the
-    // indent and dispatch on the marker.
+    // CM allows up to 3 leading spaces before any block marker.
     if matches!(self.peek_kind(), Some(TokenKind::Whitespace(w)) if (*w as usize) <= 3)
       && let Some(next) = self.tokens.get(self.pos + 1)
     {
@@ -241,11 +215,9 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
           return Some(self.parse_html_comment_block());
         },
         TokenKind::JsxOpenTagStart | TokenKind::JsxCloseTagStart => {
-          // Peek the JSX tag two tokens ahead (after the leading
-          // whitespace) to see if it routes to a Type-1 / Type-6 raw
-          // HTML block. Don't consume the Whitespace yet so the block's
-          // verbatim source slice includes the leading indent (CM 4.6
-          // preserves the original spaces in the rendered output).
+          // Peek past the leading whitespace to check Type-1 / Type-6 raw
+          // HTML. Don't consume the Whitespace — CM 4.6 keeps the indent
+          // in the rendered output.
           let saved = self.pos;
           self.pos += 1;
           if let Some(mode) = self.jsx_html_block_mode() {
@@ -256,22 +228,17 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         },
         TokenKind::LinkRefDef => {
           let valid_ref_def = crate::refs::parse_link_ref_def(next.raw).is_some();
-          self.advance(); // skip whitespace
+          self.advance();
           if valid_ref_def {
-            self.advance(); // skip the ref-def itself
+            self.advance();
             return None;
           }
         },
-        // Whitespace followed by an empty-line break -- drop both,
-        // they're indent + blank padding around block structure.
         TokenKind::BlankLine | TokenKind::SoftBreak | TokenKind::HardBreak => {
           self.advance();
           self.advance();
           return None;
         },
-        // Plain content with 1-3 leading spaces -- strip the indent and
-        // dispatch normally so the resulting paragraph doesn't render
-        // the leading whitespace.
         TokenKind::Text | TokenKind::ImageMarker | TokenKind::LinkOpen | TokenKind::Emphasis(_, _) => {
           self.advance();
         },
@@ -289,8 +256,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         if let Some(mode) = self.jsx_html_block_mode() {
           Some(self.parse_html_block_from_jsx(mode))
         } else if self.is_lowercase_jsx_tag() {
-          // Lowercase HTML-ish tag that doesn't match any block type
-          // -- treat as inline raw HTML inside a paragraph.
+          // Lowercase HTML-ish tag with no block type -- inline raw HTML.
           Some(self.parse_paragraph())
         } else {
           Some(self.parse_jsx())
@@ -302,8 +268,6 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         } else if self.is_plain_html_jsx_tag() {
           Some(self.parse_plain_html_close_paragraph())
         } else {
-          // Stray close tag at top level - treat as text by falling
-          // through to paragraph collection.
           self.advance();
           None
         }
@@ -330,8 +294,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         self.advance();
         None
       },
-      // Link reference definitions are harvested in the pre-pass; the
-      // tokens themselves produce no output node.
+      // Ref-defs were harvested in the pre-pass; emit nothing here.
       TokenKind::LinkRefDef => {
         let span = self.current_span();
         let raw = self.peek_raw().unwrap_or_default().to_string();
@@ -352,8 +315,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     }
   }
 
-  /// Consume `FrontmatterStart .. FrontmatterEnd`. Inner YAML is left as raw
-  /// text; interpretation is the caller's job.
+  /// Consume `FrontmatterStart .. FrontmatterEnd`. Body is left raw.
   fn parse_frontmatter(&mut self) -> Node {
     let span = self.current_span();
     self.advance();
@@ -371,15 +333,12 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     Node::Frontmatter(Frontmatter { raw, span })
   }
 
-  /// Width of the leading `Whitespace` token at the cursor, in spaces. Tabs
-  /// count as 1 column for the purposes of comparing against a parent
-  /// marker's indent. `None` when the cursor is not on a Whitespace token.
+  /// Visual width of the leading `Whitespace` token. CM 2.2: tabs snap to
+  /// the next 4-col stop, computed from the token's column so a post-marker
+  /// tab (eg `> \t`) lands on the right multiple.
   fn peek_leading_indent(&self) -> Option<usize> {
     match self.peek() {
       Some(t) if matches!(t.kind, TokenKind::Whitespace(_)) => {
-        // CM 2.2: tabs snap to the next 4-col stop. Compute visual
-        // width starting from the token's actual column so a
-        // post-marker tab (eg `> \t`) lands on the right multiple.
         let mut col: usize = t.span.column.saturating_sub(1);
         let start_col = col;
         for c in t.raw.chars() {
@@ -409,9 +368,8 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     )
   }
 
-  /// `>` after a list marker can be lexed as plain text once we're already
-  /// inside list-item parsing. Recover it so the item can start with a
-  /// blockquote.
+  /// `>` after a list marker can be lexed as plain text; rewrite it back to
+  /// `BlockQuoteMarker` so the list item can start with a blockquote.
   fn try_promote_text_blockquote_marker(&mut self) -> bool {
     let Some(tok) = self.peek() else {
       return false;
@@ -428,8 +386,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     true
   }
 
-  /// Append `child` to the children of `item` (works for both `ListItem`
-  /// and `TaskListItem`).
+  /// Append `child` to the children of a `ListItem` / `TaskListItem`.
   fn append_to_item(item: &mut Node, child: Node) {
     match item {
       Node::ListItem(li) => li.children.push(child),
@@ -438,8 +395,8 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     }
   }
 
-  /// Continuation lines without an intervening blank line stay inside the
-  /// current paragraph; they do not immediately make the list item loose.
+  /// Continuation without a blank line stays inside the current paragraph;
+  /// does NOT immediately promote the item to loose.
   fn append_inline_continuation(item: &mut Node, inline: &mut Vec<Node>, span: &duck_diagnostic::Span) -> bool {
     let kids = match item {
       Node::ListItem(li) => &mut li.children,
@@ -466,17 +423,13 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     true
   }
 
-  /// Wrap any LEADING raw inline content of `item` in a `Paragraph` so
-  /// loose-list formatting (`<li><p>...</p><p>...</p></li>`) applies
-  /// once a continuation paragraph or nested block appears.
-  ///
-  /// Only contiguous inline-typed children at the front of the list are
-  /// promoted; existing block children (Paragraph, List, Blockquote,
-  /// CodeBlock, ...) are left in place. Otherwise a `[Text, List]` item
-  /// would collapse into a single paragraph that swallows the list.
+  /// Wrap the leading inline run of `item` in a `Paragraph` so loose-list
+  /// formatting (`<li><p>...</p><p>...</p></li>`) kicks in. Only contiguous
+  /// inline-typed children at the front are promoted; existing block
+  /// children stay put — otherwise `[Text, List]` would collapse into one
+  /// paragraph that swallows the inner list.
   fn ensure_loose_item(item: &mut Node, span: &duck_diagnostic::Span) {
     let promote = |kids: &mut Vec<Node>, span: &duck_diagnostic::Span| {
-      // Already loose? Bail.
       if kids.first().is_some_and(|n| matches!(n, Node::Paragraph(_))) {
         return;
       }
@@ -496,9 +449,9 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     }
   }
 
-  /// Convert an inline-only list item into a setext heading. Tight-list
-  /// items keep following paragraph text as raw inline siblings, so we
-  /// only fold the leading inline run here.
+  /// Convert an inline-only list item into a setext heading. Only the
+  /// leading inline run is folded; tight-list trailing paragraph text stays
+  /// as raw siblings.
   fn promote_item_to_setext_heading(item: &mut Node, level: u8, span: &duck_diagnostic::Span) -> bool {
     let kids = match item {
       Node::ListItem(li) => &mut li.children,
@@ -527,7 +480,6 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     true
   }
 
-  /// Wrap the upcoming `Import` token's raw lexeme into an `Import` node.
   fn import_node(&mut self) -> Node {
     let span = self.current_span();
     let raw = self.peek().map(|t| t.raw.to_string()).unwrap_or_default();
@@ -535,7 +487,6 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     Node::Import(Import { raw, span })
   }
 
-  /// Counterpart to `import_node` for `export ...` statements.
   fn export_node(&mut self) -> Node {
     let span = self.current_span();
     let raw = self.peek().map(|t| t.raw.to_string()).unwrap_or_default();
@@ -543,9 +494,8 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     Node::Export(Export { raw, span })
   }
 
-  /// GFM footnote definition: cursor at `FootnoteDefMarker`. The marker
-  /// token's raw lexeme is `[^id]: ` (trailing space included by the
-  /// lexer); body is the inline run that follows up to the next break.
+  /// GFM footnote definition. Marker raw is `[^id]: ` (trailing space
+  /// included by the lexer); body is the inline run up to the next break.
   fn parse_footnote_def(&mut self) -> Node {
     let span = self.current_span();
     let raw = self.peek().map(|t| t.raw.to_string()).unwrap_or_default();
@@ -555,13 +505,9 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     Node::FootnoteDef(FootnoteDef { id, children, span })
   }
 
-  /// Default fallback block. Also handles setext headings: a trailing soft
-  /// break followed by a run of `=` or `-` rewrites the paragraph as a
-  /// level-1 / level-2 `Heading`.
-  ///
-  /// CommonMark: a soft break inside a paragraph stays inside the
-  /// paragraph (becomes a literal newline in the text). Only a blank
-  /// line or a block-starter token closes the paragraph.
+  /// Default fallback. Also folds a trailing `=`/`-` underline into a
+  /// setext heading. Soft breaks stay inside the paragraph; only a blank
+  /// line or block-starter closes it.
   fn parse_paragraph(&mut self) -> Node {
     let span = self.current_span();
     let mut children: Vec<Node> = Vec::new();
@@ -580,19 +526,17 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     };
     self.maybe_diag_unterminated_text_jsx();
     self.collect_inline_into(&para_stop, &mut children, &mut delims);
-    // Setext H2 retro-fold: when the inline run ends with a hard break
-    // followed by a Text node consisting only of `-` characters, treat
-    // the run as the body of an `<h2>`. CM 4.3 allows trailing
-    // whitespace before the underline; the hard break captured those
-    // spaces.
+    // Setext H2 retro-fold: HardBreak + all-`-` Text -> `<h2>`. CM 4.3
+    // allows trailing whitespace before the underline (captured in the
+    // hard break).
     if children.len() >= 2
       && let Some(Node::Text(t)) = children.last()
       && !t.value.is_empty()
       && t.value.chars().all(|c| c == '-')
       && matches!(children.get(children.len() - 2), Some(Node::HardBreak(_)))
     {
-      children.pop(); // text "----"
-      children.pop(); // hard break
+      children.pop();
+      children.pop();
       while matches!(children.last(), Some(Node::HardBreak(_)) | Some(Node::Text(_))) {
         if let Some(Node::Text(t)) = children.last()
           && t.value.chars().any(|c| !c.is_whitespace())
@@ -614,9 +558,8 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         break;
       }
       let saved = self.pos;
-      self.advance(); // consume the SoftBreak
-      // Setext heading: `=`/`-` underline directly after the soft break,
-      // possibly preceded by 1-3 leading spaces.
+      self.advance();
+      // Setext: `=`/`-` underline after the soft break (1-3 leading spaces ok).
       let ws_skip = matches!(self.peek_kind(), Some(TokenKind::Whitespace(w)) if (*w as usize) <= 3);
       if ws_skip {
         self.advance();
@@ -632,7 +575,6 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
             crate::inline::normalize_legacy_gfm_emphasis(&mut children);
           }
         }
-        // Trim trailing whitespace-only text nodes from the heading.
         while let Some(Node::Text(t)) = children.last_mut() {
           let trimmed = t.value.trim_end_matches([' ', '\t']).to_string();
           if trimmed.is_empty() {
@@ -650,7 +592,6 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         // Restore so the lazy-continuation path sees the whitespace.
         self.pos -= 1;
       }
-      // Blank line (another break right away) closes the paragraph.
       if matches!(
         self.peek_kind(),
         Some(TokenKind::SoftBreak) | Some(TokenKind::HardBreak) | Some(TokenKind::Eof) | None
@@ -658,18 +599,12 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         self.pos = saved;
         break;
       }
-      // A block-starter token following the soft break also closes the
-      // paragraph -- heading, list item, blockquote, code fence, JSX
-      // root, frontmatter, etc.
-      // CM 5.2: an ordered list with start != 1 cannot interrupt a
-      // paragraph, so check the marker's start digit before treating
-      // it as a block boundary.
+      // CM 5.2: an ordered list with start != 1 cannot interrupt a paragraph.
       let next_is_ol_interrupting = match self.peek() {
         Some(t) if matches!(t.kind, TokenKind::OrderedListMarker(_)) => {
           let digits: String = t.raw.chars().take_while(|c| c.is_ascii_digit()).collect();
           let starts_at_one = digits.parse::<u32>().map(|n| n == 1).unwrap_or(false);
-          // CM 5.2: a list item with no content after the marker
-          // cannot interrupt a paragraph (matches the unordered rule).
+          // CM 5.2: empty-content list item cannot interrupt a paragraph.
           let has_content = !matches!(
             self.tokens.get(self.pos + 1).map(|t| &t.kind),
             Some(TokenKind::SoftBreak)
@@ -682,8 +617,6 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         },
         _ => false,
       };
-      // CM 5.2: an unordered list interrupting a paragraph requires
-      // non-empty content immediately after the marker.
       let next_is_ul_interrupting = match self.peek_kind() {
         Some(TokenKind::UnorderedListMarker) => !matches!(
           self.tokens.get(self.pos + 1).map(|t| &t.kind),
@@ -695,10 +628,8 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         ),
         _ => false,
       };
-      // CM 4.6: only HTML block types 1-6 can interrupt a paragraph;
-      // type-7 (any other lowercase tag) is inline raw HTML and stays
-      // in the running paragraph. MDX components (uppercase /
-      // namespaced) always start a JSX block.
+      // CM 4.6: only HTML block types 1-6 interrupt a paragraph; type-7
+      // stays inline. MDX components always start a JSX block.
       let next_is_jsx_block = match self.peek_kind() {
         Some(TokenKind::JsxOpenTagStart) => {
           if let Some(name_tok) = self.tokens.get(self.pos + 1)
@@ -744,15 +675,15 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         break;
       }
       // Same-paragraph continuation: keep the soft break as a literal
-      // newline inside the text and collect the next line's inlines.
+      // newline and collect the next line.
       let break_span = self.current_span();
       children.push(Node::SoftBreak(BreakNode { span: break_span }));
       let pre_len = children.len();
       self.maybe_diag_unterminated_text_jsx();
       self.collect_inline_into(&para_stop, &mut children, &mut delims);
       if children.len() == pre_len {
-        // Nothing useful followed; rewind so the soft break we ate
-        // becomes a separate empty-line marker.
+        // Nothing useful followed; rewind so the eaten soft break can act
+        // as a separate empty-line marker.
         self.pos = saved;
         children.pop();
         break;
@@ -768,9 +699,8 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     Node::Paragraph(Paragraph { children, span })
   }
 
-  /// Heuristic recovery for lines like `<Foo bar=` that failed to lex as
-  /// JSX and would otherwise quietly fall back to plain text. Keep the
-  /// text output, but surface one actionable parser diagnostic.
+  /// Surface one actionable diagnostic for `<Foo bar=` -shaped lines that
+  /// failed JSX lex and would otherwise silently render as text.
   fn maybe_diag_unterminated_text_jsx(&mut self) {
     let Some(first) = self.peek() else {
       return;
@@ -836,10 +766,9 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     self.emit_diagnostic(diagnostic);
   }
 
-  /// CM 6.7: a hard line break needs content after it. Strip a stripped
-  /// `\` from the prev `Text` for mid-paragraph breaks; drop a trailing
-  /// `HardBreak` (plus any trailing whitespace-only text) so paragraphs
-  /// like `foo\` render as literal `foo\`.
+  /// CM 6.7: a hard break needs content after it. Strip `\` from prev Text
+  /// for mid-paragraph breaks; drop a trailing `HardBreak` so `foo\`
+  /// renders literal.
   fn finalize_inline_breaks(children: &mut Vec<Node>) {
     for i in 0..children.len() {
       if !matches!(children.get(i), Some(Node::HardBreak(_))) {
@@ -872,9 +801,8 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         break;
       }
     }
-    // CM 4.8: trailing whitespace-only Text + SoftBreak runs at the end
-    // of a paragraph render as nothing. Strip them so blank-line padding
-    // before block boundaries doesn't leak into the rendered output.
+    // CM 4.8: trailing whitespace-only Text + SoftBreak runs render as
+    // nothing.
     loop {
       match children.last() {
         Some(Node::Text(t)) if t.value.chars().all(|c| c == ' ' || c == '\t') => {

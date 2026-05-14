@@ -22,11 +22,10 @@ pub trait NodeSink {
   fn leave(&mut self, _node: &Node, _ctx: &WalkCtx) {}
 }
 
-/// Position info handed to every sink callback. Read-only.
+/// Position info handed to every sink callback.
 pub struct WalkCtx<'a> {
   /// Ancestor count above this node. Top-level children = 0.
   pub depth: usize,
-  /// Index among parent's children. 0-based.
   pub index: usize,
   /// `None` when visiting a top-level child of the document.
   pub parent: Option<&'a Node>,
@@ -41,14 +40,10 @@ impl<'a> WalkCtx<'a> {
   }
 }
 
-/// Pre-order DFS over `doc.children`. At every node, every sink's
-/// `enter` fires (in slice order); the walker then recurses into the
-/// node's children; finally every sink's `leave` fires (in reverse
-/// slice order, LIFO).
-///
-/// `Document` itself is not surfaced as a `Node::Document` event; the
-/// walker iterates `doc.children` directly. Sinks needing a document
-/// boundary subscribe to `Frontmatter` or to their first node.
+/// Pre-order DFS over `doc.children`. Sinks fire `enter` in slice order,
+/// `leave` in reverse (LIFO). `Document` is not surfaced as a node event;
+/// sinks needing a document boundary subscribe to `Frontmatter` or their
+/// first node.
 pub struct Walker<'a> {
   doc: &'a Document,
 }
@@ -58,7 +53,6 @@ impl<'a> Walker<'a> {
     Self { doc }
   }
 
-  /// Drive the walk. `enter` fires slice-order, `leave` fires LIFO.
   pub fn walk(self, sinks: &mut [&mut dyn NodeSink]) {
     for (i, child) in self.doc.children.iter().enumerate() {
       Self::walk_node(child, &WalkCtx { depth: 0, index: i, parent: None }, sinks);

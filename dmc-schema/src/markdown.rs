@@ -39,10 +39,8 @@ pub struct MetadataSchema;
 
 impl Schema for MetadataSchema {
   fn parse(&self, _value: &Value, ctx: &Ctx) -> Result<Value, ValidationError> {
-    // Count words against the raw source (post-frontmatter), matching
-    // velite's `s.metadata()` which feeds the markdown body to
-    // `reading-time`. Counting against `plain_text` would exclude JSX
-    // content + markdown structural words and undercount by 30-40%.
+    // Counts against raw post-frontmatter source (velite parity); `plain_text`
+    // strips JSX + structural words and undercounts by 30-40%.
     let words = word_count(&ctx.body);
     let reading = ((words as f32) / 200.0).ceil() as u32;
     Ok(serde_json::json!({
@@ -52,9 +50,7 @@ impl Schema for MetadataSchema {
   }
 }
 
-/// Velite-compatible word counter. Strips fenced code blocks then
-/// counts whitespace-separated tokens - the same reduction
-/// `reading-time` does on the markdown source.
+/// Strips fenced code blocks then counts whitespace tokens (velite/`reading-time` parity).
 fn word_count(source: &str) -> u32 {
   let mut out = String::with_capacity(source.len());
   let mut in_fence = false;

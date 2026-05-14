@@ -4,9 +4,8 @@ use dmc_diagnostic::Code;
 use dmc_lexer::token::{QuoteKind, TokenKind};
 
 impl<'eng, 'tokens> Parser<'eng, 'tokens> {
-  /// Lowercase / kebab-case JSX tag names are routed through the
-  /// CommonMark raw-HTML path. Keep uppercase / namespaced / member
-  /// names on the JSX path for MDX component semantics.
+  /// Lowercase / kebab tag names route through the CM raw-HTML path;
+  /// uppercase / namespaced / member names stay on the JSX path.
   pub(crate) fn is_plain_html_jsx_tag(&self) -> bool {
     let Some(open) = self.tokens.get(self.pos) else {
       return false;
@@ -23,13 +22,9 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     name_tok.raw.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
   }
 
-  /// True when the cursor is at a `JsxCloseTagStart` whose tag name
-  /// matches one of the JSX elements currently being parsed (see
-  /// `Parser::jsx_open_stack`). Such a close tag belongs to an enclosing
-  /// `parse_jsx` frame, so inline / block collection must stop and leave
-  /// the close-tag tokens for that frame's children loop rather than
-  /// emitting them as literal text. Lowercase HTML close tags never
-  /// match because lowercase tags never enter the stack.
+  /// True when the cursor is at a `JsxCloseTagStart` whose name matches an
+  /// element in `jsx_open_stack`. Such a tag belongs to an enclosing
+  /// `parse_jsx` frame and must end the current inline/block collection.
   pub(crate) fn jsx_close_tag_closes_enclosing(&self) -> bool {
     if self.jsx_open_stack.is_empty() {
       return false;
@@ -49,21 +44,12 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     self.jsx_open_stack.iter().any(|n| n == name_tok.raw)
   }
 
-  /// MDX-mode decision: the cursor is at a lowercase block-level JSX
-  /// open tag (`<div ...>`, `<svg ...>`, ...). Should it be parsed as a
-  /// JSX element (so `className` / expression / `{...spread}` attributes
-  /// survive and component children compile) instead of being captured
-  /// verbatim as a CommonMark raw-HTML block?
-  ///
-  /// True when either: we're already inside a `parse_jsx` children loop
-  /// (every lowercase descendant of a JSX element is itself a JSX element
-  /// in mdast); or the open tag uses JSX attribute syntax (a `className`,
-  /// an expression-valued attribute, or a `{...spread}`). Always false in
-  /// `cm_strict_html_blocks` mode so the CommonMark spec suite keeps
-  /// treating these as raw HTML blocks. (Plain `<div>...</div>` blocks
-  /// with no JSX syntax stay verbatim raw-HTML nodes; an uppercase tag
-  /// name is not used as a signal here because all-caps HTML like `<XMP>`
-  /// would trip it.)
+  /// Should a lowercase block-level JSX open tag (`<div ...>`) parse as a
+  /// `JsxElement` instead of raw HTML?  True when either we're already
+  /// inside a `parse_jsx` children loop, or the open tag carries JSX
+  /// attribute syntax (`className`, an expression value, `{...spread}`).
+  /// Always false under `cm_strict_html_blocks`. Uppercase tag names are
+  /// not a signal here because all-caps HTML like `<XMP>` would trip it.
   pub(crate) fn lowercase_jsx_tag_is_mdx_element(&self) -> bool {
     if self.options.cm_strict_html_blocks {
       return false;
@@ -72,12 +58,10 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       return false;
     }
     if !self.jsx_open_stack.is_empty() {
-      // Inside another JSX element -- this lowercase tag is one of its
-      // mdast `mdxJsxFlowElement` children. (`parse_jsx` is robust to an
-      // unterminated open tag, so no matching-close check is needed.)
+      // Lowercase descendants of a JSX element are themselves mdast
+      // `mdxJsxFlowElement` children.
       return true;
     }
-    // At top level: only promote when the open tag carries JSX syntax.
     let mut i = self.pos + 2;
     loop {
       match self.tokens.get(i).map(|t| &t.kind) {
@@ -109,8 +93,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     matches!(chars.next(), Some(c) if c.is_ascii_alphabetic()) && chars.all(|c| c.is_ascii_alphanumeric() || c == '-')
   }
 
-  /// CommonMark raw HTML does not use JS-style quote escaping inside
-  /// attribute strings. Reject those cases so malformed tags stay text.
+  /// CM raw HTML rejects JS-style quote escapes inside attribute strings.
   pub(crate) fn jsx_raw_html_tag_is_valid(&self) -> bool {
     self.jsx_raw_html_tag_is_valid_with(self.is_plain_html_jsx_tag())
   }
@@ -167,9 +150,8 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     false
   }
 
-  /// Reconstruct one JSX-tokenized lowercase HTML tag as either raw HTML
-  /// (valid per the lightweight CM checks above) or literal text (for
-  /// malformed tags that must escape on output).
+  /// Reconstruct a JSX-tokenized lowercase HTML tag as either raw HTML
+  /// (when CM-valid) or literal text (otherwise).
   pub(crate) fn parse_inline_raw_html_tag(&mut self) -> Option<Node> {
     let kind = self.peek_kind()?.clone();
     if !matches!(kind, TokenKind::JsxOpenTagStart | TokenKind::JsxCloseTagStart) || !self.is_plain_html_jsx_tag() {
@@ -206,18 +188,16 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     })
   }
 
-  /// Skip the inter-token whitespace the lexer now keeps for inline
-  /// spacing. JSX tag-internal whitespace is structural noise; the parser
-  /// drops it so attribute / closing-tag tokens line up the way they did
-  /// before whitespace tokens were preserved.
+  /// Skip JSX tag-internal whitespace tokens (structural noise; the lexer
+  /// keeps them for inline spacing).
   fn skip_jsx_ws(&mut self) {
     while matches!(self.peek_kind(), Some(TokenKind::Whitespace(_))) {
       self.advance();
     }
   }
 
-  /// Cursor at `JsxOpenTagStart`. Consumes through the matching close (or
-  /// self-close) and returns a `JsxElement`, `JsxSelfClosing`, or `JsxFragment`.
+  /// Cursor at `JsxOpenTagStart`. Consumes through the matching close
+  /// (or self-close) and returns `JsxElement` / `JsxSelfClosing`.
   pub(crate) fn parse_jsx(&mut self) -> Node {
     let span = self.current_span();
     self.advance();
@@ -255,10 +235,8 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       },
     }
 
-    // Track this element on the open-tag stack so child inline / block
-    // collection knows that a `</name>` close tag belongs to us and must
-    // not be swallowed as literal text. Fragments use a distinct close
-    // token (`JsxFragmentClose`), so only named elements push here.
+    // Push so child collection knows `</name>` closes us, not text.
+    // Fragments use a distinct close token, so only named elements push.
     if !name.is_empty() {
       self.jsx_open_stack.push(name.clone());
     }
@@ -305,14 +283,13 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     }
   }
 
-  /// Consume `name`, `name="str"`, `name={expr}` attributes. Bare names map
-  /// to `JsxAttrValue::Boolean`. Stops at the first non-attribute token.
-  /// Skips inter-attribute whitespace.
+  /// Consume `name`, `name="str"`, `name={expr}`, `{...spread}` attributes.
+  /// Bare names map to `JsxAttrValue::Boolean`.
   fn parse_jsx_attrs(&mut self) -> Vec<JsxAttr> {
     let mut out = Vec::new();
     self.skip_jsx_ws();
     loop {
-      // Spread attribute `{...rest}` -- lexer wraps the body in
+      // Spread `{...rest}`: lexer wraps body in
       // ExpressionStart / JsxAttributeSpread / ExpressionEnd.
       if matches!(self.peek_kind(), Some(TokenKind::ExpressionStart)) {
         let span = self.current_span();
@@ -389,7 +366,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     out
   }
 
-  /// JSX fragment `<>...</>`. Cursor at `JsxFragmentOpen`.
+  /// Cursor at `JsxFragmentOpen` (`<>`).
   pub(crate) fn parse_jsx_fragment(&mut self) -> Node {
     let span = self.current_span();
     self.advance();
@@ -417,7 +394,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     Node::JsxFragment(JsxFragment { children, span })
   }
 
-  /// Standalone `{expr}`. Cursor at `ExpressionStart`.
+  /// Cursor at `ExpressionStart` (standalone `{expr}`).
   pub(crate) fn parse_jsx_expression(&mut self) -> Node {
     let span = self.current_span();
     self.advance();
@@ -437,7 +414,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     Node::JsxExpression(JsxExpression { value: s, span })
   }
 
-  /// Skip a markdown comment `{/* ... */}`. Cursor at `MarkdownCommentStart`.
+  /// Skip an MDX comment `{/* ... */}`. Cursor at `MdxCommentOpen`.
   pub(crate) fn skip_md_comment(&mut self) {
     self.advance();
     while let Some(t) = self.peek() {
@@ -455,33 +432,11 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
   }
 }
 
-/// Indented block JSX inside a `<Tag>...</Tag>` body looks like
-///
-///   <TabsList>
-///     <TabsTrigger value="cli">CLI</TabsTrigger>
-///   </TabsList>
-///
-/// to the block parser, which sees the leading two-space indent + the
-/// JSX opener as inline content and wraps the whole line in a
-/// `Paragraph`. That makes the emitted React tree
-/// `<TabsList><p>  <TabsTrigger>...</p></TabsList>`, which is wrong both
-/// semantically and visually.
-///
-/// MDX's rule: a JSX element that is the only non-whitespace content
-/// on a line is a block child of its enclosing element, *not* a
-/// paragraph child. Implement the rule as a post-pass: for each
-/// `Paragraph` child, drop pure-whitespace `Text` nodes; if the
-/// remainder is one or more JSX nodes only, splice them in as direct
-/// children. Otherwise the paragraph stays.
-/// Drop the indentation / line-break noise that block-level JSX
-/// formatting leaves between element children. JSX itself ignores
-/// whitespace that sits between elements on their own lines; mirroring
-/// that keeps `<div>\n  <Card/>\n  <Card/>\n</div>` from emitting stray
-/// `"  "` / `"\n"` text children (which would otherwise become extra
-/// flex/grid items). Only applied when the element looks like a *flow*
-/// container -- every non-blank child is itself an element or block. If
-/// there is loose inline content (`<b>hello world</b>`) the inter-word
-/// whitespace is meaningful, so the list is returned untouched.
+/// Drop indentation / line-break noise between JSX block children, mirroring
+/// JSX's own whitespace rules. Without this, `<div>\n  <Card/>\n</div>`
+/// emits stray `"  "` / `"\n"` text children that turn into extra flex/grid
+/// items. Only runs when every non-blank child is itself an element or block
+/// — loose inline content (`<b>hello world</b>`) keeps its whitespace.
 fn strip_jsx_layout_whitespace(children: Vec<Node>) -> Vec<Node> {
   let is_flow_child = |n: &Node| {
     is_whitespace_text(n)
@@ -513,11 +468,11 @@ fn strip_jsx_layout_whitespace(children: Vec<Node>) -> Vec<Node> {
     .collect()
 }
 
+/// Unwrap a single-Paragraph child so `<del>*foo*</del>` renders as raw
+/// HTML around inline content (CM 6.6), not as `<del><p>...</p></del>`.
+/// Also unwraps Paragraphs whose contents are entirely JSX elements +
+/// whitespace, splicing the elements into the parent.
 fn unwrap_jsx_only_paragraphs(children: Vec<Node>) -> Vec<Node> {
-  // Single-paragraph children unwrap: a JSX element like `<del>*foo*</del>`
-  // (the only block child is one Paragraph) renders as raw HTML around
-  // inline content per CM 6.6 -- no nested `<p>`. Keeps multi-paragraph
-  // JSX bodies intact.
   if children.len() == 1
     && let Some(Node::Paragraph(p)) = children.first()
   {

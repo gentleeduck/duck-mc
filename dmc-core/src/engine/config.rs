@@ -5,9 +5,7 @@ use std::path::PathBuf;
 
 use crate::engine::{collection::Collection, compile::CompileConfig};
 
-/// Top-level engine config. Drives `Engine::run`: collections, output
-/// location, schema strictness, JS plugin hooks (remark/rehype via the
-/// Node sidecar), and feature flags such as GFM toggling.
+/// Top-level engine config consumed by `Engine::run`.
 #[derive(Debug, Deserialize, Serialize, Clone)]
 #[serde(default)]
 pub struct EngineConfig {
@@ -19,9 +17,7 @@ pub struct EngineConfig {
   pub strict: bool,
   pub collections: Vec<Collection>,
   pub include_html: bool,
-  /// Persist per-file compile output to `<output_dir>/.cache/dmc/`. On
-  /// the next build, files whose source bytes + config are unchanged
-  /// skip lex/parse/transform/codegen + sidecar entirely.
+  /// Persist per-file compile output to `<output_dir>/.cache/dmc/`.
   pub cache_enabled: bool,
 
   #[serde(flatten)]
@@ -46,8 +42,6 @@ impl Default for EngineConfig {
 }
 
 impl EngineConfig {
-  /// Read `dmc.toml` (or a `.ts` / `.js` / `.mjs` config) into an
-  /// `EngineConfig`. Routes through `load_ts` for JS-flavoured configs.
   pub(crate) fn load(config_path: &PathBuf) -> DiagResult<EngineConfig> {
     let raw = std::fs::read_to_string(config_path)
       .map_err(|e| diag!(Code::InvalidConfigPath, format!("config error: {}", e.to_string())))?;

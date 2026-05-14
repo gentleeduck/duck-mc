@@ -3,9 +3,8 @@ use crate::parser::{MAX_LINK_LABEL_DEPTH, Parser};
 use dmc_diagnostic::Code;
 use dmc_lexer::token::{AutolinkKind, EmphasisChar, TokenKind};
 
-/// One emphasis delimiter run captured during `collect_inline`. The
-/// post-pass walks these and pairs openers with closers per CM 6.4
-/// to produce `<em>` / `<strong>` nodes.
+/// One emphasis delimiter run. The post-pass pairs openers and closers per
+/// CM 6.4 to produce `<em>` / `<strong>` nodes.
 pub(crate) struct DelimRecord {
   c: EmphasisChar,
   run: u8,
@@ -15,19 +14,15 @@ pub(crate) struct DelimRecord {
   span: duck_diagnostic::Span,
 }
 
-/// Resolve emphasis delimiter pairs in `out` per CM 6.4 stack
-/// algorithm. Each consumed delimiter is replaced with the resulting
-/// `<em>` / `<strong>` (or further nested) node.
+/// CM 6.4 `process_emphasis`: walk delims left-to-right, scan back for the
+/// latest matching opener, replace the pair with `<em>` / `<strong>`.
 pub(crate) fn resolve_emphasis_delims(out: &mut Vec<Node>, delims: &mut [DelimRecord]) {
-  // CM 6.4 process_emphasis: walk delims left-to-right; for each
-  // closer, scan back for the latest matching opener.
   let mut i = 0usize;
   while i < delims.len() {
     if !delims[i].can_close || delims[i].run == 0 {
       i += 1;
       continue;
     }
-    // Scan back for a matching opener.
     let mut j: Option<usize> = None;
     let mut k = i;
     while k > 0 {
@@ -36,9 +31,8 @@ pub(crate) fn resolve_emphasis_delims(out: &mut Vec<Node>, delims: &mut [DelimRe
       if d.run == 0 || !d.can_open || d.c != delims[i].c {
         continue;
       }
-      // CM rule 9 / 10: combined-length-not-multiple-of-3 unless
-      // both lengths are multiples of 3. Apply only when the
-      // current delimiter is BOTH a potential opener and closer.
+      // CM rule 9/10: skip when both delim sides are open+close and the
+      // combined length is a multiple of 3 (unless this side is itself).
       let combined = (d.run + delims[i].run) as usize;
       let both_open_close = (d.can_open && d.can_close) || (delims[i].can_open && delims[i].can_close);
       if both_open_close && combined.is_multiple_of(3) && !(d.run as usize).is_multiple_of(3) {
@@ -56,11 +50,9 @@ pub(crate) fn resolve_emphasis_delims(out: &mut Vec<Node>, delims: &mut [DelimRe
       let span = delims[open_idx].span.clone();
       let lo = open_out_idx + 1;
       let hi = close_out_idx;
-      // CM 6.4 process_emphasis: remove any delimiters between the
-      // opener and closer from the delimiter stack -- they are now
-      // inside the wrapped run and can no longer pair with anything
-      // outside it. Without this, an unmatched marker like the `_` in
-      // `*foo _bar* baz_` gets paired across the `<em>` boundary.
+      // Remove inner delimiters: they're now inside the wrapped run and
+      // can't pair outside it. Without this, `*foo _bar* baz_` pairs the
+      // `_` across the `<em>` boundary.
       for d in delims.iter_mut().skip(open_idx + 1).take(i - open_idx - 1) {
         d.run = 0;
         d.can_open = false;
@@ -73,8 +65,6 @@ pub(crate) fn resolve_emphasis_delims(out: &mut Vec<Node>, delims: &mut [DelimRe
         Node::Bold(Inline { children: inner, span })
       };
       out[open_out_idx] = node;
-      // Reduce both delim runs; keep placeholders for remaining
-      // chars by truncating raw, otherwise drop.
       delims[open_idx].run -= use_n;
       delims[i].run -= use_n;
       let close_consumed = delims[i].run == 0;
@@ -82,7 +72,6 @@ pub(crate) fn resolve_emphasis_delims(out: &mut Vec<Node>, delims: &mut [DelimRe
       if close_consumed {
         out.remove(lo);
       } else {
-        // Shrink closer placeholder text to remaining run length.
         let remaining = delims[i].run as usize;
         let truncated_raw = match delims[i].c {
           EmphasisChar::Asterisk => "*".repeat(remaining),
@@ -95,9 +84,8 @@ pub(crate) fn resolve_emphasis_delims(out: &mut Vec<Node>, delims: &mut [DelimRe
       if open_consumed {
         delims[open_idx].can_open = false;
       } else {
-        // Truncate opener placeholder. (It now lives at open_out_idx
-        // again -- but we replaced it with `node`. Need to insert a
-        // new placeholder before the node.)
+        // Opener position now holds `node`; insert a new placeholder for
+        // the remaining run before it.
         let remaining = delims[open_idx].run as usize;
         let truncated_raw = match delims[open_idx].c {
           EmphasisChar::Asterisk => "*".repeat(remaining),
@@ -105,7 +93,6 @@ pub(crate) fn resolve_emphasis_delims(out: &mut Vec<Node>, delims: &mut [DelimRe
         };
         out.insert(open_out_idx, Node::Text(Text { value: truncated_raw, span: delims[open_idx].span.clone() }));
       }
-      // Net removed slots = (drained inner) + (closer or 0) - (opener insert or 0).
       let inserted = if open_consumed { 0i64 } else { 1 };
       let removed_closer = if close_consumed { 1i64 } else { 0 };
       let removed_total = (hi as i64 - lo as i64) + removed_closer - inserted;
@@ -114,16 +101,13 @@ pub(crate) fn resolve_emphasis_delims(out: &mut Vec<Node>, delims: &mut [DelimRe
           d.out_idx = (d.out_idx as i64 - removed_total).max(0) as usize;
         }
       }
-      // If opener still has runs left, the next closer may pair with
-      // it (don't disable can_open). If closer still has runs, retry
-      // pairing at i.
+      // Retry at i while the closer still has runs; otherwise advance.
       if !close_consumed {
         continue;
       }
       i += 1;
       continue;
     }
-    // No opener found -- the placeholder stays as literal text.
     i += 1;
   }
 }
@@ -155,10 +139,7 @@ fn flatten_nested_bold(children: &mut Vec<Node>) {
   *children = flat;
 }
 
-/// CM 6.4 "Unicode punctuation": an ASCII punctuation character, or a
-/// character in Unicode general category P* (Pc Pd Pe Pf Pi Po Ps) or
-/// S* (Sc Sk Sm So). Uses the `unicode-general-category` table for an
-/// exact classification instead of the old hand-rolled range list.
+/// CM 6.4 "Unicode punctuation": ASCII punct, or general category P* / S*.
 fn is_unicode_punct(c: char) -> bool {
   use unicode_general_category::GeneralCategory as GC;
   if c.is_ascii_punctuation() {
@@ -180,9 +161,8 @@ fn is_unicode_punct(c: char) -> bool {
   )
 }
 
-/// Flatten an inline node into a label string that preserves emphasis
-/// markers and link / image bracketing -- used to reconstruct the
-/// label string for ref-def lookup.
+/// Flatten an inline node back to a label string preserving emphasis markers
+/// and link/image bracketing — used for ref-def lookup.
 fn push_node_label(out: &mut String, node: &Node) {
   match node {
     Node::Text(t) => out.push_str(&t.value),
@@ -234,9 +214,8 @@ fn push_node_label(out: &mut String, node: &Node) {
   }
 }
 
-/// Flatten an inline node list to plain text. Used to build the lookup
-/// label for shortcut / collapsed / full reference links from the
-/// already-parsed inner content.
+/// Flatten an inline node list to plain text. Used to build ref-def lookup
+/// labels from already-parsed link inner content.
 fn plain_text(nodes: &[Node]) -> String {
   let mut s = String::new();
   for n in nodes {
@@ -252,9 +231,7 @@ fn plain_text(nodes: &[Node]) -> String {
   s
 }
 
-/// Decode every `&...;` reference inside a string and return the
-/// resolved version. Numeric refs always succeed; named refs hit the
-/// HTML5 table via `htmlentity`. Unknown / malformed refs survive
+/// Decode every `&...;` reference in `s`. Unknown / malformed refs survive
 /// verbatim so nothing is lost.
 pub(crate) fn decode_entities_in(s: &str) -> String {
   if !s.contains('&') {
@@ -265,8 +242,7 @@ pub(crate) fn decode_entities_in(s: &str) -> String {
   let mut i = 0;
   while i < bytes.len() {
     if bytes[i] == b'&' {
-      // Find the next `;` within a reasonable window (CM caps named
-      // entities at 32 chars; numeric at ~10).
+      // CM caps named entities at 32 chars; numeric at ~10.
       let mut j = i + 1;
       let cap = (i + 33).min(bytes.len());
       while j < cap && bytes[j] != b';' {
@@ -287,13 +263,10 @@ pub(crate) fn decode_entities_in(s: &str) -> String {
   out
 }
 
-/// Decode a CommonMark entity reference (`&amp;`, `&#9;`, `&#x2A;`).
-/// Returns `None` when the form is malformed or the named entity is
-/// not recognized; the caller falls back to the raw lexeme so the
-/// output stays lossless.
+/// Decode `&amp;` / `&#9;` / `&#x2A;`. Returns `None` for unrecognized or
+/// malformed input so the caller can keep the raw lexeme.
 fn decode_entity(raw: &str) -> Option<String> {
-  // Numeric forms: handle ourselves so we can fold NUL -> U+FFFD per
-  // CM 6.6.
+  // Numeric: handle in-house so we can fold NUL -> U+FFFD per CM 6.6.
   if let Some(inner) = raw.strip_prefix('&').and_then(|s| s.strip_suffix(';'))
     && let Some(rest) = inner.strip_prefix('#')
   {
@@ -305,13 +278,11 @@ fn decode_entity(raw: &str) -> Option<String> {
     let cp = if cp == 0 { 0xFFFD } else { cp };
     return char::from_u32(cp).map(|c| c.to_string());
   }
-  // Some HTML5 named refs expand to multiple code points; htmlentity's
-  // `Entity::decode` only yields a single `char`, so patch the specific
-  // CM 6.6 cases it cannot represent.
+  // `htmlentity` only yields a single `char`; patch the CM 6.6 multi-char
+  // expansions it can't represent.
   if raw == "&ngE;" {
     return Some("\u{2267}\u{0338}".to_string());
   }
-  // Named forms via the full HTML5 entity table.
   use htmlentity::entity::{ICodedDataTrait, decode};
   let decoded = decode(raw.as_bytes());
   let s: String = decoded.to_string().ok()?;
@@ -346,12 +317,8 @@ fn trailing_email_local_suffix_start(s: &str) -> Option<usize> {
   (start < s.len()).then_some(start)
 }
 
-/// GFM "extended email autolink": `local@domain` where `local` is
-/// `[A-Za-z0-9._+-]+`, `domain` is `[A-Za-z0-9-_]+(\.[A-Za-z0-9-_]+)+`,
-/// the domain has at least one `.`, and the final domain label does
-/// not end with `-` or `_`. Returns `Some(pieces)` when at least one
-/// email was found, mixing `Text` and `Link` nodes; `None` otherwise
-/// so the caller emits a single plain `Text`.
+/// GFM "extended email autolink". Returns mixed `Text` + `Link` pieces when
+/// at least one valid `local@domain` is found; `None` otherwise.
 fn split_email_autolinks(s: &str, span: &duck_diagnostic::Span) -> Option<Vec<Node>> {
   fn is_domain(b: u8) -> bool {
     b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_')
@@ -369,18 +336,16 @@ fn split_email_autolinks(s: &str, span: &duck_diagnostic::Span) -> Option<Vec<No
   };
   while i < bytes.len() {
     if bytes[i] == b'@' {
-      // Walk back over local-part chars.
       let mut local_start = i;
       while local_start > 0 && is_email_local_byte(bytes[local_start - 1]) {
         local_start -= 1;
       }
-      // Walk forward over domain chars + `.`.
       let mut domain_end = i + 1;
       while domain_end < bytes.len() && (is_domain(bytes[domain_end]) || bytes[domain_end] == b'.') {
         domain_end += 1;
       }
       let local = &s[local_start..i];
-      // Trim trailing `.` (sentence punctuation) from the domain run.
+      // Trim sentence-final `.` from the domain.
       let raw_domain = &s[i + 1..domain_end];
       let domain = raw_domain.trim_end_matches('.');
       let valid = !local.is_empty()
@@ -392,7 +357,7 @@ fn split_email_autolinks(s: &str, span: &duck_diagnostic::Span) -> Option<Vec<No
           !last.ends_with('-') && !last.ends_with('_') && !last.is_empty()
         };
       if valid {
-        // Pull any local-part bytes already in emitted_text out of it.
+        // Pull local-part bytes back out of emitted_text.
         if emitted_text.ends_with(local) {
           let keep = emitted_text.len() - local.len();
           emitted_text.truncate(keep);
@@ -453,7 +418,6 @@ fn split_email_autolinks_with_tail_underscore(
 }
 
 impl<'eng, 'tokens> Parser<'eng, 'tokens> {
-  /// Accumulate inline nodes until any top-level break token.
   pub(crate) fn collect_inline_until_break(&mut self) -> Vec<Node> {
     self.collect_inline(&|kind| {
       matches!(
@@ -470,17 +434,14 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     })
   }
 
-  /// Inline body of one list item. Same stop set as
-  /// `collect_inline_until_break`, but skips the single leading
-  /// `Whitespace` token that follows the marker (`- foo` vs `-foo`).
+  /// Inline body of one list item. Skips the single leading `Whitespace`
+  /// after the marker (`- foo` vs `-foo`).
   pub(crate) fn collect_inline_for_list_item(&mut self) -> Vec<Node> {
     if matches!(self.peek_kind(), Some(TokenKind::Whitespace(_))) {
       self.advance();
     }
-    // CM 5.2: a list item with only whitespace content (e.g. `-   \n`
-    // -> the trailing spaces produce a HardBreak token) is empty.
-    // Consume the line break so the item renders as `<li></li>` and
-    // the next marker on the following line is the next sibling item.
+    // CM 5.2: whitespace-only item content (`-   \n` -> HardBreak) is empty;
+    // consume the break so the item renders as `<li></li>`.
     if matches!(self.peek_kind(), Some(TokenKind::HardBreak)) {
       self.advance();
       return Vec::new();
@@ -488,8 +449,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     self.collect_inline_until_break()
   }
 
-  /// Collect inline nodes until `stop(kind)` returns true. The stopping token
-  /// is left on the stream.
+  /// Collect inline nodes until `stop(kind)`. Stopping token is left on the stream.
   pub(crate) fn collect_inline(&mut self, stop: &dyn Fn(&TokenKind) -> bool) -> Vec<Node> {
     let mut out = Vec::new();
     let mut delims: Vec<DelimRecord> = Vec::new();
@@ -503,10 +463,9 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     out
   }
 
-  /// Variant of `collect_inline` that pushes into caller-provided
-  /// buffers and does NOT run emphasis resolution. Lets multi-segment
-  /// callers (parse_paragraph across soft breaks) accumulate one delim
-  /// stack and resolve once at the end.
+  /// `collect_inline` variant that pushes into caller-provided buffers and
+  /// skips emphasis resolution, letting multi-segment callers (paragraph
+  /// across soft breaks) accumulate one delim stack and resolve at the end.
   pub(crate) fn collect_inline_into(
     &mut self,
     stop: &dyn Fn(&TokenKind) -> bool,
@@ -518,11 +477,9 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       if stop(&kind) {
         break;
       }
-      // A `</name>` close tag for a JSX element we are currently inside
-      // belongs to that enclosing `parse_jsx` frame; stop here and leave
-      // the close-tag tokens for its children loop instead of emitting
-      // them as literal `</`, name, `>` text. (Stray / non-matching
-      // close tags still fall through to the dispatch below.)
+      // `</name>` for an enclosing JSX element belongs to its parse_jsx
+      // frame; stop so its children loop sees the close tag. Stray
+      // (non-matching) close tags still fall through.
       if matches!(kind, TokenKind::JsxCloseTagStart) && self.jsx_close_tag_closes_enclosing() {
         break;
       }
@@ -543,10 +500,8 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
               Some(TokenKind::SoftBreak | TokenKind::HardBreak | TokenKind::BlankLine | TokenKind::Eof) | None
             );
           self.advance();
-          // GFM email autolink extension: scan the text for
-          // `local@domain` patterns and split into Text + Link runs.
-          // Only active under `gfm_autolinks`; default MDX path leaves
-          // the transformer to do it.
+          // GFM email autolink extension. Default MDX path leaves this for
+          // the `BareUrlAutolink` transformer.
           if gfm
             && raw_lexeme.contains('@')
             && !trailing_underscore_to_break
@@ -562,7 +517,6 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
           let kind = *kind;
           let raw = t.raw.to_string();
           self.advance();
-          // Resolve display vs href per autolink kind.
           let link = match kind {
             AutolinkKind::AngleUrl => {
               let inner = raw.trim_start_matches('<').trim_end_matches('>').to_string();
@@ -572,11 +526,9 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
               let inner = raw.trim_start_matches('<').trim_end_matches('>').to_string();
               Some((inner.clone(), format!("mailto:{inner}")))
             },
-            // Bare URLs / `www.` runs are a GFM extension. Parser-level
-            // autolink fires only when `ParseOptions::gfm_autolinks` is
-            // on (spec runners, opt-in callers). Default MDX path keeps
-            // them as Text so the `BareUrlAutolink` transformer can
-            // operate later in the pipeline.
+            // GFM bare URL / `www.`: parser-level autolink only under
+            // `gfm_autolinks`. Default MDX keeps these as Text for the
+            // `BareUrlAutolink` transformer.
             AutolinkKind::BareUrl if self.options.gfm_autolinks => Some((raw.clone(), raw.clone())),
             AutolinkKind::BareWww if self.options.gfm_autolinks => Some((raw.clone(), format!("http://{}", raw))),
             AutolinkKind::BareUrl | AutolinkKind::BareWww => None,
@@ -602,10 +554,8 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
           let dn = *n;
           let raw = t.raw.to_string();
           let dspan = span.clone();
-          // CM 6.4 flanking rules. Compute can_open / can_close from
-          // the current cursor context; resolution into <em>/<strong>
-          // happens after collect_inline returns via the delimiter
-          // stack walk below.
+          // CM 6.4 flanking. Resolution into <em>/<strong> happens after
+          // collect_inline returns, in resolve_emphasis_delims.
           let next_tok = self.tokens.get(self.pos + 1);
           let next_ws = match next_tok.map(|t| &t.kind) {
             Some(TokenKind::SoftBreak)
@@ -623,18 +573,13 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
           let prev_ws = prev_char.map(|c| c.is_whitespace()).unwrap_or(true);
           let prev_punct = prev_char.is_some_and(is_unicode_punct);
           let prev_alnum = prev_char.is_some_and(|c| c.is_alphanumeric());
-          // Left-flanking: not followed by ws AND (not followed by
-          // punct OR preceded by ws/punct).
           let left_flank = !next_ws && (!next_punct || prev_ws || prev_punct);
-          // Right-flanking: not preceded by ws AND (not preceded by
-          // punct OR followed by ws/punct).
           let right_flank = !prev_ws && (!prev_punct || next_ws || next_punct);
           let mut can_open = left_flank;
           let mut can_close = right_flank;
           if dc == EmphasisChar::Underscore {
-            // Intra-word `_` rule: can't open when preceded by alnum,
-            // can't close when followed by alnum (unless flanking
-            // requirement compensates per CM rule 7-8).
+            // CM 7-8 intra-word `_`: can't open after alnum, can't close
+            // before alnum.
             if prev_alnum && next_alnum {
               can_open = false;
               can_close = false;
@@ -693,9 +638,9 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
               },
             }
           }
-          // CM 6.1: line endings inside become single spaces; if the
-          // resulting string both starts and ends with a single space
-          // (and isn't all-spaces), strip one from each side.
+          // CM 6.1: line endings -> single space; if the result has
+          // matching leading + trailing spaces (and isn't all-space),
+          // strip one from each side.
           let value = value.replace('\n', " ");
           let value = if value.starts_with(' ') && value.ends_with(' ') && value.chars().any(|c| c != ' ') {
             value[1..value.len() - 1].to_string()
@@ -706,7 +651,6 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         },
         TokenKind::LinkOpen => {
           if self.link_label_depth >= MAX_LINK_LABEL_DEPTH {
-            // Adversarial `[[[[...`: stop recursing and emit `[` literal.
             self.advance();
             out.push(Node::Text(Text { value: "[".into(), span }));
             continue;
@@ -714,32 +658,26 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
           let start = self.pos;
           self.advance();
           let label_start_pos = self.pos;
-          // Capture raw label text via pointer arithmetic on token raws
-          // so emphasis/inline markers survive for ref-def lookup
-          // (`[*foo* bar]: /url` matches `[*foo* bar]`).
+          // Raw label text captures emphasis/inline markers so ref-def
+          // lookup matches `[*foo* bar]: /url`.
           self.link_label_depth += 1;
           let inner = self.collect_inline(&|k| {
             matches!(k, TokenKind::LinkClose | TokenKind::BlankLine | TokenKind::SoftBreak | TokenKind::Eof)
           });
           self.link_label_depth -= 1;
           if !matches!(self.peek_kind(), Some(TokenKind::LinkClose)) {
-            // No closing `]`: emit `[` literally and splice the
-            // already-parsed inner nodes. Do NOT reset `self.pos` and
-            // re-walk the inner tokens -- with N nested unclosed `[`
-            // that re-parse is `O(2^N)` (each `[` re-scans the suffix
-            // once recursively and once after backtracking). Keeping
-            // `self.pos` after the inner makes label parsing linear.
+            // No closing `]`: emit `[` literal + already-parsed inner.
+            // Resetting `self.pos` and re-walking would be `O(2^N)` for
+            // N nested unclosed `[`. Keeping `self.pos` keeps it linear.
             out.push(Node::Text(Text { value: "[".into(), span }));
             out.extend(inner);
             continue;
           }
           let label_end_pos = self.pos;
           let raw_inner_label = self.raw_source_for_token_range(label_start_pos, label_end_pos);
-          self.advance(); // consume the closing `]`
-          // CommonMark 6.3: a link cannot contain another link. When
-          // inner contains a `Link` (recursively, e.g. wrapped in
-          // emphasis), abandon the outer link parse and emit
-          // `[inner]...` as text.
+          self.advance();
+          // CM 6.3: a link cannot contain another link. Abort the outer
+          // link if any descendant (including under emphasis) is a Link.
           fn contains_link(nodes: &[Node]) -> bool {
             for n in nodes {
               match n {
@@ -753,18 +691,9 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
             false
           }
           let inner_has_link = contains_link(&inner);
-          // CommonMark 6.3: classify the link form by what follows the
-          // closing `]`.
-          //   `(...)`     -> inline link
-          //   `[...]`     -> full reference `[text][label]` or
-          //                  collapsed `[label][]`
-          //   nothing     -> shortcut reference `[label]`
-          // Reference forms resolve against the ref-def map populated in
-          // the pre-pass; unresolved refs fall back to literal text.
+          // CM 6.3 link form by what follows `]`:
+          //   `(...)` -> inline | `[...]` -> full/collapsed ref | else -> shortcut
           if inner_has_link {
-            // Emit `[`, inner..., `]` as raw output and let the next
-            // iteration handle whatever follows (it might itself be a
-            // valid link reference).
             out.push(Node::Text(Text { value: "[".into(), span: span.clone() }));
             for n in inner {
               out.push(n);
@@ -774,20 +703,15 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
           }
           match self.peek_kind() {
             Some(TokenKind::LinkTargetOpen) => {
-              self.advance(); // consume `(`
+              self.advance();
               let body_start_pos = self.pos;
-              // CM 6.3: bare destinations allow balanced parens. Track
-              // depth so `[link](foo(and(bar)))` keeps both inner pairs
-              // before the matching outer close. Stop at blank lines
-              // and end-of-stream so an unbalanced run can't swallow
-              // following content. A `<...>` bracketed destination is
-              // exempt: inside `<...>`, `(` and `)` are literal so the
-              // depth counter must skip them.
+              // CM 6.3: bare destinations allow balanced parens, stop at
+              // blank lines / EOF. Inside `<...>` parens are literal so
+              // the depth counter skips them.
               let mut depth = 0i32;
               let mut in_angle = false;
               while let Some(tok) = self.peek() {
                 if in_angle {
-                  // Walk until we see a token whose raw ends with `>`.
                   let raw = tok.raw;
                   if raw.contains('>') {
                     in_angle = false;
@@ -795,8 +719,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
                   match &tok.kind {
                     TokenKind::Eof | TokenKind::BlankLine => break,
                     TokenKind::SoftBreak | TokenKind::HardBreak => {
-                      // Newline inside `<...>` invalidates the bracketed
-                      // form; abort so the malformed branch fires.
+                      // Newline inside `<...>` invalidates the bracketed form.
                       in_angle = false;
                       self.advance();
                     },
@@ -821,9 +744,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
                     self.advance();
                   },
                   _ => {
-                    // Detect a `<` opener for a bracketed destination.
-                    // The lexer may emit it as Text or escape-pair; we
-                    // recognize the leading `<` byte in the raw lexeme.
+                    // Detect a `<` opener (lexer may emit it as Text).
                     if tok.raw.starts_with('<') && depth == 0 && !tok.raw.contains('>') {
                       in_angle = true;
                     }
@@ -831,11 +752,9 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
                   },
                 }
               }
-              // Reconstruct paren body verbatim from source. Lexer's JSX
-              // path normalizes whitespace inside `<...>`, so per-token
-              // concat would lose spaces; pointer arithmetic preserves
-              // them since every `Token.raw` borrows from the same
-              // source string.
+              // Reconstruct paren body verbatim from source: the lexer's
+              // JSX path normalizes `<...>` whitespace, so per-token concat
+              // would lose spaces.
               let has_close = matches!(self.peek_kind(), Some(TokenKind::LinkTargetClose));
               let body_end_pos = self.pos;
               let paren_body = self.raw_source_for_token_range(body_start_pos, body_end_pos);
@@ -860,13 +779,9 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
                 },
                 None => {
                   // CM 6.3: malformed `[label](destination)` falls back to
-                  // shortcut reference resolution -- if `[label]` matches
-                  // a definition, render the link and leave the failed
-                  // paren body as literal inline content after it.
-                  // Reparse the consumed token slice so raw HTML / entity
-                  // refs inside the malformed body keep their normal CM
-                  // inline semantics instead of being flattened into one
-                  // escaped text blob.
+                  // shortcut resolution. Re-parse the consumed body so raw
+                  // HTML / entity refs keep their inline semantics instead
+                  // of collapsing into one escaped text blob.
                   let body_nodes = self.parse_literal_inline_slice(body_start_pos, body_end_pos, !has_close);
                   let label_raw = raw_inner_label.clone();
                   let label_plain = plain_text(&inner);
@@ -893,10 +808,9 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
               }
             },
             Some(TokenKind::LinkOpen) => {
-              // Reference form: peek the second `[..]` to distinguish
-              // collapsed (`[]`) from full (`[label]`).
+              // Distinguish collapsed `[]` from full `[label]`.
               let second_bracket_pos = self.pos;
-              self.advance(); // consume `[`
+              self.advance();
               if matches!(self.peek_kind(), Some(TokenKind::LinkClose)) {
                 self.advance();
                 let label_raw = raw_inner_label.clone();
@@ -906,7 +820,6 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
                   out.push(Node::Link(Link { href, title, children: inner, span }));
                   continue;
                 }
-                // Unresolved -- emit literal `[text][]`.
                 out.push(Node::Text(Text { value: "[".into(), span: span.clone() }));
                 for n in inner {
                   out.push(n);
@@ -921,8 +834,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
               });
               self.link_label_depth -= 1;
               if !matches!(self.peek_kind(), Some(TokenKind::LinkClose)) {
-                // Treat the trailing `[..` as text and fall through to
-                // shortcut behavior on the original inner.
+                // Unclosed `[..`: try shortcut on the original inner.
                 let label_raw = raw_inner_label.clone();
                 let label_plain = plain_text(&inner);
                 let resolved = self.refs.get(&label_raw).cloned().or_else(|| self.refs.get(&label_plain).cloned());
@@ -942,19 +854,17 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
                 continue;
               }
               let label2_end_pos = self.pos;
-              self.advance(); // consume label-side `]`
+              self.advance();
               let label_raw_2 = self.raw_source_for_token_range(label2_start_pos, label2_end_pos);
-              // CM 4.7: label matching is case-fold + ws-collapse only.
-              // Use the raw source slice (with backslash escapes intact)
-              // so `[foo\!]` does NOT match `[foo!]: /url` per spec.
+              // CM 4.7: backslash escapes are NOT unescaped during label
+              // matching, so `[foo\!]` does NOT match `[foo!]: /url`.
               let resolved = self.refs.get(&label_raw_2).cloned();
               if let Some((href, title)) = resolved {
                 out.push(Node::Link(Link { href, title, children: inner, span }));
                 continue;
               }
-              // CM 6.3: an unresolved full reference `[a][b]` leaves the
-              // first label literal and rewinds so the second `[...]` can be
-              // reparsed as a fresh shortcut/full reference.
+              // CM 6.3: unresolved `[a][b]` leaves the first label literal
+              // and rewinds so `[b]` re-parses as a fresh reference.
               out.push(Node::Text(Text { value: "[".into(), span: span.clone() }));
               for n in inner {
                 out.push(n);
@@ -963,20 +873,15 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
               self.pos = second_bracket_pos;
             },
             _ => {
-              // Shortcut `[label]`. Resolve via the ref-def map; falls
-              // back to bracketed text when no matching definition.
               let label_raw = raw_inner_label.clone();
               let resolved = self.refs.get(&label_raw).cloned();
               if let Some((href, title)) = resolved {
                 out.push(Node::Link(Link { href, title, children: inner, span }));
                 continue;
               }
-              // Unresolved shortcut `[label]`: emit `[`, then re-parse
-              // the label tokens into the *outer* delimiter stack so an
-              // emphasis run that opens before `[` can close inside it
-              // (CM ex 523: `*foo [bar* baz]`). The re-parse carries the
-              // `link_label_depth` so adversarial `[[[...]]]` still hits
-              // the recursion cap instead of cascading.
+              // Unresolved shortcut: re-parse the label tokens into the
+              // OUTER delimiter stack so an emphasis run that opens before
+              // `[` can close inside it (CM ex 523: `*foo [bar* baz]`).
               out.push(Node::Text(Text { value: "[".into(), span: span.clone() }));
               self.replay_inline_slice_into(label_start_pos, label_end_pos, out, delims, false);
               out.push(Node::Text(Text { value: "]".into(), span }));
@@ -989,14 +894,11 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
             out.push(Node::Text(Text { value: "![".into(), span }));
             continue;
           }
-          // Lexer's `ImageMarker` already covers `![`, so the cursor is on
-          // the alt-text body. Walk to the closing `]` (`LinkClose`).
+          // ImageMarker covers `![`; cursor is on the alt body.
           self.advance();
-          // CM 6.4: image alt is parsed as an inline run -- nested
-          // `[link]` and `![image]` are recursively flattened, and the
-          // rendered alt is plain text (no markup). Parse the body
-          // then derive both a raw label (for ref lookups) and a
-          // plain-text alt.
+          // CM 6.4: image alt is parsed as inline (nested links/images
+          // recursively flattened), rendered as plain text. Derive both
+          // a raw label (for ref lookup) and a plain-text alt.
           self.link_label_depth += 1;
           let alt_inner = self.collect_inline(&|k| {
             matches!(k, TokenKind::LinkClose | TokenKind::BlankLine | TokenKind::SoftBreak | TokenKind::Eof)
@@ -1004,9 +906,8 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
           self.link_label_depth -= 1;
           let mut alt_raw = String::new();
           {
-            // Rebuild raw label by walking the original token range. We
-            // reuse the cursor; for simplicity, just stringify the inner
-            // tree. This is fine for ref-def lookup as labels normalize.
+            // Stringify the inner tree as a ref-def lookup label; labels
+            // normalize anyway so this is fine.
             for n in &alt_inner {
               push_node_label(&mut alt_raw, n);
             }
@@ -1015,7 +916,6 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
             self.advance();
           }
           let alt = plain_text(&alt_inner);
-          // Inline form: `(...)` follows.
           if matches!(self.peek_kind(), Some(TokenKind::LinkTargetOpen)) {
             self.advance();
             let mut paren_body = String::new();
@@ -1044,7 +944,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
             }
             continue;
           }
-          // Reference forms: `[label]` (full / collapsed) or shortcut.
+          // Reference forms: full `[label]`, collapsed `[]`, or shortcut.
           let mut label = alt_raw.clone();
           if matches!(self.peek_kind(), Some(TokenKind::LinkOpen)) {
             self.advance();
@@ -1073,7 +973,6 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
             out.push(Node::Image(Image { src: href, alt, title, span }));
             continue;
           }
-          // Unresolved reference -- fall back to literal text.
           out.push(Node::Text(Text { value: format!("![{}]", alt), span }));
         },
         TokenKind::HtmlCommentOpen | TokenKind::HtmlBlockOpen(_) => {
@@ -1127,19 +1026,14 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         },
         TokenKind::HardBreak => {
           self.advance();
-          // CM 6.7: drop trailing whitespace-only text immediately
-          // before the hard break -- the spaces / `\` produced the
-          // break itself, they shouldn't render in the body.
+          // CM 6.7: drop the whitespace / `\` that produced the break.
           while let Some(Node::Text(t)) = out.last()
             && t.value.chars().all(|c| c == ' ' || c == '\t')
           {
             out.pop();
           }
-          // Backslash-induced hard break: strip the trailing `\` from
-          // the preceding text node IFF the break is followed by more
-          // inline content. CM 6.7 keeps the `\` literal when the
-          // break sits at the end of the inline run (`foo\` with no
-          // continuation -> `<p>foo\</p>`).
+          // CM 6.7: strip the trailing `\` from preceding Text IFF more
+          // inline content follows; `foo\` at end-of-run renders literal.
           let has_following_inline = !matches!(
             self.peek_kind(),
             Some(TokenKind::BlankLine)
@@ -1162,7 +1056,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
           out.push(Node::HardBreak(BreakNode { span }));
         },
         TokenKind::FootnoteRefOpen => {
-          // Lexer emits a single token covering `[^id]`; pull the id out.
+          // Single token covers `[^id]`.
           let raw = t.raw.to_string();
           self.advance();
           let id = raw.trim_start_matches('[').trim_start_matches('^').trim_end_matches(']').to_string();
@@ -1175,9 +1069,8 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
           out.push(Node::Text(Text { value, span }));
         },
         TokenKind::HeadingTrailingHashes => {
-          // Decoration only; lexer flags the trailing `#` run on an ATX
-          // heading so the parser can drop it. Surrounding whitespace
-          // gets trimmed by `parse_heading`'s end-trim pass.
+          // Decoration only; surrounding whitespace is trimmed later by
+          // `parse_heading`.
           self.advance();
           continue;
         },
@@ -1225,11 +1118,8 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
   }
 
   /// Re-parse `tokens[start..end)` into the caller's `out`/`delims` so
-  /// emphasis delimiters in the slice join the outer delimiter run
-  /// (used when an unresolved shortcut `[label]` falls back to literal
-  /// text but `*`/`_` runs still need to pair across the brackets).
-  /// Carries `link_label_depth` so nested `[...]` re-parses still hit
-  /// the recursion cap.
+  /// emphasis delimiters in the slice join the outer delim run. Used by
+  /// unresolved-shortcut fallback so `*`/`_` can pair across the brackets.
   fn replay_inline_slice_into(
     &self,
     start: usize,
@@ -1254,10 +1144,8 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     parser.collect_inline_into(&|k| matches!(k, TokenKind::Eof), out, delims);
   }
 
-  /// Split the body of a `(...)` link/image destination into
-  /// `(href, title)`. CommonMark allows an optional trailing
-  /// `"title"` / `'title'` / `(title)` separated from the destination
-  /// by whitespace. Unterminated/missing title returns `(body, None)`.
+  /// Split `(...)` link body into `(href, title)`. Optional title is
+  /// `"..."` / `'...'` / `(...)` after whitespace.
   fn split_destination_title(body: &str) -> Option<(String, Option<String>)> {
     fn is_link_space(c: char) -> bool {
       matches!(c, ' ' | '\t' | '\n')
@@ -1311,10 +1199,9 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     if trimmed.is_empty() {
       return Some((String::new(), None));
     }
-    // CM 6.3 link destination: `<...>` (no spaces / line breaks
-    // inside) or a bare run with no whitespace. Backslash escapes
-    // the closing `>` inside the bracketed form -- scan byte-by-
-    // byte so `<foo\>` is treated as unterminated, not as dest "foo\".
+    // CM 6.3 destination: `<...>` (no whitespace/newlines) or bare run.
+    // `\` does NOT escape the closing `>` inside `<...>` — scan byte-by-
+    // byte so `<foo\>` reads as unterminated, not as dest "foo\".
     let (dest_end, raw_dest) = if let Some(rest) = trimmed.strip_prefix('<') {
       let bytes = rest.as_bytes();
       let mut i = 0;
@@ -1337,9 +1224,8 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         return None;
       }
     } else {
-      // Bare destination: only ASCII space / tab / line endings split off
-      // an optional title. Other Unicode whitespace (e.g. NBSP) stays in
-      // the destination per CM 6.3.
+      // CM 6.3 bare destination: only ASCII space/tab/newlines split off
+      // an optional title (NBSP etc. stay in the destination).
       let dest_end = trimmed.find(is_link_space).unwrap_or(trimmed.len());
       (dest_end, trimmed[..dest_end].to_string())
     };
@@ -1347,16 +1233,11 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     if rest.is_empty() {
       return Some((raw_dest, None));
     }
-    // Title: `"..."`, `'...'`, or `(...)`. Trailing junk after the
-    // destination (without a valid title pair) makes the link
-    // malformed per CM 6.3.
     parse_link_title(rest).map(|title| (raw_dest, Some(title)))
   }
 
-  /// Strip `\X` -> `X` for the standard CommonMark escapable set so
-  /// authors can write `\*literal\*` without the asterisks turning into
-  /// emphasis. The lexer keeps the backslash in `Text` raw to preserve
-  /// source spans; this collapses it for the rendered text.
+  /// Strip `\X` -> `X` for the CM escapable set. The lexer keeps the `\`
+  /// in `Text.raw` for span fidelity; this collapses for rendered text.
   pub(crate) fn unescape_markdown(s: &str) -> String {
     if !s.contains('\\') {
       return s.to_string();
@@ -1367,7 +1248,6 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     while i < bytes.len() {
       if bytes[i] == b'\\' && i + 1 < bytes.len() {
         let nx = bytes[i + 1];
-        // CM appendix: `!"#$%&'()*+,-./:;<=>?@[\]^_`{|}~`.
         if matches!(
           nx,
           b'!'
@@ -1415,7 +1295,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     out
   }
 
-  /// Tokens that terminate inline collection regardless of nesting depth.
+  /// Tokens that terminate inline collection at any nesting depth.
   pub(crate) fn is_top_level_break(k: &TokenKind) -> bool {
     matches!(
       k,

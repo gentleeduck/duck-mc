@@ -20,7 +20,6 @@ fn pipeline_runs_autolink() {
     Node::Heading(h) => h,
     n => panic!("expected heading, got {:?}", n),
   };
-  // Prepend mode: anchor is the FIRST child, original text follows.
   assert!(h.children.len() >= 2, "expected anchor + text, got {:?}", h.children);
   assert_eq!(anchor_href(&h.children[0]).as_deref(), Some("#hello"));
 }
@@ -77,41 +76,6 @@ fn slug_strips_dots() {
   };
   assert_eq!(h.id.as_deref(), Some("043"));
 }
-
-// #[test]
-// fn npm_command_derives_yarn_pnpm_bun() {
-//   let mut d = dmc_parser::parse("```\nnpm install lodash\n```\n");
-//   dmc_transform::Pipeline::new().add(NpmCommand).run_silent(&mut d);
-//   let cb = d
-//     .children
-//     .iter()
-//     .find_map(|n| match n {
-//       Node::CodeBlock(cb) => Some(cb),
-//       _ => None,
-//     })
-//     .expect("code block");
-//   let c = cb.commands.as_ref().expect("commands");
-//   assert_eq!(c.npm, "npm install lodash");
-//   assert_eq!(c.yarn, "yarn add lodash");
-//   assert_eq!(c.pnpm, "pnpm add lodash");
-//   assert_eq!(c.bun, "bun add lodash");
-// }
-//
-// #[test]
-// fn npm_command_handles_npx_create() {
-//   let mut d = dmc_parser::parse("```\nnpx create-next-app my-app\n```\n");
-//   dmc_transform::Pipeline::new().add(NpmCommand).run_silent(&mut d);
-//   let cb = d
-//     .children
-//     .iter()
-//     .find_map(|n| match n {
-//       Node::CodeBlock(cb) => Some(cb),
-//       _ => None,
-//     })
-//     .expect("cb");
-//   let c = cb.commands.as_ref().expect("c");
-//   assert_eq!(c.bun, "bunx create-next-app my-app");
-// }
 
 #[test]
 fn code_import_reads_file() {

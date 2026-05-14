@@ -1,22 +1,9 @@
-//! Flamegraph of dmc native compile against the real `apps/duck`
-//! corpus - the ~370 mdx files the consumer build processes. Captures
-//! the bottleneck distribution at the scale the user cares about, not
-//! the toy fixture in `flamegraph.rs`. Prefers the preprocessed
-//! mirror (`content/.dmc-cache/preprocessed`); falls back to the raw
-//! `content/` tree when that hasn't been generated.
+//! Flamegraph against the real `apps/duck` mdx corpus.
+//! Prefers `content/.dmc-cache/preprocessed`, falls back to `content/`.
+//! Unix only (pprof signal-driven sampler).
 //!
-//! Run:
-//!   cargo run --release --example flamegraph_consumer --features pretty-code
-//!
-//! Output:
-//!   duck-benchmarks/phase-7-g-hardening/flamegraph/duck-ui.svg
-//!   duck-benchmarks/phase-7-g-hardening/flamegraph/duck-ui.txt
-//!     (top-N self-time leaf-frame text summary)
-//!
-//! Like `flamegraph.rs`, uses pprof's signal-driven sampler so no
-//! `perf_event_paranoid` toggle / sudo is needed - and like it, this is
-//! Unix only (pprof relies on POSIX signals / `nix`); on Windows it
-//! compiles to a stub `main`.
+//! Run:    cargo run --release --example flamegraph_consumer --features pretty-code
+//! Output: duck-benchmarks/phase-7-g-hardening/flamegraph/duck-ui.{svg,txt}
 
 #[cfg(not(unix))]
 fn main() {
@@ -43,15 +30,8 @@ mod imp {
   use std::sync::Arc;
   use std::time::Instant;
 
-  /// Walk the apps/duck mdx corpus, return `(rel_path, source)` pairs.
-  /// Prefers the preprocessed mirror (`.dmc-cache/preprocessed`) - the
-  /// exact input the production native build sees - and falls back to the
-  /// raw `content/` tree when that mirror hasn't been generated yet
-  /// (`bun run build:docs` writes it). Raw vs preprocessed differs only
-  /// by the JS preMdx pass, which doesn't touch the native compile path
-  /// this flamegraph profiles.
+  /// Returns `(pairs, corpus_kind)`. First existing candidate wins.
   fn load_corpus() -> (Vec<(String, String)>, &'static str) {
-    // (path, kind) - first existing wins.
     let candidates = [
       (
         "/run/media/wildduck/duck1/wildduck/@duck/@duck-ui/apps/duck/content/.dmc-cache/preprocessed",
@@ -59,7 +39,6 @@ mod imp {
       ),
       ("../@duck-ui/apps/duck/content/.dmc-cache/preprocessed", "preprocessed mirror"),
       ("../../@duck-ui/apps/duck/content/.dmc-cache/preprocessed", "preprocessed mirror"),
-      // Raw-content fallback (no preMdx mirror generated yet).
       ("/run/media/wildduck/duck1/wildduck/@duck/@duck-ui/apps/duck/content", "raw content tree (no preMdx pass)"),
       ("../@duck-ui/apps/duck/content", "raw content tree (no preMdx pass)"),
       ("../../@duck-ui/apps/duck/content", "raw content tree (no preMdx pass)"),
@@ -136,10 +115,7 @@ mod imp {
     let started = Instant::now();
     let mut full_passes = 0u64;
     let mut files_compiled = 0u64;
-    // Loop over the whole corpus until we've sampled ~5 s. The check is
-    // between passes, so a single slow pass can overshoot - on the raw
-    // content tree (heavy MDX/JSX recovery, big fenced code -> syntect)
-    // one pass already runs well past 5 s and is plenty of stacks.
+    // ~5s of samples; check between passes so a slow pass may overshoot.
     while started.elapsed().as_secs_f32() < 5.0 {
       for (rel, src) in &corpus {
         compile_one(rel, src, &pipeline);

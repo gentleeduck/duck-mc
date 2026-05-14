@@ -44,7 +44,6 @@ fn footnote_def_emits_node() {
 
 #[test]
 fn shortcut_reference_link_resolves() {
-  // `[foo]` after `[foo]: /url "title"` should become Link(href=/url).
   let d = parse_doc("[foo]\n\n[foo]: /url \"title\"\n");
   let p = first_paragraph(&d);
   let link = p
@@ -61,7 +60,6 @@ fn shortcut_reference_link_resolves() {
 
 #[test]
 fn full_reference_link_resolves() {
-  // `[text][label]` resolves via label, displays text as the link body.
   let d = parse_doc("[click here][foo]\n\n[foo]: /url\n");
   let p = first_paragraph(&d);
   let link = p
@@ -77,7 +75,6 @@ fn full_reference_link_resolves() {
 
 #[test]
 fn collapsed_reference_link_resolves() {
-  // `[foo][]` collapses to label `foo`.
   let d = parse_doc("[foo][]\n\n[foo]: /url\n");
   let p = first_paragraph(&d);
   let link = p
@@ -93,7 +90,6 @@ fn collapsed_reference_link_resolves() {
 
 #[test]
 fn unresolved_reference_link_falls_back_to_text() {
-  // Bare `[unknown]` with no matching def stays literal.
   let d = parse_doc("[unknown]\n");
   let p = first_paragraph(&d);
   assert!(!p.children.iter().any(|n| matches!(n, Node::Link(_))), "got {:?}", p.children);
@@ -101,7 +97,7 @@ fn unresolved_reference_link_falls_back_to_text() {
 
 #[test]
 fn ref_label_normalization_is_case_insensitive() {
-  // CM 4.7: labels match case-insensitively with collapsed whitespace.
+  // CM 4.7: case-fold + whitespace-collapse.
   let d = parse_doc("[FOO]\n\n[foo]: /url\n");
   let p = first_paragraph(&d);
   let link = p
@@ -117,9 +113,8 @@ fn ref_label_normalization_is_case_insensitive() {
 
 #[test]
 fn nested_brackets_in_link_text() {
-  // CM 6.3: outer brackets pair correctly even when the link text
-  // contains its own `[..]` run. Inner `[b]` is plain text since no
-  // `(` follows it; outer `[...](u)` becomes the link.
+  // CM 6.3: outer brackets pair correctly around an inner `[b]` that has
+  // no `(` following it (so it's plain text inside the outer link).
   let d = parse_doc("[a [b] c](https://x.dev)");
   let p = first_paragraph(&d);
   let link = p

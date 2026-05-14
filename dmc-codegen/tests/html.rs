@@ -8,9 +8,8 @@ fn html(src: &str) -> String {
 
 #[test]
 fn h1_with_id() {
-  // CM-strict codegen: emit `id` only when the AST carries one. The
-  // `AssignHeadingIds` transform is what populates `h.id`; codegen no
-  // longer auto-slugs (which would diverge from the CM spec runner).
+  // Codegen emits `id` only when AST carries one; `AssignHeadingIds`
+  // populates `h.id`. Auto-slugging here would diverge from CM spec.
   use dmc_parser::ast::*;
   let doc = Document {
     span: dmc_parser::ast::default_span(),
@@ -68,7 +67,6 @@ fn image_renders() {
 fn fenced_code_with_lang() {
   let src = "```ts\nlet x = 1\n```\n";
   let h = html(src);
-  // CM reference output uses the bare `language-{lang}` class.
   assert!(h.contains("<pre><code class=\"language-ts\""), "got {}", h);
   assert!(h.contains("let x = 1"), "got {}", h);
 }
@@ -91,7 +89,6 @@ fn escape_text_special_chars() {
   let h = html("a & b < c > d");
   assert!(h.contains("&amp;"));
   assert!(h.contains("&lt;"));
-  // > may stay or be escaped - both fine, but text content should not contain raw ampersands
   assert!(!h.contains(" & "));
 }
 
@@ -112,9 +109,7 @@ fn ordered_list_with_start_renders() {
 #[test]
 fn thematic_break_html() {
   let h = dmc_codegen::render_html(&dmc_parser::parse("---\n"));
-  // CM 0.31.2 spec output uses the XHTML self-closing form `<hr />`,
-  // so the spec runner can compare directly. Browsers treat the two
-  // forms identically.
+  // CM 0.31.2 spec uses XHTML self-closing `<hr />`.
   assert!(h.contains("<hr />"), "got {}", h);
 }
 
@@ -168,6 +163,3 @@ fn gfm_disallowed_raw_html_can_be_enabled() {
 <blockquote>\n  &lt;xmp> is disallowed.  &lt;XMP> is also disallowed.\n</blockquote>\n"
   );
 }
-
-// pretty-code transformer removed - syntax highlighting now handled by
-// shiki/rehype-pretty-code via the JS sidecar plugin pipeline.

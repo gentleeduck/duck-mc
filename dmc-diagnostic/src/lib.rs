@@ -1,6 +1,3 @@
-//! User-facing walkthrough: ../../dmc-docs/dmc-diagnostic/
-//! Run `cargo doc --open -p dmc-diagnostic` for the inline rustdoc.
-
 //! Unified diagnostic codes for the dmc pipeline.
 //!
 //! Every layer (lexer, parser, transform, codegen) emits into one shared
@@ -22,28 +19,12 @@ pub mod metadata;
 
 /// Canonical fallible-return type across the dmc pipeline.
 ///
-/// `DiagResult<T>` = `Result<T, Diagnostic<Code>>`. Replaces the
-/// `Result<_, std::io::Error>` / `Result<_, String>` / `Result<(), ()>`
-/// patterns scattered across the workspace so every error path lands
-/// in the same shape: a typed `Code`, a human message, optional
-/// labels / help. Callers handle errors uniformly via `?`,
-/// `engine.emit(d)`, or both.
+/// Default `T = ()` for side-effect-only calls.
 ///
-/// Default `T = ()` for the common "did this side-effect succeed?"
-/// signature.
-///
-/// Cost: type alias only. Zero runtime overhead vs. a hand-written
-/// `Result<T, Diagnostic<Code>>`. Identical layout in monomorphised
-/// code (same machine code, same drop semantics).
-///
-/// Convention to avoid double-emit:
-/// - functions that PRODUCE a diagnostic and want the caller to
-///   decide its fate return `DiagResult<T>`.
-/// - functions that handle errors locally + emit into a passed-in
-///   `&mut DiagnosticEngine<Code>` return plain `Result<T, ()>`
-///   (or no result at all).
-///
-/// Mix the two and you get the same diagnostic in the engine twice.
+/// Convention to avoid double-emit: functions that PRODUCE a diagnostic for
+/// the caller to dispatch return `DiagResult<T>`; functions that emit
+/// locally into a passed-in `&mut DiagnosticEngine<Code>` return plain
+/// `Result<T, ()>`. Mixing the two emits the same diagnostic twice.
 pub type DiagResult<T = ()> = Result<T, Diagnostic<Code>>;
 
 /// Stable, machine-readable diagnostic identifiers spanning the whole
@@ -62,14 +43,11 @@ pub type DiagResult<T = ()> = Result<T, Diagnostic<Code>>;
 /// - `S***`  - shared cross-cutting errors (IO, JSON, locks; always available)
 /// - `SW***` - shared cross-cutting warnings (always available)
 ///
-/// `Custom { code, severity }` is the escape hatch for third-party
-/// transformers that want to emit through the same engine without forking
-/// this enum.
+/// `Custom { code, severity }` is the third-party escape hatch — emit through
+/// the same engine without forking this enum.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Code {
-  // ===================================================================
-  // Lexer - feature = "lexer"
-  // ===================================================================
+  // Lexer (feature = "lexer")
   /// E001 - Source byte the dispatcher cannot map to any token rule.
   #[cfg(feature = "lexer")]
   InvalidCharacter,
@@ -105,9 +83,7 @@ pub enum Code {
   #[cfg(feature = "lexer")]
   EmptyFrontMatter,
 
-  // ===================================================================
-  // Parser - feature = "parser"
-  // ===================================================================
+  // Parser (feature = "parser")
   /// P001 - `[text](href)` opened but `]` never seen before a hard break/EOF.
   #[cfg(feature = "parser")]
   UnterminatedLink,
@@ -164,9 +140,7 @@ pub enum Code {
   #[cfg(feature = "parser")]
   RecoveredUnterminatedJsx,
 
-  // ===================================================================
-  // Transform - feature = "transform"
-  // ===================================================================
+  // Transform (feature = "transform")
   /// T001 - `CodeImport`: `file=path` referenced a path that could not be read.
   #[cfg(feature = "transform")]
   ImportFileNotFound,
@@ -222,9 +196,7 @@ pub enum Code {
   #[cfg(feature = "transform")]
   ThemeNotBundled,
 
-  // ===================================================================
-  // Codegen - feature = "codegen"
-  // ===================================================================
+  // Codegen (feature = "codegen")
   /// G001 - Codegen encountered a JSX tag with an empty / invalid name.
   #[cfg(feature = "codegen")]
   MalformedJsxTagName,
@@ -238,14 +210,9 @@ pub enum Code {
   #[cfg(feature = "codegen")]
   HtmlExpressionDropped,
 
-  // ===================================================================
-  // Core - feature = "core"
-  //
-  // Engine-level codes use the `C***` / `CW***` namespace so they
-  // never collide with the lexer's `E***` / `W***` strings (Cargo
-  // unifies features across the workspace; defaults enable every
-  // layer at once, so namespaces have to be globally unique).
-  // ===================================================================
+  // Core (feature = "core").
+  // `C***`/`CW***` namespace avoids collision with lexer `E***`/`W***`:
+  // Cargo unifies features workspace-wide, so namespaces must be globally unique.
   /// C001 - No root dir configured.
   #[cfg(feature = "core")]
   NoRootDir,
@@ -274,18 +241,10 @@ pub enum Code {
   #[cfg(feature = "core")]
   ConfigExists,
 
-  // ===================================================================
-  // Shared (no feature gate)
-  //
-  // Cross-cutting concerns every layer hits: filesystem IO, JSON
-  // round-trip, mutex poisoning. NOT gated behind a per-layer feature
-  // because any crate may produce these (math cache load/save, sidecar
-  // dispatch, engine output write, registry-index parse, ...). Using
-  // them avoids leaking layer-specific codes (e.g. `EmptyFrontMatter`)
-  // into IO failures unrelated to frontmatter.
-  //
-  // Namespace: `S***` for errors, `SW***` for warnings.
-  // ===================================================================
+  // Shared (always available; `S***` / `SW***`).
+  // Cross-cutting IO / JSON / lock concerns. Ungated because any crate may
+  // produce these; gating would force callers to reuse a layer-specific code
+  // (e.g. `EmptyFrontMatter`) for unrelated IO failures.
   /// S001 - `std::fs::read*` / `read_to_string` failed at the named path.
   IoRead,
   /// S002 - `std::fs::write` failed at the named path.
@@ -302,12 +261,8 @@ pub enum Code {
   /// Build continues without the cached state.
   IoRecoverable,
 
-  // ===================================================================
-  // User-defined escape hatch - always available
-  // ===================================================================
-  /// Carry an arbitrary code string + explicit severity through the same
-  /// engine. For third-party transformer authors who don't want to fork this
-  /// enum. Prefer adding a typed variant when contributing upstream.
+  /// Third-party escape hatch carrying an arbitrary code + severity.
+  /// Prefer adding a typed variant when contributing upstream.
   Custom { code: String, severity: Severity },
 }
 

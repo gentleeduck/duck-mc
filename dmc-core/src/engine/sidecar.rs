@@ -53,7 +53,7 @@ pub fn run_sidecar(markdown: &str, cfg: &EngineConfig) -> Option<String> {
   let pool = pool();
   let n = pool.len();
 
-  // try every slot via try_lock first - grab whichever idle
+  // Grab any idle slot; if all busy, block on round-robin pick.
   let mut guard = None;
   for _ in 0..n {
     let idx = NEXT_SLOT.fetch_add(1, Ordering::Relaxed) % n;
@@ -62,7 +62,6 @@ pub fn run_sidecar(markdown: &str, cfg: &EngineConfig) -> Option<String> {
       break;
     }
   }
-  // all busy -> block on round-robin pick
   let mut guard = match guard {
     Some(g) => g,
     None => {
@@ -97,14 +96,12 @@ pub fn run_sidecar(markdown: &str, cfg: &EngineConfig) -> Option<String> {
   parsed.get("html").and_then(|v| v.as_str()).map(String::from)
 }
 
-/// Drop every live child in the pool; subsequent `run_sidecar` calls
-/// re-spawn fresh children. Bench-only; not part of the normal build flow.
+/// Bench-only: drop every live child; next `run_sidecar` re-spawns.
+/// Dropping closes `ChildStdin`, which makes node exit on readline 'close'.
 pub fn shutdown_pool() {
   if let Some(pool) = POOL.get() {
     for slot in pool {
       if let Ok(mut g) = slot.lock() {
-        // Dropping the Sidecar drops its ChildStdin -> the node child sees
-        // stdin close, hits readline 'close', exits 0.
         *g = None;
       }
     }

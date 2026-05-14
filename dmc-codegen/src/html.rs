@@ -13,14 +13,9 @@ pub struct RenderOptions {
   pub gfm_disallowed_raw_html: bool,
 }
 
-/// Emits static HTML by reacting to walker enter/leave events. Container
-/// nodes split into `open_tag` / `close_tag` halves; leaves write their
-/// markup once on enter. Tables are rendered up-front in `enter Table`
-/// (rows + cells aren't `Node` variants the walker can surface) and
-/// `in_table_depth` suppresses subsequent walker events on cell content.
-///
-/// Owns its own `DiagnosticEngine` during the walk; merge into the
-/// caller's engine via `into_parts` after the walk completes.
+/// Static HTML emitter driven by walker enter/leave events. Tables are
+/// rendered up-front on `enter Table` (rows/cells aren't `Node` variants)
+/// and `in_table_depth` suppresses walker events on cell content.
 pub struct HtmlEmitter {
   out: String,
   diag_engine: DiagnosticEngine<Code>,
@@ -45,10 +40,8 @@ impl NodeSink for HtmlEmitter {
       Node::Image(i) => self.image(i),
       Node::HorizontalRule(_) => self.out.push_str("<hr />\n"),
       Node::HardBreak(_) => self.out.push_str("<br />\n"),
-      // Raw HTML: at block level we add a trailing `\n` to match the
-      // CM reference layout (each block sits on its own line). Inside
-      // a paragraph the same Html node represents an inline raw HTML
-      // span and must NOT inject a newline before `</p>`.
+      // Block-level raw HTML gets a trailing `\n` (CM line-per-block);
+      // inline raw HTML inside a paragraph/heading must not.
       Node::Html(h) => {
         let value =
           if self.options.gfm_disallowed_raw_html { escape_disallowed_raw_html_tag(&h.value) } else { h.value.clone() };
@@ -61,11 +54,8 @@ impl NodeSink for HtmlEmitter {
       Node::SoftBreak(_) => self.out.push('\n'),
       Node::JsxSelfClosing(s) => self.jsx_self_closing(s),
       Node::JsxExpression(e) => {
-        // Trivial string-literal expressions (`{' '}`, `{"x"}`, `` {`y`} ``)
-        // are idiomatic MDX for inline whitespace / inserted text. They
-        // need no JS runtime, so render them as escaped text instead of
-        // dropping + warning. Only genuinely dynamic expressions
-        // (`{count}`, `{foo()}`) hit the GW002 path.
+        // Lower trivial string-literal expressions (`{' '}`, `{"x"}`,
+        // `` {`y`} ``) to plain text; dynamic expressions still trip GW002.
         if let Some(text) = string_literal_expression(&e.value) {
           self.out.push_str(&escape_text(&text));
         } else {
@@ -112,15 +102,13 @@ impl HtmlEmitter {
     self.out
   }
 
-  /// Take both buffers: the rendered HTML and the per-emitter diagnostic
-  /// engine. Caller merges the diags into a shared engine via
-  /// `outer.extend(diag)`.
+  /// Returned `DiagnosticEngine` is per-emitter; merge into a shared
+  /// engine via `outer.extend(diag)`.
   pub fn into_parts(self) -> (String, DiagnosticEngine<Code>) {
     (self.out, self.diag_engine)
   }
 
-  /// Drive the walker; return `(html, diag)`. Use when no other sink
-  /// shares the walk.
+  /// Drive the walker; use when no other sink shares the walk.
   pub fn render(doc: &Document) -> (String, DiagnosticEngine<Code>) {
     let mut e = Self::new();
     Walker::new(doc).walk(&mut [&mut e]);
@@ -164,9 +152,6 @@ impl HtmlEmitter {
     }
   }
 
-  // container open / close (walker fills the children in between)
-
-  /// Write the opening tag for a container node.
   fn open_tag(&mut self, node: &Node) {
     match node {
       Node::Heading(h) => match &h.id {
@@ -182,8 +167,7 @@ impl HtmlEmitter {
         let tag = if l.ordered { "ol" } else { "ul" };
         self.out.push('<');
         self.out.push_str(tag);
-        // remark-gfm tags any list with a `TaskListItem` child as
-        // `class="contains-task-list"` on the parent `<ul>` / `<ol>`.
+        // Match remark-gfm: parent gets `class="contains-task-list"`.
         if l.children.iter().any(|c| matches!(c, Node::TaskListItem(_))) {
           self.out.push_str(" class=\"contains-task-list\"");
         }
@@ -195,9 +179,8 @@ impl HtmlEmitter {
         }
         self.out.push_str(">\n");
       },
-      // CM emits `<li>\n` when the item has block children (loose
-      // list / contains a paragraph). Tight items hug the inline
-      // content directly after `<li>`.
+      // CM: `<li>\n` for items with block children; tight items hug
+      // inline content.
       Node::ListItem(li) => {
         let has_block_child = li.children.first().is_some_and(|c| {
           matches!(
@@ -219,18 +202,15 @@ impl HtmlEmitter {
         }
       },
       Node::TaskListItem(t) => {
-        // HTML5 self-closes void elements implicitly - match remark-gfm's
-        // emitted markup which writes `<input type="checkbox" ...>` (no `/>`)
-        // and follows it with a literal space before the item content.
+        // remark-gfm shape: `<input type="checkbox" ...>` (no `/>`) plus
+        // a literal trailing space before item content.
         let checked = if t.checked { " checked" } else { "" };
         self.out.push_str(&format!("<li class=\"task-list-item\"><input type=\"checkbox\"{} disabled> ", checked));
       },
       Node::Link(l) => {
         self.out.push_str(&format!("<a href=\"{}\"", escape_attr(&escape_url(&l.href))));
-        // CM 6.3 / 4.7: link title becomes the `title` attribute on
-        // the anchor. (The autolink-headings transformer's tooltip
-        // currently borrows the same field; if it ever needs distinct
-        // semantics, route through a separate AST field.)
+        // CM 6.3 / 4.7: link title -> anchor `title` attribute.
+        // (autolink-headings tooltip borrows this same field.)
         if let Some(title) = &l.title {
           self.out.push_str(&format!(" title=\"{}\"", escape_attr(title)));
         }
@@ -241,9 +221,7 @@ impl HtmlEmitter {
           self.diag(Code::MalformedJsxTagName, "html: JSX element has empty name; skipped".to_string());
           return;
         }
-        // GFM Disallowed Raw HTML extension: a fixed set of tag names
-        // get their leading `<` escaped (the tag wouldn't render
-        // safely in a browser). Affects open + close tags.
+        // GFM Disallowed Raw HTML: escape `<` on the fixed tag-name set.
         if self.options.gfm_disallowed_raw_html && is_disallowed_raw_html(&e.name) {
           self.out.push_str("&lt;");
         } else {
@@ -260,9 +238,8 @@ impl HtmlEmitter {
     }
   }
 
-  /// Write the closing tag for a container node opened by `open_tag`.
-  /// Block-level closes get a trailing `\n` so the output matches the
-  /// CommonMark reference renderer's line-per-block layout.
+  /// Block-level closes get a trailing `\n` to match CM's line-per-block
+  /// layout.
   fn close_tag(&mut self, node: &Node) {
     match node {
       Node::Heading(h) => self.out.push_str(&format!("</h{}>\n", h.level)),
@@ -289,12 +266,9 @@ impl HtmlEmitter {
     }
   }
 
-  // leaf-shaped emitters
-
   fn code_block(&mut self, cb: &CodeBlock) {
     self.out.push_str("<pre><code");
     if let Some(lang) = &cb.lang {
-      // CM reference output uses the bare `language-{lang}` class.
       self.out.push_str(&format!(" class=\"language-{}\"", escape_attr(lang)));
     }
     self.out.push('>');
@@ -307,9 +281,7 @@ impl HtmlEmitter {
     if let Some(title) = &i.title {
       self.out.push_str(&format!(" title=\"{}\"", escape_attr(title)));
     }
-    // CM reference output uses the XHTML self-closing slash on `<img>`
-    // (matches `<hr />` / `<br />` style). Browsers treat both forms
-    // identically.
+    // CM reference uses XHTML self-closing on `<img>`.
     self.out.push_str(" />");
   }
 
@@ -330,8 +302,7 @@ impl HtmlEmitter {
         if let Some(attr) = s.attrs.iter().find(|a| a.name == "mathml")
           && let JsxAttrValue::String(mathml) = &attr.value
         {
-          // Reverse the JSX-attribute escape applied by Math::preprocess_source
-          // (`"` -> `&quot;`, `&` -> `&amp;`) before emitting raw HTML.
+          // Reverse the JSX-attr escape from Math::preprocess_source.
           let unescaped = mathml.replace("&quot;", "\"").replace("&amp;", "&");
           self.out.push_str(&unescaped);
         }
@@ -366,25 +337,19 @@ impl HtmlEmitter {
     self.out.push(' ');
     self.out.push_str(&a.name);
     match &a.value {
-      // Match the rehype/shiki HTML output: boolean JSX attrs serialize
-      // as empty-string attributes (`data-rehype-pretty-code-figure=""`).
-      // It is semantically identical for the browser and keeps consumer
-      // selectors that key off `[attr=""]` working.
+      // Match rehype/shiki: boolean JSX attrs serialize as empty-string
+      // (`attr=""`) so consumer selectors keying off `[attr=""]` work.
       JsxAttrValue::Boolean => self.out.push_str("=\"\""),
       JsxAttrValue::String(s) => self.out.push_str(&format!("=\"{}\"", escape_attr(s))),
       JsxAttrValue::Expression(e) => self.out.push_str(&format!("={{{}}}", e)),
-      // Spread attributes have no HTML representation; drop them. The
-      // leading space pushed before the (empty) name comes back when
-      // we pop it.
+      // Spread has no HTML form; drop, and pop the leading space.
       JsxAttrValue::Spread(_) => {
         self.out.pop();
       },
     }
   }
 
-  // table inline path (walker can't surface row/cell events)
-
-  /// Render the entire `<table>...</table>` up-front. Cell content uses
+  /// Render the entire `<table>...</table>` up-front; cell content uses
   /// `inline_node` recursion since the walker is suppressed inside.
   fn inline_table(&mut self, t: &Table) {
     self.out.push_str("<table>\n");
@@ -430,9 +395,8 @@ impl HtmlEmitter {
     self.out.push_str(">\n");
   }
 
-  /// Self-recursive render used only inside the table inline path. The
-  /// walker is suppressed via `in_table_depth`, so cell content doesn't
-  /// get a second pass.
+  /// Self-recursive render for the table inline path (walker is
+  /// suppressed via `in_table_depth`).
   fn inline_node(&mut self, node: &Node) {
     match node {
       Node::Text(t) => self.out.push_str(&escape_text(&t.value)),
@@ -482,10 +446,7 @@ impl HtmlEmitter {
   }
 }
 
-/// Convenience: render `doc` to HTML with a throwaway diagnostic engine.
-/// GFM Disallowed Raw HTML extension: these tag names get their `<`
-/// escaped to `&lt;` so they don't render in the browser. Comparison
-/// is ASCII case-insensitive (`<XMP>` and `<xmp>` both match).
+/// GFM Disallowed Raw HTML tag set. ASCII case-insensitive.
 fn is_disallowed_raw_html(name: &str) -> bool {
   matches!(
     name.to_ascii_lowercase().as_str(),
@@ -531,13 +492,10 @@ pub fn render_html_with(doc: &Document, options: RenderOptions) -> String {
   e.into_string()
 }
 
-/// Recognise a JSX expression whose entire body is a single string
-/// literal (single-quoted, double-quoted, or backtick template with no
-/// `${...}` interpolation). MDX authors use these as inline whitespace /
-/// inserted text (`{' '}`, `{"x"}`, `` {`y`} ``); they need no JS
-/// runtime, so the HTML emitter can lower them to plain text instead
-/// of dropping + warning. Genuinely dynamic expressions (`{count}`,
-/// `{foo()}`) return `None` and still trip GW002.
+/// Match a JSX expression whose entire body is a single string literal
+/// (single/double-quoted, or backtick template without `${...}`). Used
+/// to lower idiomatic `{' '}` / `{"x"}` to plain text; dynamic
+/// expressions return `None` and still trip GW002.
 fn string_literal_expression(raw: &str) -> Option<String> {
   let s = raw.trim();
   if s.len() < 2 {
@@ -549,9 +507,7 @@ fn string_literal_expression(raw: &str) -> Option<String> {
     return None;
   }
   let inner = &s[1..s.len() - 1];
-  // Reject template literals with interpolation - those need JS to
-  // evaluate. `${` must be escaped (`\${`) or absent for the literal
-  // to be safe to lower to plain text.
+  // Reject unescaped `${` in templates - those need JS to evaluate.
   if q == b'`' {
     let mut prev_backslash = false;
     let bs = inner.as_bytes();
@@ -564,10 +520,8 @@ fn string_literal_expression(raw: &str) -> Option<String> {
       i += 1;
     }
   }
-  // Decode the common JS escapes we expect to see in MDX prose:
-  // `\n`, `\t`, `\r`, `\\`, `\'`, `\"`, `` \` ``. Anything else is
-  // passed through verbatim - no need for full ECMA-262 escape
-  // semantics here, the result is going straight into HTML text.
+  // Decode common JS escapes; unknown ones pass through verbatim
+  // (full ECMA-262 escape semantics not needed here).
   let mut out = String::with_capacity(inner.len());
   let mut chars = inner.chars();
   while let Some(c) = chars.next() {

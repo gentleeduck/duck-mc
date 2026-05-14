@@ -3,9 +3,8 @@ use crate::parser::Parser;
 use dmc_lexer::token::TokenKind;
 
 impl<'eng, 'tokens> Parser<'eng, 'tokens> {
-  /// Collect consecutive list items of one flavor (ordered or unordered) into
-  /// a `List` node. `indent` is the column of the marker on its line; nested
-  /// lists pass a larger `indent` so deeper sub-items keep recursing.
+  /// Collect a `List` of one flavor. `indent` is the marker's column;
+  /// nested lists pass a larger `indent` so deeper sub-items keep recursing.
   pub(super) fn parse_list(&mut self, ordered: bool, indent: usize) -> Node {
     let span = self.current_span();
     let mut items: Vec<Node> = Vec::new();
@@ -269,11 +268,8 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
             let span = self.current_span();
             let mut buf = String::new();
             loop {
-              // Visual column width (tabs snap to 4-col stops) -- must
-              // match `peek_leading_indent` used by the outer loop, or a
-              // tab-indented continuation line that the outer loop sees
-              // as >= content_floor+4 but this `char count` check sees as
-              // shorter would spin forever (cursor never advances).
+              // Use visual column width (`peek_leading_indent`) — must match
+              // the outer loop, else a tab-indented line could spin forever.
               let aligned = self.peek_leading_indent().is_some_and(|w| w >= content_floor + 4);
               if !aligned {
                 break;
@@ -695,8 +691,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     Node::List(List { ordered, start, children: items, span })
   }
 
-  /// Parse the body of one list item. Promotes to `TaskListItem` if a GFM
-  /// `[ ]` / `[x]` checkbox prefix follows the marker.
+  /// Body of one list item. Promotes to `TaskListItem` for GFM `[ ]` / `[x]`.
   pub(super) fn parse_one_list_item(&mut self, ordered: bool) -> Node {
     let span = self.current_span();
     if !ordered {

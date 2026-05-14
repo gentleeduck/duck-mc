@@ -105,18 +105,15 @@ pub struct Heading {
   pub level: u8,
   pub children: Vec<Node>,
   pub span: Span,
-  /// Pre-computed anchor id, populated by the `AssignHeadingIds` transform
-  /// (github-slugger algorithm with document-wide dedupe). When `None`,
-  /// `slug()` falls back to a fresh per-heading computation, so headings
-  /// emitted before the transform pass still have a usable anchor.
+  /// Anchor id populated by the `AssignHeadingIds` transform (document-wide
+  /// dedupe). When `None`, `slug()` falls back to a per-heading computation.
   #[serde(default)]
   pub id: Option<String>,
 }
 
 impl Heading {
-  /// URL-anchor slug. Returns the pre-computed `id` when available
-  /// (preferred - only the document-scoped pass can dedupe duplicates),
-  /// else a one-shot github-slugger computation from the heading text.
+  /// URL-anchor slug. Prefers the pre-computed `id` (only the document-scoped
+  /// pass can dedupe duplicates); else recomputes from heading text.
   pub fn slug(&self) -> String {
     if let Some(id) = &self.id {
       return id.clone();
@@ -125,7 +122,7 @@ impl Heading {
   }
 
   /// Flatten inline nodes to bare text. Recurses through emphasis and link
-  /// wrappers but skips JSX and images.
+  /// wrappers; skips JSX and images.
   pub fn plain_text(nodes: &[Node]) -> String {
     let mut s = String::new();
     for n in nodes {
@@ -281,9 +278,7 @@ pub struct BreakNode {
   pub span: Span,
 }
 
-/// Raw HTML block (CommonMark 4.6). Lexer classifies the type via
-/// `HtmlBlockKind`; the parser captures the body verbatim and the
-/// renderer emits it untouched per CM rules.
+/// Raw HTML block (CM 4.6). Body captured verbatim; renderer emits untouched.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Html {
   pub value: String,
@@ -297,8 +292,8 @@ pub struct FootnoteRef {
   pub span: Span,
 }
 
-/// GFM footnote definition (`[^id]: body`). The body is an inline
-/// subtree; renderers number the definition globally on output.
+/// GFM footnote definition (`[^id]: body`). Body is an inline subtree;
+/// renderers number definitions globally on output.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct FootnoteDef {
   pub id: String,

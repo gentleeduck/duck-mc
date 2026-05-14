@@ -3,22 +3,19 @@ use std::path::{Component, Path, PathBuf};
 
 use crate::engine::{compile::CompileOutput, config::EngineConfig};
 
-/// Build outcome: per-collection summaries plus non-fatal errors.
 #[derive(Debug, Default)]
 pub struct EngineReport {
   pub collections: Vec<CollectionReport>,
   pub errors: Vec<EngineError>,
 }
 
-/// One non-fatal compile failure (read fail, schema reject, ...). The
-/// build continues unless `EngineConfig.strict` is set.
+/// Non-fatal compile failure. Build continues unless `strict`.
 #[derive(Debug)]
 pub struct EngineError {
   pub file: PathBuf,
   pub message: String,
 }
 
-/// Per-collection summary: record count and output path.
 #[derive(Debug, Default)]
 pub struct CollectionReport {
   pub name: String,
@@ -26,8 +23,6 @@ pub struct CollectionReport {
   pub output_path: PathBuf,
 }
 
-/// `dmc_schema::Ctx` from a compiled doc. What schema `transform`/`refine`
-/// predicates see (HTML, MDX body, TOC, plain text, path, ...).
 pub fn build_schema_ctx(path: &Path, root: &Path, compiled: &CompileOutput, cfg: &EngineConfig) -> dmc_schema::Ctx {
   let mut ctx = dmc_schema::Ctx::new(path.to_path_buf(), root.to_path_buf(), compiled.content.clone());
   ctx.html = Some(compiled.html.clone());
@@ -44,8 +39,7 @@ pub fn build_schema_ctx(path: &Path, root: &Path, compiled: &CompileOutput, cfg:
   ctx
 }
 
-/// Pack one compiled doc into a velite-shaped JSON record:
-/// `{ ...frontmatter, code, raw, slug, permalink, path, ...optional html }`.
+/// velite-shaped record: `{ ...frontmatter, body, content, slug, permalink, path, ...optional html }`.
 pub fn build_velite_record(
   compiled: CompileOutput,
   frontmatter: Value,
@@ -105,10 +99,9 @@ pub fn build_velite_record(
   Value::Object(map)
 }
 
-/// Wrap the raw MDX body in an ES-module shell, hoisting frontmatter
-/// imports above the function. Consumers `import` the default export.
+/// Wrap MDX body in an ES-module shell, hoisting imports above the function.
 pub fn wrap_mdx_module(body: &str, imports: &[String]) -> String {
-  // Strip user imports from the body - they re-emit at module scope.
+  // Imports re-emit at module scope.
   let mut stripped = body.to_string();
   for imp in imports {
     let trimmed = imp.trim_end_matches('\n');
@@ -116,8 +109,8 @@ pub fn wrap_mdx_module(body: &str, imports: &[String]) -> String {
       stripped = stripped.replacen(trimmed, "", 1);
     }
   }
-  // Strip the trailing default-export literal; the module shell re-emits
-  // its own. Falls back to the legacy direct-invoke return form.
+  // Strip the trailing default-export; module shell re-emits its own.
+  // Fallback handles the legacy direct-invoke return form.
   let mut stripped = stripped.trim_end_matches('\n').to_string();
   if let Some(idx) = stripped.rfind("return { default:") {
     stripped.truncate(idx);
@@ -128,8 +121,6 @@ pub fn wrap_mdx_module(body: &str, imports: &[String]) -> String {
       .to_string();
   }
   let stripped = stripped.trim_end().to_string();
-  // Replace `arguments[0]` references inside the function body with the
-  // module-scoped __runtime constant.
   let stripped = stripped.replace("arguments[0]", "__runtime");
 
   let mut out = String::new();
@@ -146,9 +137,8 @@ pub fn wrap_mdx_module(body: &str, imports: &[String]) -> String {
   out
 }
 
-/// Best-effort JS minifier: strips comments and collapses whitespace runs
-/// into a single space. Not a full parser; regex literals, multi-line
-/// strings, and JSX edge cases are not handled.
+/// Best-effort minifier: strip comments + collapse whitespace.
+/// Not a full parser; regex literals and JSX edge cases not handled.
 pub fn minify_js(src: &str) -> String {
   #[derive(Clone, Copy, PartialEq)]
   enum St {
@@ -259,8 +249,7 @@ pub fn minify_js(src: &str) -> String {
   out
 }
 
-/// Velite's permalink algorithm: collection name + `slug` (or file stem
-/// when no slug). Returns the public URL for one record.
+/// Velite permalink: collection name + slug (or file stem if no slug).
 fn velite_permalink(abs: &str, rel: &str, collection: &str) -> String {
   let lc = collection.to_lowercase();
   let needle = format!("/{lc}/");
@@ -268,7 +257,6 @@ fn velite_permalink(abs: &str, rel: &str, collection: &str) -> String {
   after.trim_end_matches(".mdx").trim_end_matches(".md").to_string()
 }
 
-/// True when `s` is a bare JS identifier (safe to emit unquoted).
 pub fn is_js_ident(s: &str) -> bool {
   let mut chars = s.chars();
   match chars.next() {
@@ -278,8 +266,7 @@ pub fn is_js_ident(s: &str) -> bool {
   chars.all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '$')
 }
 
-/// `kebab-case` / `snake_case` / `space case` -> `PascalCase`. Empty
-/// input -> `"Doc"` so the caller can always concatenate a suffix.
+/// `kebab/snake/space case` -> `PascalCase`. Empty input -> `"Doc"`.
 pub fn pascal_case(name: &str) -> String {
   let mut out = String::with_capacity(name.len());
   let mut upper = true;
@@ -298,8 +285,7 @@ pub fn pascal_case(name: &str) -> String {
   if out.is_empty() { "Doc".into() } else { out }
 }
 
-/// POSIX-style relative path from `from_dir` to `target`. Canonicalises
-/// when possible; always emits forward slashes (TS/ESM specifier shape).
+/// POSIX-style relative path (forward slashes), canonicalising when possible.
 pub fn relative_from(from_dir: &Path, target: &Path) -> String {
   let from_abs = from_dir.canonicalize().unwrap_or_else(|_| from_dir.to_path_buf());
   let to_abs = target.canonicalize().unwrap_or_else(|_| target.to_path_buf());

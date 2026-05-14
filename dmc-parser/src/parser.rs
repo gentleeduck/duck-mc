@@ -7,28 +7,25 @@ use dmc_lexer::token::{Token, TokenKind};
 use duck_diagnostic::{Diagnostic, DiagnosticEngine, Span};
 use std::sync::Arc;
 
-/// Dialect knobs that change parse behavior between strict CommonMark and
-/// MDX. Default is MDX-friendly so capital JSX components round-trip as
-/// `JsxElement` nodes; spec runners can flip `cm_strict_html_blocks` to
-/// treat capital lowercase tags as CM 4.6 type-7 raw HTML.
+/// Dialect knobs. Default is MDX-friendly; spec runners flip these to match
+/// strict CommonMark / GFM semantics.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct ParseOptions {
-  /// CM 4.6 strict raw-HTML block detection. Treats uppercase JSX
-  /// (`<Warning>`) as type-7 raw HTML instead of routing through the
-  /// MDX `JsxElement` path. Spec runner only.
+  /// CM 4.6 strict raw-HTML detection. Treats uppercase JSX (`<Warning>`) as
+  /// type-7 raw HTML instead of `JsxElement`. Spec runner only.
   pub cm_strict_html_blocks: bool,
-  /// GFM autolink extension. Wraps `http(s)://` and `www....` runs in
-  /// `Link` nodes during inline parsing. Default off so the
-  /// `BareUrlAutolink` transformer owns this for MDX consumers.
+  /// GFM autolink extension. Wraps `http(s)://` / `www....` in `Link` nodes
+  /// at parse time. Default off so the `BareUrlAutolink` transformer owns
+  /// this for MDX consumers.
   pub gfm_autolinks: bool,
-  /// Legacy GFM 0.29 emphasis rendering. Flattens redundant nested
-  /// `<strong>` / `<em>` structure so the GFM spec runner can keep the
-  /// older delimiter behavior without regressing CommonMark 0.31.2.
+  /// Legacy GFM 0.29 emphasis: flatten redundant nested `<strong>` / `<em>`.
+  /// Lets the GFM spec runner keep older delimiter behavior without
+  /// regressing CM 0.31.2.
   pub legacy_gfm_emphasis: bool,
 }
 
-/// Token-stream cursor + diagnostic engine. `'tokens` ties borrowed lexemes to
-/// the source; `'eng` ties the engine borrow to the caller.
+/// Token-stream cursor + diagnostic engine. `'tokens` ties borrowed lexemes
+/// to the source; `'eng` ties the engine borrow to the caller.
 pub struct Parser<'eng, 'tokens> {
   pub tokens: Vec<Token<'tokens>>,
   pub meta: Arc<SourceMeta>,
@@ -36,40 +33,28 @@ pub struct Parser<'eng, 'tokens> {
   pub refs: RefMap,
   pub diag_engine: &'eng mut DiagnosticEngine<Code>,
   pub options: ParseOptions,
-  /// Original source string, if the caller supplied it (via
-  /// `with_source`). Enables a safe, provenance-correct byte-offset
-  /// reslice in `raw_source_for_token_range` instead of pointer
-  /// arithmetic across token slices.
+  /// Original source (`with_source`). Enables a provenance-correct
+  /// byte-offset reslice in `raw_source_for_token_range`.
   pub source: Option<&'tokens str>,
-  /// Current `[...]` link-label nesting depth. Recursive label parsing
-  /// (and the unresolved-shortcut replay) is super-linear in the number
-  /// of nested brackets; once this exceeds [`MAX_LINK_LABEL_DEPTH`] a
-  /// `[` is treated as literal text instead of opening yet another
-  /// recursive parse. No real document nests link labels that deeply
-  /// (CM forbids links inside link text), so this only bounds adversarial
-  /// `[[[[[...` input.
+  /// Current `[...]` link-label nesting depth. Unresolved-shortcut replay is
+  /// super-linear in this depth; above [`MAX_LINK_LABEL_DEPTH`] a `[` becomes
+  /// literal text. CM forbids links inside link text so this only bounds
+  /// adversarial `[[[[[...` input.
   pub link_label_depth: u16,
-  /// Names of the JSX elements currently being parsed (outermost first).
-  /// `parse_jsx` pushes the open-tag name before walking the element's
-  /// children and pops it afterwards. Inline / block collection consults
-  /// this stack so a `JsxCloseTagStart` that closes an *enclosing* JSX
-  /// element terminates the run instead of being emitted as literal
-  /// `</`, tag-name, `>` text. Empty at top level; lowercase HTML tags
-  /// never enter here (they route through the CM raw-HTML path), so the
-  /// stack only ever holds MDX component names.
+  /// JSX elements currently being parsed (outermost first). `parse_jsx`
+  /// pushes the open-tag name and pops on close. Inline / block collection
+  /// consults this so a `JsxCloseTagStart` for an enclosing element
+  /// terminates the run instead of leaking as literal text. Lowercase HTML
+  /// tags never push here; only MDX component names.
   pub jsx_open_stack: Vec<String>,
 }
 
-/// Maximum `[...]` link-label nesting before `[` is treated as literal.
-/// Kept small because an unresolved-shortcut fallback re-parses its
-/// label into the outer delimiter stack, so total work is exponential
-/// in this depth on adversarial `[[[[...]]]]` input. CommonMark never
-/// nests link labels more than a couple deep (links cannot contain
-/// links), so 12 is far more than any real document needs.
+/// Maximum `[...]` link-label nesting before `[` is treated as literal. The
+/// unresolved-shortcut fallback re-parses its label into the outer delimiter
+/// stack, so total work is exponential in this depth on `[[[[...]]]]` input.
 pub(crate) const MAX_LINK_LABEL_DEPTH: u16 = 12;
 
 impl<'eng, 'tokens> Parser<'eng, 'tokens> {
-  /// Build a parser positioned at the first token.
   pub fn new(
     tokens: Vec<Token<'tokens>>,
     meta: Arc<SourceMeta>,
@@ -88,7 +73,6 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     }
   }
 
-  /// Build a parser with explicit `ParseOptions`.
   pub fn new_with_options(
     tokens: Vec<Token<'tokens>>,
     meta: Arc<SourceMeta>,
@@ -108,16 +92,15 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     }
   }
 
-  /// Attach the original source string so verbatim-slice reconstruction
-  /// (raw HTML blocks, malformed-link bodies) can reslice it directly
-  /// instead of reconstructing a pointer range across token lexemes.
+  /// Attach the original source so verbatim-slice reconstruction (raw HTML
+  /// blocks, malformed-link bodies) can reslice it directly.
   pub fn with_source(mut self, source: &'tokens str) -> Self {
     self.source = Some(source);
     self
   }
 
   /// Drive the top-level loop until EOF. Force-advances on no-progress so a
-  /// malformed token cannot wedge the parser.
+  /// malformed token cannot wedge the cursor.
   pub fn parse(&mut self) -> Document {
     self.collect_refs();
     let span = self.tokens.first().map(|t| t.span.clone()).unwrap_or_else(default_span);
@@ -135,14 +118,9 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
   }
 
   /// First pass: harvest every `LinkRefDef` token's `[label]: url "title"`
-  /// payload into `self.refs`. Cursor is left untouched; the main parse
-  /// loop then resolves shortcut / full / collapsed refs against the map.
+  /// payload into `self.refs`. CM 4.7: a ref-def cannot interrupt a
+  /// paragraph, so skip defs on lines whose predecessor was paragraph text.
   fn collect_refs(&mut self) {
-    // CM 4.7: a link reference definition cannot interrupt a paragraph.
-    // Track per-line whether the current line started with a paragraph-
-    // worthy inline run; the line ends at SoftBreak/HardBreak. If a
-    // LinkRefDef appears on a line whose predecessor line was paragraph
-    // text (no intervening blank / heading / etc.), skip the def.
     let mut in_paragraph = false;
     let mut on_heading_line = false;
     for tok in &self.tokens {
@@ -163,8 +141,6 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
           on_heading_line = false;
         },
         TokenKind::Heading(_) => {
-          // ATX heading line: content on this line is heading content,
-          // not a paragraph. After the line break, in_paragraph resets.
           in_paragraph = false;
           on_heading_line = true;
         },
@@ -188,38 +164,29 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     }
   }
 
-  /// Forward a fully-built diagnostic to the engine.
   pub(crate) fn emit_diagnostic(&mut self, diagnostic: Diagnostic<Code>) {
     self.diag_engine.emit(diagnostic);
   }
 
-  /// Build a primary-labelled diagnostic at the cursor and emit it.
   pub(crate) fn diag(&mut self, code: Code, message: impl Into<String>) {
     let (line, column) = self.tokens.get(self.pos).map(|t| (t.span.line, t.span.column)).unwrap_or((0, 0));
     let span = Span::from_zero_based(self.meta.path.clone(), line, column, 1);
     self.emit_diagnostic(duck_diagnostic::diag!(code, span, message.into()));
   }
 
-  /// Sugar for emitting a warning-severity diagnostic.
   pub(crate) fn warn(&mut self, code: Code, message: impl Into<String>) {
     self.diag(code, message);
   }
 
-  /// Span of an arbitrary token position, or a default EOF-adjacent span.
   pub(crate) fn span_at(&self, pos: usize) -> Span {
     self.tokens.get(pos).map(|t| t.span.clone()).unwrap_or_else(default_span)
   }
 
   /// Rebuild the verbatim source slice covered by `tokens[start..end)`.
-  /// Returns an empty string for empty / invalid ranges.
-  ///
-  /// When the caller attached the original source (`with_source`), the
-  /// span is recovered as a safe byte-offset reslice of that `&str` -
-  /// no `unsafe`, no provenance hazard. Without it (a few sample bins
-  /// and the inline-string helper), we fall back to concatenating the
-  /// covered tokens' lexemes; that loses any JSX-internal whitespace
-  /// the lexer normalized away, but those callers don't reconstruct
-  /// raw HTML blocks where that distinction matters.
+  /// With `with_source`, reslices the original `&str` directly. Without it,
+  /// concatenates token lexemes — loses any JSX-internal whitespace the
+  /// lexer normalized away, but callers that need that whitespace always
+  /// attach a source.
   pub(crate) fn raw_source_for_token_range(&self, start: usize, end: usize) -> String {
     if start >= end {
       return String::new();
@@ -245,12 +212,9 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       }
       let off_lo = lo - base;
       let off_hi = hi - base;
-      // `&str` indexing handles the UTF-8 boundary check; these offsets
-      // came from `Token.raw` slices of `source`, so they're aligned.
       return source.get(off_lo..off_hi).map(|s| s.to_string()).unwrap_or_default();
     }
 
-    // Fallback: concatenate the covered tokens' raw lexemes.
     let mut out = String::new();
     for tok in &self.tokens[start..end] {
       out.push_str(tok.raw);
@@ -258,28 +222,24 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     out
   }
 
-  /// Span of the token at the cursor, or a default span at EOF.
   pub(crate) fn current_span(&self) -> Span {
     self.tokens.get(self.pos).map(|t| t.span.clone()).unwrap_or_else(default_span)
   }
 
-  /// Token under the cursor (no consume).
   pub(crate) fn peek(&'_ self) -> Option<&'_ Token<'_>> {
     self.tokens.get(self.pos)
   }
 
-  /// Kind of the token under the cursor (no consume).
   pub(crate) fn peek_kind(&self) -> Option<&TokenKind> {
     self.tokens.get(self.pos).map(|t| &t.kind)
   }
 
-  /// Raw lexeme of the upcoming token with its source-tied `'tokens` lifetime,
-  /// decoupled from the `&self` borrow so callers can hold it across mutations.
+  /// Raw lexeme with its source-tied `'tokens` lifetime, decoupled from the
+  /// `&self` borrow so callers can hold it across mutations.
   pub(crate) fn peek_raw(&self) -> Option<&'tokens str> {
     self.tokens.get(self.pos).map(|t| t.raw)
   }
 
-  /// Consume one token and return it. No-op at EOF.
   pub(crate) fn advance(&'_ mut self) -> Option<&'_ Token<'_>> {
     let t = self.tokens.get(self.pos);
     if t.is_some() {
@@ -288,14 +248,13 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     t
   }
 
-  /// True at the `Eof` token or past the end of the stream.
   pub(crate) fn is_eof(&self) -> bool {
     matches!(self.peek_kind(), Some(TokenKind::Eof) | None)
   }
 }
 
-/// CM-escape decoder for link destinations and titles harvested from
-/// `LinkRefDef` tokens. Mirrors the inline path's `unescape_markdown`.
+/// CM-escape decoder for link destinations/titles in `LinkRefDef` tokens.
+/// Mirrors the inline path's `unescape_markdown`.
 fn unescape_link_part(s: &str) -> String {
   if !s.contains('\\') {
     return s.to_string();
@@ -352,15 +311,13 @@ fn unescape_link_part(s: &str) -> String {
   out
 }
 
-/// Lex + parse `source` in one shot, dropping all diagnostics. Convenience for
-/// tests + the `parse` bin; production callers should construct their own
-/// `DiagnosticEngine`.
+/// Lex + parse in one shot, dropping all diagnostics. Tests + the `parse`
+/// bin; production callers should construct their own `DiagnosticEngine`.
 pub fn parse(source: &str) -> Document {
   parse_with(source, ParseOptions::default())
 }
 
-/// `parse` variant with explicit `ParseOptions`. Used by the CM spec
-/// runner to opt into CM-strict HTML block detection.
+/// `parse` with explicit `ParseOptions`.
 pub fn parse_with(source: &str, options: ParseOptions) -> Document {
   let meta = Arc::from(SourceMeta { path: Arc::from("<inline>"), origin: Origin::Inline("<inline>") });
   let mut lex_engine = DiagnosticEngine::new();
@@ -374,10 +331,8 @@ pub fn parse_with(source: &str, options: ParseOptions) -> Document {
   p.parse()
 }
 
-/// Lex `s` and run the inline parser on it. Returns the inline `Node`
-/// list (Text, InlineCode, Bold, Italic, Strikethrough, Link, ...).
-/// Used by table cells, which receive raw cell strings rather than
-/// pre-tokenised inline content.
+/// Lex `s` and run the inline parser. Used by table cells, which receive
+/// raw cell strings rather than pre-tokenised inline content.
 pub fn parse_inline_str(s: &str) -> Vec<crate::ast::Node> {
   let meta = Arc::from(SourceMeta { path: Arc::from("<inline>"), origin: Origin::Inline("<inline>") });
   let mut lex_engine = DiagnosticEngine::new();

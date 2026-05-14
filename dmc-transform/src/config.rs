@@ -217,12 +217,8 @@ impl Default for MermaidThemeMode {
   }
 }
 
-// Mermaid initialize sub-config types
-// Each diagram block + the top-level enums get a typed Rust struct so
-// the user-facing config is fully type-checked end-to-end. Mirror the
-// TS-side MermaidInitializeConfig shape; new mermaid releases extend
-// these structs (serde tolerates unknown keys so missing fields just
-// pass through unchecked).
+// Mermaid initialize sub-config types mirror the TS MermaidInitializeConfig
+// shape. Serde tolerates unknown keys so newer mermaid fields pass through.
 
 /// CSS dimension that mermaid accepts as either a numeric pixel value
 /// (e.g. `14`) or a string with units (e.g. `"14px"`, `"1.2em"`).

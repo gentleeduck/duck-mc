@@ -1,18 +1,8 @@
-//! In-process flamegraph for the native compile path. Uses `pprof` (a
-//! signal-driven sampler that doesn't need `perf_event_open`), so no
-//! sudo / `perf_event_paranoid` toggle is required.
+//! In-process flamegraph via `pprof` (signal-driven, no `perf_event_open`).
+//! Unix only.
 //!
-//! Run:
-//!   cargo run --release --example flamegraph --features pretty-code
-//!
-//! Output:
-//!   duck-benchmarks/phase-7-g-hardening/flamegraph/flame.svg
-//!
-//! Drag the SVG into any browser. Zoom by clicking a frame; reset by
-//! clicking the title bar.
-//!
-//! Unix only: `pprof`'s sampler relies on POSIX signals / `nix`, so on
-//! Windows this compiles to a stub `main` that just prints a notice.
+//! Run:    cargo run --release --example flamegraph --features pretty-code
+//! Output: duck-benchmarks/phase-7-g-hardening/flamegraph/flame.svg
 
 #[cfg(not(unix))]
 fn main() {
@@ -121,8 +111,7 @@ const cfg: Config<number> = {
 
     let started = Instant::now();
     let mut iters = 0u64;
-    // Run for ~5s of CPU time so the sampler collects a healthy stack
-    // population (at 997 Hz that's ~5000 stacks).
+    // ~5s @ 997 Hz -> ~5000 stacks.
     while started.elapsed().as_secs_f32() < 5.0 {
       one_iter(&pipeline);
       iters += 1;

@@ -1,16 +1,7 @@
-//! CommonMark 0.31.2 spec test runner. Vendored from
-//! https://spec.commonmark.org/0.31.2/spec.json (652 examples).
-//!
-//! The runner parses each example through `dmc_parser::parse` +
-//! `dmc_codegen::render_html`, normalizes both sides of the HTML
-//! comparison (collapsing inter-tag whitespace + lower-casing tag
-//! names so cosmetic codegen drift doesn't fail the suite), and
-//! diffs.
-//!
-//! Strategy: track the current pass count in `commonmark_baseline.txt`.
-//! The test fails only if the pass count regresses; bumping the
-//! baseline as fixes land lets the suite move forward without
-//! flapping while parser + codegen catch up to 100% spec compliance.
+//! CommonMark 0.31.2 spec runner. Vendored spec.json (652 examples).
+//! Compares normalized HTML (collapsed whitespace, lowercased tag names).
+//! Tracks current pass count in `commonmark_baseline.txt`; the test fails
+//! only on regression so the suite moves forward without flapping.
 
 use serde::Deserialize;
 use std::path::PathBuf;
@@ -36,10 +27,8 @@ fn load_examples() -> Vec<Example> {
   serde_json::from_str(&json).expect("spec.json is well-formed")
 }
 
-/// Cheap normalization: lowercase tag names, collapse runs of
-/// whitespace, strip leading / trailing whitespace. Good enough to
-/// dampen renderer cosmetic noise without masking real correctness
-/// bugs.
+/// Lowercase + collapse whitespace + trim. Dampens cosmetic codegen drift
+/// without masking correctness bugs.
 fn normalize(html: &str) -> String {
   let lowered = html.to_ascii_lowercase();
   let mut out = String::with_capacity(lowered.len());
@@ -101,8 +90,7 @@ fn commonmark_spec_no_regression() {
   }
 }
 
-/// Dump the first `N` failures with section, source, expected vs.
-/// actual HTML. Run with `--ignored --nocapture` to see categories.
+/// `--ignored --nocapture` dumps first `N` failures.
 #[test]
 #[ignore]
 fn commonmark_spec_dump_failures() {

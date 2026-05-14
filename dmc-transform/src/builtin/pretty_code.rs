@@ -597,17 +597,9 @@ fn render_css_vars_pre(
   JsxElement { name: "pre".into(), attrs: pre_attrs, children: vec![code_el], span }
 }
 
-/// Build the multi-theme token-style string. Emits `--dmc-{mode}:#hex`
-/// for every mode whose color differs from that mode's default
-/// foreground, plus per-mode font-style flags.
-/// If the line begins with one or more whitespace-only style runs
-/// (empty `style` strings, all chars are whitespace), merge their
-/// text into the first styled run that follows. Avoids emitting an
-/// empty `<span>   </span>` for indentation while keeping the visual
-/// indent intact (the whitespace ends up as the leading text of the
-/// first colored token's span).
-///
-/// Lines that are entirely whitespace are left as-is.
+/// Fold leading whitespace-only runs into the first styled run so
+/// indented lines don't emit `<span>   </span>` siblings. All-whitespace
+/// lines are left as-is.
 fn coalesce_leading_whitespace(runs: &mut Vec<(String, String)>) {
   let split = runs.iter().position(|(style, text)| !(style.is_empty() && text.chars().all(|c| c.is_whitespace())));
   let Some(idx) = split else { return };

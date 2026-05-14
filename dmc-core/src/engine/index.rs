@@ -1,11 +1,6 @@
-//! Top-level entry emission: `index.js` + `index.d.ts` that re-export
-//! every collection's `<name>.json`.
-//!
-//! Two `.d.ts` modes:
-//! - **Velite-style** (config is `.ts`/`.js`/`.mjs`): re-import the user's
-//!   config, infer record types via `typeof import(..)['collections']`.
-//! - **Self-contained** (TOML / no config): per-collection TS interface
-//!   from `schema = { ... }`, else the generic `DocRecord` shape.
+//! `index.js` + `index.d.ts` re-exporting every collection's `<name>.json`.
+//! Two `.d.ts` modes: velite-style (TS/JS config, infer via
+//! `typeof import(..)`) and self-contained (TOML, from `schema`).
 
 use std::path::Path;
 
@@ -17,7 +12,6 @@ use crate::engine::schema_ts::schema_to_ts_object;
 
 use crate::engine::utils::{pascal_case, relative_from};
 
-/// Pick the right `.d.ts` mode and write `index.js` + `index.d.ts`.
 pub fn write_index(out_dir: &Path, collections: &[Collection], format: &str, config_path: Option<&Path>) -> DiagResult {
   let names: Vec<&str> = collections.iter().map(|c| c.name.as_str()).collect();
   write_index_js(out_dir, &names, format)?;

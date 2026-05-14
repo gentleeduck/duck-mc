@@ -1,36 +1,32 @@
 /// Identity of the bytes being lexed. Threaded through every emitted `Span`
-/// (via `path`) and consulted by callers that need to resolve relative paths
-/// (`origin`). Cheap to clone: `path` is `Arc<str>`, `origin` is small.
+/// (via `path`). Cheap to clone: `path` is `Arc<str>`.
 pub struct SourceMeta {
-  /// Display string used as `Span.file`. Refcounted so every emitted span
-  /// shares one allocation. Use the canonical filesystem path for `File`,
-  /// `"<stdin>"` for `Stdin`, a fixture name for `Inline`, anything stable
-  /// for `Memory` (e.g. an LSP URI).
+  /// Display string used as `Span.file`. Refcounted so every span shares one
+  /// allocation. Canonical filesystem path for `File`, `"<stdin>"` for
+  /// `Stdin`, fixture name for `Inline`, stable identifier (e.g. LSP URI)
+  /// for `Memory`.
   pub path: std::sync::Arc<str>,
-  /// Where the bytes came from. Drives path resolution + caching policy.
+  /// Drives path resolution and caching policy.
   pub origin: Origin,
 }
 
-/// Where the source bytes were obtained. Determines what callers can do with
-/// the document beyond display:
+/// Where the source bytes were obtained — determines what callers can do
+/// beyond display:
 ///
-/// - `File`: parent dir is known, so relative `file=...` directives resolve;
-///   on-disk content can be re-read; safe to cache by `(path, mtime)`.
+/// - `File`: parent dir known, relative `file=...` resolves, safe to cache
+///   by `(path, mtime)`.
 /// - `Stdin`: one-shot, no parent dir, no cache.
-/// - `Inline`: tests / REPL / hard-coded snippet; `path` is a synthetic name.
-/// - `Memory`: LSP-style unsaved buffer; `version` is the source of truth,
-///   not the filesystem.
+/// - `Inline`: tests / REPL / doc-test snippet; `path` is synthetic.
+/// - `Memory`: LSP unsaved buffer; `version` is the source of truth.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Origin {
-  /// On-disk file. Holds the resolved path so callers can read siblings,
-  /// watch for changes, etc.
+  /// On-disk file. Holds the resolved path for sibling reads, watches, etc.
   File(std::path::PathBuf),
   /// Piped in via stdin. No parent directory, no re-read.
   Stdin,
-  /// Hard-coded fixture, REPL eval, or doc-test snippet. The static `&str`
-  /// is the human-readable label (e.g. `"E004-fixture"`).
+  /// Hard-coded fixture, REPL eval, or doc-test snippet. The `&'static str`
+  /// is a human-readable label (e.g. `"E004-fixture"`).
   Inline(&'static str),
-  /// In-RAM buffer (LSP unsaved doc, generated content). The bytes don't
-  /// live on disk.
+  /// In-RAM buffer (LSP unsaved doc, generated content) — not on disk.
   Memory,
 }

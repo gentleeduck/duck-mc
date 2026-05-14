@@ -1,12 +1,8 @@
-//! Regression smoke for the `dmc-fuzz` targets: runs each fuzz-target body
-//! on a handful of adversarial inputs so CI catches panics / hangs even
-//! when the libFuzzer run isn't part of the pipeline.
+//! Smoke-run each `dmc-fuzz` target on adversarial inputs so CI catches
+//! panics / hangs when libFuzzer isn't in the pipeline.
 
 use dmc_parser::{ParseOptions, parse, parse_with};
 
-/// Nasty little inputs: deeply nested delimiters, unterminated constructs,
-/// pathological whitespace, lone surrogates-as-replacement, HTML/JSX edge
-/// cases, tables with ragged columns, autolink bait.
 const ADVERSARIAL: &[&str] = &[
   "",
   "\u{0}\u{0}\u{0}",
@@ -42,7 +38,7 @@ fn fuzz_parse_target_smoke() {
   for s in ADVERSARIAL {
     let _ = parse(s);
   }
-  // also through the lossy byte gate the fuzz target uses
+  // Lossy byte gate (matches the fuzz target).
   for raw in [&b"\xff\xfe\x00bad"[..], &b"\x80\x80"[..], &[][..]] {
     let _ = parse(&replacement_lossy(raw));
   }
