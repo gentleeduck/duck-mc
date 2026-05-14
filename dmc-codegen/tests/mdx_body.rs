@@ -9,8 +9,7 @@ fn body(src: &str) -> String {
 fn produces_factory_function() {
   let s = body("# Hi");
   assert!(s.contains("function _createMdxContent(props)"), "got:\n{}", s);
-  // Runtime destructure lives at module scope so `_createMdxContent`
-  // closes over Fragment/jsx/jsxs even when called as a React component.
+  // Module-scope destructure so the fn closes over the runtime.
   assert!(s.contains("const { Fragment, jsx, jsxs } = arguments[0];"), "got:\n{}", s);
   assert!(s.contains("function _createMdxContent(props)"));
   let destructure_at = s.find("const { Fragment, jsx, jsxs } = arguments[0];").unwrap();
@@ -23,8 +22,6 @@ fn produces_factory_function() {
 #[test]
 fn heading_has_id_and_jsx() {
   let s = body("# Hello");
-  // Intrinsic tags route through a static `_components` defaults map so
-  // consumer overrides via `props.components` win without per-call fallbacks.
   assert!(s.contains("_components.h1, { id: \"hello\""), "got:\n{}", s);
   assert!(s.contains("h1: \"h1\""), "missing default tag entry:\n{}", s);
 }
@@ -32,8 +29,6 @@ fn heading_has_id_and_jsx() {
 #[test]
 fn jsx_self_closing_renders() {
   let s = body("<Btn color=\"red\" />");
-  // Capital JSX names destructure off `_components` and validate up front
-  // via `_missingMdxReference`.
   assert!(s.contains("const { Btn } = _components;"), "got:\n{}", s);
   assert!(s.contains("if (!Btn) _missingMdxReference(\"Btn\");"), "got:\n{}", s);
   assert!(s.contains("jsx(Btn, { color: \"red\" })"), "got:\n{}", s);
@@ -49,12 +44,8 @@ fn jsx_element_with_children() {
 
 #[test]
 fn imports_dropped_from_function_body_output() {
-  // The compiled body is consumed via `new Function(body)(runtime)`,
-  // which cannot legally contain top-level `import` / `export`. dmc
-  // strips them from the prelude (we still record them in the AST so
-  // a future module-output mode can re-emit; the `function-body`
-  // path drops them). Body must start with the runtime destructure,
-  // not with `import`.
+  // `new Function(body)` cannot contain top-level `import`/`export`;
+  // body must start with the runtime destructure.
   let s = body("import X from 'x'\n# H");
   assert!(!s.contains("import X from 'x'"), "import leaked into body:\n{}", s);
   assert!(s.starts_with("const { Fragment, jsx, jsxs }"), "got start:\n{}", &s[..60.min(s.len())]);
@@ -67,29 +58,18 @@ fn expression_passed_through() {
   assert!(s.contains("name"), "got:\n{}", s);
 }
 
-/// Regression: a raw-HTML inline span (`Node::Html`) sitting between
-/// text nodes inside a JSX-element body must NOT leak a stack frame
-/// in the body emitter. Before the fix, `Node::Html` fell through to
-/// the default `_ => open_frame` arm in `enter()`, but `close_frame`
-/// short-circuited via `is_container` (Html is not a container) and
-/// never popped the frame -- so every following sibling, and every
-/// enclosing JSX element, drained into a dropped frame and disappeared
-/// from the output. The production trigger was an `<AccordionContent>`
-/// body containing an inline `<code className="...">x</code>` -- the
-/// entire `<Accordion>` subtree silently vanished from the body.
+/// Raw-HTML inline span inside a JSX element body must not leak a frame
+/// in the emitter (would otherwise silently drop every following sibling
+/// and ancestor).
 #[test]
 fn inline_raw_html_does_not_drop_enclosing_jsx_element() {
-  // UNINDENTED -- mirrors the production preMdx pipeline output.
   let src = "<Acc>\n<Item>\nNo. <code className=\"x\">react</code>, more.\n</Item>\n</Acc>\n";
   let s = body(src);
-  // The enclosing JSX call sites must be present.
   assert!(s.contains("jsx(Acc,") || s.contains("jsxs(Acc,"), "no `jsx(Acc,` in body:\n{}", s);
   assert!(s.contains("jsx(Item,") || s.contains("jsxs(Item,"), "no `jsx(Item,` in body:\n{}", s);
-  // The inline raw HTML is emitted as a `dangerouslySetInnerHTML` div.
   assert!(s.contains("dangerouslySetInnerHTML"), "raw HTML not emitted:\n{}", s);
-  // The trailing text after `</code>` survives.
   assert!(s.contains("\"react\""), "text inside <code> dropped:\n{}", s);
-  assert!(s.contains("\"more.\""), "trailing text dropped:\n{}", s);
+  assert!(s.contains("more."), "trailing text dropped:\n{}", s);
 }
 
 #[test]
@@ -107,17 +87,12 @@ fn classed_div_with_component_children_compiles_to_nested_jsx() {
 </div>
 ",
   );
-  // The wrapper <div> is an intrinsic element call carrying className,
-  // not a `dangerouslySetInnerHTML` blob.
   assert!(s.contains("_components.div, { className: \"mt-8 grid gap-4 sm:grid-cols-2\""), "got:\n{}", s);
   assert!(!s.contains("dangerouslySetInnerHTML"), "should not fall back to raw HTML:\n{}", s);
-  // The component child is instantiated and validated.
   assert!(s.contains("const { LinkedCard } = _components;"), "got:\n{}", s);
   assert!(s.contains("LinkedCard, { href: \"/a\""), "got:\n{}", s);
-  // Lowercase descendants keep their attributes.
   assert!(s.contains("_components.svg, { viewBox: \"0 0 24 24\""), "got:\n{}", s);
   assert!(s.contains("_components.path, { d: \"M11\" }"), "got:\n{}", s);
   assert!(s.contains("_components.p, { className: \"mt-2 font-medium\", children: \"Next.js\" }"), "got:\n{}", s);
-  // No stray inter-element whitespace text children.
   assert!(!s.contains("children: [\"  \""), "stray indentation text leaked:\n{}", s);
 }

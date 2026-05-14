@@ -5,17 +5,14 @@ use dmc_diagnostic::Code;
 use dmc_parser::ast::*;
 use duck_diagnostic::{DiagnosticEngine, diag};
 
-/// Builds an MDX-runtime body - a `_createMdxContent(props)` function whose
-/// return value is a React tree of `jsx`, `jsxs`, and `Fragment`. Imports +
-/// exports hoist into a prelude; frontmatter is dropped.
-///
-/// Output shape follows `@mdx-js/mdx`'s function-body format:
-/// - `Fragment`/`jsx`/`jsxs` destructured from `arguments[0]` inside the fn
-/// - `const _components = { tag: "tag", ..., ...props.components }` merging
-///   default tag strings with consumer overrides; only intrinsics actually
-///   referenced get a default entry
-/// - capitalized JSX names destructured off `_components` and pre-validated
-///   with `_missingMdxReference` so missing components throw at render time
+/// Builds an MDX-runtime body: `_createMdxContent(props)` returning a tree
+/// of `jsx`/`jsxs`/`Fragment`. Output shape follows `@mdx-js/mdx`'s
+/// function-body format:
+/// - `Fragment`/`jsx`/`jsxs` from `arguments[0]`
+/// - `_components = { tag: "tag", ..., ...props.components }` -- only
+///   referenced intrinsics get a default entry
+/// - capitalized JSX names destructured off `_components` and validated
+///   via `_missingMdxReference`
 /// - `jsx` for zero/one child, `jsxs` for multiple
 #[derive(Debug)]
 pub struct MdxBodyEmitter {
@@ -42,10 +39,9 @@ impl NodeSink for MdxBodyEmitter {
       Node::Text(t) => self.push_part(Self::js_string(&t.value)),
       Node::InlineCode(c) => {
         let tag = self.jsx_tag_ref("code");
-        // Inline code: just `children`. `__dmcRaw__` is reserved for
-        // fenced `<pre>` blocks (see PrettyCode transformer) - putting it
-        // on inline `<code>` makes consumer mappings that key off it
-        // misclassify inline as block, breaking paragraph flow.
+        // No `__dmcRaw__` here -- that flag is reserved for fenced `<pre>`
+        // blocks (PrettyCode); putting it on inline `<code>` misclassifies
+        // it as block in consumer mappings.
         self.push_part(format!("jsx({}, {{ children: {} }})", tag, Self::js_string(&c.value),));
       },
       Node::CodeBlock(cb) => {
@@ -71,16 +67,10 @@ impl NodeSink for MdxBodyEmitter {
       },
       Node::JsxExpression(j) => self.push_part(j.value.trim().to_string()),
 
-      // Raw HTML node: emit via `dangerouslySetInnerHTML` (matches the
-      // inline-expr path). Without this explicit arm `Node::Html` would
-      // fall into the `_ => open_frame` default below, but `is_container`
-      // returns false for it -- so `leave`'s `close_frame` would bail
-      // out without popping, leaking the frame and silently dropping
-      // every sibling and ancestor expression that follows. The
-      // production symptom: an `<AccordionContent>` whose body has an
-      // inline `<code className="...">x</code>` (parsed as raw HTML
-      // span) dropped the entire enclosing `<Accordion>` from the
-      // emitted MDX body.
+      // Must be an explicit arm: `_ => open_frame` would push a frame
+      // but `is_container` returns false for `Html`, so `close_frame`
+      // would bail without popping -- silently dropping every sibling
+      // and ancestor expression that follows.
       Node::Html(h) => {
         let tag = self.jsx_tag_ref("div");
         self.push_part(format!(
@@ -135,14 +125,12 @@ impl MdxBodyEmitter {
     }
   }
 
-  /// Drive the walker; return `(body, diag)`.
   pub fn render(doc: &Document) -> (String, DiagnosticEngine<Code>) {
     let mut emitter = Self::new();
     Walker::new(doc).walk(&mut [&mut emitter]);
     emitter.into_parts()
   }
 
-  /// Take both buffers: rendered MDX body and per-emitter diagnostics.
   pub fn into_parts(mut self) -> (String, DiagnosticEngine<Code>) {
     let diag = std::mem::replace(&mut self.diag_engine, DiagnosticEngine::new());
     let body_str = self.into_string();
@@ -155,13 +143,9 @@ impl MdxBodyEmitter {
     let (root_callee, root_kids) = jsx_callee_and_children(&root_parts);
     let body_expr = format!("{}(Fragment, {{ children: {} }})", root_callee, root_kids);
 
-    // Function-body output (the only mode dmc emits today) is consumed
-    // via `new Function(body)(runtime)` - that scope cannot legally
-    // contain `import`/`export` statements. dmc parses top-level ESM
-    // anyway because the lexer can't always tell content inside JSX-
-    // wrapped fences from real top-level imports, so we drop them on
-    // the floor here. Consumers that need real ESM bindings should
-    // declare them outside MDX (e.g. in the components map).
+    // Function-body output (consumed via `new Function(body)(runtime)`)
+    // can't legally contain `import`/`export`. Drop them; consumers that
+    // need ESM bindings declare them outside MDX (e.g. components map).
     let _ = (&imports, &exports);
     let prelude = String::new();
 
@@ -185,11 +169,8 @@ impl MdxBodyEmitter {
       (destruct, checks, f)
     };
 
-    // Pull `Fragment`/`jsx`/`jsxs` from the factory's `arguments[0]`
-    // (the jsx-runtime passed in by the consumer) at module scope so
-    // `_createMdxContent` closes over them. Putting the destructure
-    // inside the function would shadow it with React's `props` once the
-    // returned default export is rendered.
+    // Destructure runtime at module scope so `_createMdxContent` closes
+    // over it; inside the fn it would be shadowed by React's `props`.
     format!(
       "{prelude}const {{ Fragment, jsx, jsxs }} = arguments[0];\n{missing_fn}function _createMdxContent(props) {{\n  const _components = {{ {defaults} }};\n{component_destructure}{missing_checks}  return {body_expr};\n}}\nreturn {{ default: _createMdxContent }};\n",
     )
@@ -313,8 +294,7 @@ impl MdxBodyEmitter {
     format!("jsx({}, {{ {} }})", self.jsx_tag_ref(&s.name), props)
   }
 
-  /// Convert a CSS-style attribute string (`"color:#fff;background-color:red"`)
-  /// into a JSX-ready object literal (`{ color: "#fff", backgroundColor: "red" }`).
+  /// Convert a CSS-style attribute string to a JSX object literal.
   /// `--custom` properties stay quoted; everything else is camel-cased.
   fn style_attr_to_object(s: &str) -> String {
     let mut entries = Vec::new();
@@ -353,15 +333,11 @@ impl MdxBodyEmitter {
     if entries.is_empty() { "{}".to_string() } else { format!("{{ {} }}", entries.join(", ")) }
   }
 
-  /// Resolve a JSX tag name to the runtime expression and record the ref
-  /// for the prelude.
-  ///
-  /// - Lowercase tag -> `_components.<tag>`, with the tag's default string
-  ///   added to the `_components` literal at assemble time.
-  /// - Capitalized tag -> bare local binding (destructured in the prelude
-  ///   from `_components` and validated via `_missingMdxReference`).
-  /// - `Fragment` -> the jsx-runtime symbol already in scope.
-  /// - Non-identifier tag (`my-element`) -> bracket access on `_components`.
+  /// Resolve a JSX tag name and record the ref for the prelude.
+  /// - lowercase -> `_components.<tag>`
+  /// - capitalized -> bare local binding (destructured in prelude)
+  /// - `Fragment` -> in-scope runtime symbol
+  /// - non-ident (`my-element`) -> `_components[...]`
   fn jsx_tag_ref(&mut self, name: &str) -> String {
     if name == "Fragment" {
       return "Fragment".to_string();
@@ -379,14 +355,12 @@ impl MdxBodyEmitter {
     let mut parts = Vec::new();
     for a in attrs {
       let key = obj_key(&a.name);
-      // Spread attributes have no key/value -- emit `...expr` directly
-      // and skip the standard key/value path.
       if let JsxAttrValue::Spread(e) = &a.value {
         parts.push(format!("...{}", e.trim()));
         continue;
       }
       let v = match &a.value {
-        // React rejects `style="..."` strings -- must be an object literal.
+        // React requires `style` as an object literal, not a string.
         JsxAttrValue::String(s) if a.name == "style" => Self::style_attr_to_object(s),
         JsxAttrValue::String(s) => Self::js_string(s),
         JsxAttrValue::Expression(e) => Self::compile_attr_expression(self, e),
@@ -398,12 +372,8 @@ impl MdxBodyEmitter {
     parts.join(", ")
   }
 
-  /// Compile a `{...}` JSX attribute expression to JS.
-  ///
-  /// `<Callout icon={<Zap />}>` captures the inside-of-braces as raw text.
-  /// Plain JS (`{count + 1}`) passes through unchanged. JSX content
-  /// (`{<Zap />}`) is re-parsed and routed through `inline_expr` so it
-  /// becomes a valid runtime expression.
+  /// Compile a `{...}` JSX attribute expression. Plain JS passes through;
+  /// embedded JSX (`{<Zap />}`) is re-parsed and routed through `inline_expr`.
   fn compile_attr_expression(&mut self, e: &str) -> String {
     let trimmed = e.trim();
     if !trimmed.starts_with('<') {
@@ -422,10 +392,8 @@ impl MdxBodyEmitter {
     }
   }
 
-  /// Build the full `jsxs(table, { children: [thead, tbody] })` expr.
-  /// Cell content is walked recursively here because rows/cells aren't
-  /// surfaced as walker `Node` variants; `in_table_depth` suppresses the
-  /// outer walker's events while we're inside.
+  /// Rows/cells aren't `Node` variants, so walk them recursively here;
+  /// `in_table_depth` suppresses the outer walker.
   fn table_expr(&mut self, t: &Table) -> String {
     let mut sections: Vec<String> = Vec::new();
     let tr = self.jsx_tag_ref("tr");
@@ -475,8 +443,7 @@ impl MdxBodyEmitter {
     }
   }
 
-  /// Self-recursive expression builder for cell content (the walker is
-  /// suppressed inside tables via `in_table_depth`).
+  /// Self-recursive for cell content (walker suppressed via `in_table_depth`).
   fn inline_expr(&mut self, node: &Node) -> String {
     match node {
       Node::Text(t) => Self::js_string(&t.value),
@@ -533,15 +500,11 @@ impl MdxBodyEmitter {
         format!("{}(Fragment, {{ children: {} }})", callee, kids_expr)
       },
       Node::Table(t) => self.table_expr(t),
-      // Raw HTML block: passed through verbatim via dangerouslySetInnerHTML
-      // so the renderer can emit it without JSX-encoding.
       Node::Html(h) => format!(
         "jsx({}, {{ dangerouslySetInnerHTML: {{ __html: {} }} }})",
         self.jsx_tag_ref("div"),
         Self::js_string(&h.value)
       ),
-      // GFM footnotes: emit a superscript link to the def section. The
-      // def itself renders as a list-item paragraph.
       Node::FootnoteRef(f) => format!(
         "jsx({}, {{ children: jsx({}, {{ href: \"#fn-{}\", children: {} }}) }})",
         self.jsx_tag_ref("sup"),
@@ -565,8 +528,7 @@ impl MdxBodyEmitter {
     format!("{}({}, {{ children: {} }})", callee, self.jsx_tag_ref(tag), kids_expr)
   }
 
-  /// Quote `s` as a JS string literal. Handles `\`, `"`, `\n`, `\r`, `\t`,
-  /// and any control char below 0x20 via `\uXXXX`.
+  /// Quote `s` as a JS string literal; control chars below 0x20 via `\uXXXX`.
   fn js_string(s: &str) -> String {
     let mut out = String::with_capacity(s.len() + 2);
     out.push('"');
@@ -586,24 +548,65 @@ impl MdxBodyEmitter {
   }
 }
 
-/// Render `doc` to an MDX body string with a throwaway diagnostic engine.
 pub fn render_mdx_body(doc: &Document) -> String {
   MdxBodyEmitter::render(doc).0
 }
 
-/// Pick the right jsx-runtime callee for a child list, mirroring
-/// `@mdx-js/mdx`: zero/one child -> `jsx` with the child unwrapped (no
-/// array); multiple children -> `jsxs` with the `[a, b, c]` literal.
+/// `@mdx-js/mdx` callee rule: 0/1 child -> `jsx` unwrapped; many -> `jsxs([])`.
+/// Adjacent string literals are coalesced first -- React SSR emits a
+/// `<!-- -->` between sibling text nodes, so without merging, each
+/// per-word `Text` node leaks an HTML comment into the DOM.
 fn jsx_callee_and_children(parts: &[String]) -> (&'static str, String) {
-  match parts.len() {
+  let merged = coalesce_string_literals(parts);
+  match merged.len() {
     0 => ("jsx", "[]".into()),
-    1 => ("jsx", parts[0].clone()),
-    _ => ("jsxs", format!("[{}]", parts.join(", "))),
+    1 => ("jsx", merged.into_iter().next().unwrap()),
+    _ => ("jsxs", format!("[{}]", merged.join(", "))),
   }
 }
 
-/// True when `s` is a bare JS identifier (safe to emit unquoted as a
-/// member access or object-literal key).
+/// Fold runs of `"..."` literals into one. Non-string expressions act as breaks.
+fn coalesce_string_literals(parts: &[String]) -> Vec<String> {
+  let mut out: Vec<String> = Vec::with_capacity(parts.len());
+  for p in parts {
+    if is_js_string_literal(p)
+      && let Some(last) = out.last_mut()
+      && is_js_string_literal(last)
+    {
+      last.pop();
+      last.push_str(&p[1..]);
+      continue;
+    }
+    out.push(p.clone());
+  }
+  out
+}
+
+/// True when `s` is exactly one JS string literal from `js_string`
+/// (interior `"` and `\` properly escaped).
+fn is_js_string_literal(s: &str) -> bool {
+  let bytes = s.as_bytes();
+  if bytes.len() < 2 || bytes[0] != b'"' || bytes[bytes.len() - 1] != b'"' {
+    return false;
+  }
+  let mut i = 1;
+  let end = bytes.len() - 1;
+  while i < end {
+    match bytes[i] {
+      b'\\' => {
+        if i + 1 >= end {
+          return false;
+        }
+        i += 2;
+      },
+      b'"' => return false,
+      _ => i += 1,
+    }
+  }
+  true
+}
+
+/// Safe to emit unquoted as member access or object-literal key.
 fn is_js_ident(s: &str) -> bool {
   let mut chars = s.chars();
   match chars.next() {
@@ -613,8 +616,6 @@ fn is_js_ident(s: &str) -> bool {
   chars.all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '$')
 }
 
-/// Quote `key` for an object-literal key: bare ident when it's a valid
-/// JS identifier, JSON string otherwise.
 fn obj_key(key: &str) -> String {
   if is_js_ident(key) { key.to_string() } else { format!("\"{}\"", key.replace('"', "\\\"")) }
 }
