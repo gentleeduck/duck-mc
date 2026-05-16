@@ -1,5 +1,20 @@
 # @gentleduck/md
 
+## 0.4.0
+
+### Minor Changes
+
+- fea2a31: Ship a `duck-md` CLI binary (build / dev / info / clean) so Node projects no longer need a hand-written runner around `build(config)`. `dev` mode watches the resolved root with chokidar and rebuilds on debounced FS events; `build` is a single-shot equivalent and also emits the velite-shaped `<output>/index.{js,d.ts}` so `import { duckUi } from '../.gentleduck'` keeps resolving.
+
+  Also fix two long-standing publish issues:
+
+  - The post-build step now copies the napi-rs shim to `index.cjs`; `mod.js` prefers it because `createRequire` refuses to load `.js` as CJS from an ESM caller in a `"type": "module"` package.
+  - Frontmatter `$` runs (e.g. `description: $subject.id, $resource.attributes.ownerId`) are no longer pair-matched as math spans -- the math preprocessor skips YAML / TOML frontmatter blocks at byte 0.
+
+### Patch Changes
+
+- 76d942f: `duck-md dev` (alias `duck-md watch`) now skips rebuilds on saves that don't change file content. After the initial build, the CLI seeds a `Map<absPath, sha256>` of every `.md` / `.mdx` file under `root`; chokidar change events re-hash and short-circuit when the hash matches the stored one (`[duck-md] no-op (<rel> unchanged)` log line). The same dedupe applies to the config file. `add` / `unlink` events still trigger a full rebuild. This sits above the existing per-file blake3 cache in `dmc-core`, so real edits remain incremental and bare saves cost nothing.
+
 ## Unreleased
 
 ### Compiler correctness
@@ -7,7 +22,7 @@
 - **CommonMark section 4.5 fence-close compliance** (`dmc-lexer/src/lexers/code.rs`).
   `lex_fenced_code` previously closed any line starting with N matching
   backticks at column 0, including ones with trailing info strings like
-  `` ```tsx /Generic/ ``. That parity-flipped every following fence so
+  ` ```tsx /Generic/ `. That parity-flipped every following fence so
   TypeScript generics inside code blocks (`Partial<KeyBindOptions>`,
   `Record<string, string>`, `Array<...>`) leaked into the JSX-flow lexer
   and produced `unterminated expression` / dropped-`{...}` warnings.
@@ -57,7 +72,7 @@
 - **Structured `BuildReport.diagnostics`**
   (`dmc-napi/src/lib.rs`, `mod.ts`). Was `string[]` of `Debug` blobs;
   now `DiagnosticReport[]` with `{ code, severity, message, help, file,
-  line, column }`. Consumers can pretty-print one-by-one with their own
+line, column }`. Consumers can pretty-print one-by-one with their own
   colors.
 - **Lexer span file paths populated** from `meta.path` instead of
   `""` across `dmc-lexer/src/lexers/{code,jsx,typography}.rs`. Diagnostic
@@ -117,24 +132,24 @@ fixtures as `dmc-docs/architecture/benchmarks.md`. No regression vs the phase-5
 baseline despite the fence-close, multi-line-inline, span-file, and
 lowercase-JSX additions.
 
-| Bench               | Pre-fix (phase-5) | Now             | Delta    |
-| ------------------- | ----------------- | --------------- | -------- |
-| `compile fixture`   | 119 us            | **111.55 us**   | -6.3 %   |
-| `compile simple`    | -                 | 4.92 us         | new row  |
-| `parse fixture`     | -                 | 2.18 us         | new row  |
+| Bench             | Pre-fix (phase-5) | Now           | Delta   |
+| ----------------- | ----------------- | ------------- | ------- |
+| `compile fixture` | 119 us            | **111.55 us** | -6.3 %  |
+| `compile simple`  | -                 | 4.92 us       | new row |
+| `parse fixture`   | -                 | 2.18 us       | new row |
 
 End-to-end (`cargo run --release --example bench`, 1000 files,
 median ms; full numbers + raw samples in
 `duck-benchmarks/phase-6-correctness-cache/bench.json`):
 
-| variant              | phase-5 | phase-6 |  delta |
-| -------------------- | ------: | ------: | -----: |
-| native               |   44.73 |   55.19 | +23 %  |
-| sidecar+gfm          |   46.01 |   51.97 | +13 %  |
-| sidecar+pretty-code  |   44.94 |   50.65 | +13 %  |
-| sidecar+kitchen-sink |  144.77 |  168.93 | +17 %  |
-| velite+gfm           | 5934.00 | 6110.71 |  +3 %  |
-| velite+kitchen-sink  | 1381.46 | 1427.16 |  +3 %  |
+| variant              | phase-5 | phase-6 | delta |
+| -------------------- | ------: | ------: | ----: |
+| native               |   44.73 |   55.19 | +23 % |
+| sidecar+gfm          |   46.01 |   51.97 | +13 % |
+| sidecar+pretty-code  |   44.94 |   50.65 | +13 % |
+| sidecar+kitchen-sink |  144.77 |  168.93 | +17 % |
+| velite+gfm           | 5934.00 | 6110.71 |  +3 % |
+| velite+kitchen-sink  | 1381.46 | 1427.16 |  +3 % |
 
 Velite stays within ~3 % (the noise floor on this host). Phase-6
 overhead lands in the 13-23 % band - see
@@ -145,11 +160,11 @@ fence-close whitespace probe).
 End-to-end consumer build (`apps/duck`, 370 mdx, full
 `bun run build:docs`):
 
-| Build state                         | Wall-clock | preMdx step                        |
-| ----------------------------------- | ---------- | ---------------------------------- |
-| Cold (no `.dmc-cache`, no `.cache`) | 34.0 s     | 1447 ms (370 misses)               |
-| Warm (no source change)             | **3.3 s**  | 217 ms (370 hits)                  |
-| 1-file edit                         | 2.9 s      | 205 ms (369 hits / 1 miss)         |
+| Build state                         | Wall-clock | preMdx step                |
+| ----------------------------------- | ---------- | -------------------------- |
+| Cold (no `.dmc-cache`, no `.cache`) | 34.0 s     | 1447 ms (370 misses)       |
+| Warm (no source change)             | **3.3 s**  | 217 ms (370 hits)          |
+| 1-file edit                         | 2.9 s      | 205 ms (369 hits / 1 miss) |
 
 The 10x warm speedup comes from the native cache surviving
 `clean: true` (previously wiped on every build). The preMdx
