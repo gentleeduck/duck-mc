@@ -31,6 +31,10 @@ impl Math {
     let mut out = String::with_capacity(source.len());
     let bytes = source.as_bytes();
     let mut i = 0;
+    if let Some(end) = Self::skip_frontmatter(source, bytes) {
+      out.push_str(&source[..end]);
+      i = end;
+    }
     while i < bytes.len() {
       if let Some(end) = Self::skip_fenced_code(source, bytes, i) {
         out.push_str(&source[i..end]);
@@ -253,6 +257,44 @@ impl Math {
   }
 
   // helpers
+
+  /// Skip YAML (`---`) or TOML (`+++`) frontmatter at byte 0 so `$` runs
+  /// inside `description`, etc. never get pair-matched as math spans.
+  /// Returns the byte offset of the first content byte after the closing
+  /// fence's newline, or `None` if no frontmatter is present.
+  fn skip_frontmatter(source: &str, bytes: &[u8]) -> Option<usize> {
+    let fence = if bytes.starts_with(b"---\n") || bytes.starts_with(b"---\r\n") {
+      "---"
+    } else if bytes.starts_with(b"+++\n") || bytes.starts_with(b"+++\r\n") {
+      "+++"
+    } else {
+      return None;
+    };
+    let body_start = if bytes[3] == b'\r' { 5 } else { 4 };
+    let rest = &source[body_start..];
+    // Closing fence must sit at the start of a line. Scan for `\n<fence>`
+    // and accept either bare-EOL or trailing-newline termination.
+    let mut search = 0usize;
+    while let Some(rel) = rest[search..].find(fence) {
+      let abs = search + rel;
+      let at_line_start = abs == 0 || rest.as_bytes()[abs - 1] == b'\n';
+      let after = abs + fence.len();
+      let terminates =
+        after == rest.len() || rest.as_bytes()[after] == b'\n' || rest.as_bytes()[after] == b'\r';
+      if at_line_start && terminates {
+        let mut end = body_start + after;
+        if end < bytes.len() && bytes[end] == b'\r' {
+          end += 1;
+        }
+        if end < bytes.len() && bytes[end] == b'\n' {
+          end += 1;
+        }
+        return Some(end);
+      }
+      search = abs + fence.len();
+    }
+    None
+  }
 
   fn skip_fenced_code(source: &str, bytes: &[u8], i: usize) -> Option<usize> {
     if bytes[i] != b'`' || bytes.get(i + 1) != Some(&b'`') || bytes.get(i + 2) != Some(&b'`') {
