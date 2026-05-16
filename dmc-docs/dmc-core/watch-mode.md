@@ -2,6 +2,26 @@
 
 How `dmc build --watch` (and `dmc dev`) runs incrementally.
 
+The actual watcher process is implemented in the JS CLI
+(`dmc-napi/bin/duck-md.mjs`), not in dmc-core. dmc-core only provides
+the per-file content cache (blake3) that makes each rebuild
+incremental once the watcher has decided to run. The sections below
+describe the Rust-side notify-based loop that earlier versions
+shipped; treat it as historical / library-only. See
+[`../dmc-napi/README.md`](../dmc-napi/README.md) for the supported
+watcher.
+
+## No-op save dedupe (JS CLI)
+
+`duck-md dev` (alias `duck-md watch`) seeds a
+`Map<absPath, sha256>` after the initial build by walking `root` for
+`.md` / `.mdx` files. On a chokidar change event it re-hashes; if the
+hash matches the stored one, it logs
+`[duck-md] no-op (<rel> unchanged)` and skips the rebuild. Same
+dedupe applies to the config file. `add` / `unlink` events always
+rebuild. This sits above the dmc-core per-file blake3 cache, which
+already makes real edits incremental.
+
 ## Implementation
 
 `dmc-core::engine::watch::watch_run`. Wraps `Engine::run` in a

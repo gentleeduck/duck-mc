@@ -2,6 +2,25 @@
 
 Long-running build that re-runs on file change.
 
+The supported watcher lives in the JS CLI
+(`dmc-napi/bin/duck-md.mjs`). dmc-core itself does not run a
+chokidar / notify loop in the current release; it provides the
+per-file blake3 content cache that the JS watcher rebuilds against.
+The Rust-side `notify` integration described below is library code
+that earlier versions shipped behind the `watch` feature; the
+shipped CLI no longer drives it.
+
+## No-op save dedupe (JS CLI)
+
+`duck-md dev` (alias `duck-md watch`) seeds a
+`Map<absPath, sha256>` after the initial build by walking `root` for
+`.md` / `.mdx` files. On a change event it re-hashes; if the hash
+matches the stored one, it logs
+`[duck-md] no-op (<rel> unchanged)` and skips the rebuild. The same
+check applies to the config file. `add` / `unlink` events always
+rebuild. This sits above the per-file blake3 cache documented in
+[`cache.md`](./cache.md), which already makes real edits incremental.
+
 ## Run
 
 ```bash

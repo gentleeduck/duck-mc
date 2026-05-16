@@ -59,6 +59,17 @@ dmc build
 
 Outputs `.gentleduck/Post.json` + typed `index.d.ts`. Import from any framework.
 
+## Watch mode
+
+`duck-md dev` (alias `duck-md watch`) does an initial build, then
+rebuilds on file change via chokidar. It seeds a `Map<absPath, sha256>`
+of every `.md` / `.mdx` file under `root` after the first build and
+re-hashes on each change event; saves that don't alter content log
+`[duck-md] no-op (<rel> unchanged)` and skip the rebuild. The same
+check applies to the config file. `add` / `unlink` events always
+rebuild. This dedupe sits above the per-file blake3 cache in
+`dmc-core`.
+
 ## Native features
 
 Pretty code (syntect), KaTeX/MathML math, emoji, code imports,

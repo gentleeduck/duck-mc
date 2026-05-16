@@ -31,6 +31,17 @@ flowchart LR
 
 See [`api.md`](api.md) for full TypeScript signatures.
 
+## CLI: `duck-md dev`
+
+`bin/duck-md.mjs` provides the `duck-md` CLI (`build` / `dev` / `watch` /
+`info` / `clean`). `dev` (alias `watch`) runs an initial build, then
+uses chokidar to rebuild on change. After the first build it seeds a
+`Map<absPath, sha256>` of every `.md` / `.mdx` file under `root`; on a
+change event it re-hashes, and if the hash matches the stored one it
+logs `[duck-md] no-op (<rel> unchanged)` and skips the rebuild. The
+same check applies to the config file. `add` / `unlink` events always
+rebuild. This sits above the dmc-core per-file blake3 cache.
+
 ## Files
 
 - [`api.md`](api.md) - exported types and functions

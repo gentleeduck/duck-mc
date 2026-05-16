@@ -67,7 +67,7 @@ pnpm dmc dev
 ```
 
 Rebuilds on file change. Persistent cache means only modified files
-re-compile.
+re-compile. Saves that don't change file content are skipped (content-hashed).
 
 ## Use the output
 

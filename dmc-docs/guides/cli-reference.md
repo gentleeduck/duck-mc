@@ -24,6 +24,7 @@ code unless `--strict` is set.
 ## `dmc dev`
 
 Long-running watch mode. See [`../dmc-core/dev-mode.md`](../dmc-core/dev-mode.md).
+Saves that don't change file content are skipped (content-hashed).
 
 ```bash
 dmc dev [--config <path>]

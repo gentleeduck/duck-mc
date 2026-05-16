@@ -2,7 +2,8 @@
 // Project-local CLI for @gentleduck/md. Speaks `duck-md.config.{ts,js}`.
 
 import { spawnSync } from 'node:child_process'
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { createHash } from 'node:crypto'
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { dirname, isAbsolute, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -237,6 +238,42 @@ async function cmdClean(args) {
   }
 }
 
+function hashFile(absPath) {
+  try {
+    return createHash('sha256').update(readFileSync(absPath)).digest('hex')
+  } catch {
+    return null
+  }
+}
+
+function isContentFile(p) {
+  return p.endsWith('.md') || p.endsWith('.mdx')
+}
+
+function walkContentFiles(root) {
+  const out = []
+  const stack = [root]
+  while (stack.length) {
+    const dir = stack.pop()
+    let entries
+    try {
+      entries = readdirSync(dir, { withFileTypes: true })
+    } catch {
+      continue
+    }
+    for (const ent of entries) {
+      const p = join(dir, ent.name)
+      if (ent.isDirectory()) {
+        if (ent.name === 'node_modules' || ent.name === '.gentleduck' || ent.name === '.dmc-cache' || ent.name.startsWith('.git')) continue
+        stack.push(p)
+      } else if (ent.isFile() && isContentFile(p)) {
+        out.push(p)
+      }
+    }
+  }
+  return out
+}
+
 async function cmdDev(args) {
   const cwd = resolve(args.flags.cwd ?? process.cwd())
   let configPath = resolveConfigPath(cwd, args.flags.config)
@@ -252,6 +289,18 @@ async function cmdDev(args) {
   let { config } = await runBuild({ cwd, configPath, quiet: false })
 
   const root = resolve(cwd, config.root ?? '.')
+
+  // Content-hash map deduplicates no-op saves (touch / save without edit).
+  // chokidar fires on mtime change; without this we re-walk the entire tree
+  // and re-emit every collection JSON for a file that didn't actually change.
+  const hashes = new Map()
+  for (const f of walkContentFiles(root)) {
+    const h = hashFile(f)
+    if (h) hashes.set(resolve(f), h)
+  }
+  // Track config hash too so touch on duck-md.config.* without edit also no-ops.
+  let configHash = hashFile(configPath)
+
   const watcher = chokidar.watch([root, configPath], {
     ignoreInitial: true,
     ignored: (p) =>
@@ -260,7 +309,7 @@ async function cmdDev(args) {
       /\.(swp|swo)$/.test(p),
   })
 
-  console.log(`[duck-md] watching ${root}`)
+  console.log(`[duck-md] watching ${root} (${hashes.size} tracked files)`)
 
   let timer = null
   let pendingConfigChange = false
@@ -270,6 +319,7 @@ async function cmdDev(args) {
       if (pendingConfigChange) {
         pendingConfigChange = false
         configPath = resolveConfigPath(cwd, args.flags.config)
+        configHash = hashFile(configPath)
       }
       const r = await runBuild({ cwd, configPath, quiet: false })
       config = r.config
@@ -282,8 +332,58 @@ async function cmdDev(args) {
     timer = setTimeout(rebuild, debounce)
   }
 
-  watcher.on('all', (_evt, p) => {
-    if (resolve(p) === configPath) pendingConfigChange = true
+  watcher.on('all', (evt, p) => {
+    const abs = resolve(p)
+
+    // Config: rebuild only if contents changed; track new hash either way.
+    if (abs === configPath) {
+      if (evt === 'unlink') {
+        configHash = null
+        pendingConfigChange = true
+        schedule()
+        return
+      }
+      const next = hashFile(abs)
+      if (next && next === configHash) {
+        console.log(`[duck-md] no-op (config saved, unchanged)`)
+        return
+      }
+      configHash = next
+      pendingConfigChange = true
+      schedule()
+      return
+    }
+
+    // Add/unlink for any path: rebuild (collection membership may shift).
+    if (evt === 'add' || evt === 'unlink' || evt === 'addDir' || evt === 'unlinkDir') {
+      if (evt === 'unlink') {
+        hashes.delete(abs)
+      } else if (evt === 'add' && isContentFile(abs)) {
+        const h = hashFile(abs)
+        if (h) hashes.set(abs, h)
+      }
+      schedule()
+      return
+    }
+
+    // Change event. For content files, dedupe by content hash; for other
+    // files in root, fall through and rebuild (could affect plugins/inputs).
+    if (isContentFile(abs)) {
+      const next = hashFile(abs)
+      if (!next) {
+        schedule()
+        return
+      }
+      const prev = hashes.get(abs)
+      if (prev === next) {
+        console.log(`[duck-md] no-op (${relativeFrom(root, abs)} unchanged)`)
+        return
+      }
+      hashes.set(abs, next)
+      schedule()
+      return
+    }
+
     schedule()
   })
 
@@ -291,6 +391,11 @@ async function cmdDev(args) {
     console.log('\n[duck-md] stopping')
     watcher.close().finally(() => process.exit(0))
   })
+}
+
+function relativeFrom(root, abs) {
+  if (abs.startsWith(`${root}/`)) return abs.slice(root.length + 1)
+  return abs
 }
 
 function printHelp() {
