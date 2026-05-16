@@ -27,6 +27,9 @@
 	"type": "module",
 	"main": "mod.js",
 	"types": "mod.d.ts",
+	"bin": {
+		"duck-md": "./bin/duck-md.mjs"
+	},
 	"exports": {
 		".": {
 			"types": "./mod.d.ts",
@@ -34,9 +37,11 @@
 		}
 	},
 	"files": [
+		"bin/duck-md.mjs",
 		"mod.js",
 		"mod.d.ts",
 		"index.js",
+		"index.cjs",
 		"index.d.ts",
 		"*.node",
 		"README.md",
@@ -50,8 +55,8 @@
 		}
 	},
 	"scripts": {
-		"build": "napi build --platform --release",
-		"build:debug": "napi build --platform"
+		"build": "napi build --platform --release && node -e \"require('fs').copyFileSync('index.js','index.cjs')\"",
+		"build:debug": "napi build --platform && node -e \"require('fs').copyFileSync('index.js','index.cjs')\""
 	},
 	"dependencies": {
 		"unified": "^11",
@@ -62,6 +67,10 @@
 		"remark-rehype": "^11",
 		"rehype-raw": "^7",
 		"rehype-stringify": "^10"
+	},
+	"optionalDependencies": {
+		"chokidar": "^4",
+		"tsx": "^4"
 	},
 	"devDependencies": {
 		"@napi-rs/cli": "^2.18.4",

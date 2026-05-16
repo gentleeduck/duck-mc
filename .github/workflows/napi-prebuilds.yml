@@ -172,12 +172,13 @@ jobs:
             cp "$dir"/*.node . || true
           done
           # The napi-rs shim (index.js + index.d.ts) is uploaded from the
-          # x86_64-linux-gnu matrix entry. mod.js requires('./index.js')
-          # at runtime, so without copying these into the publish dir the
-          # tarball ships without its dispatch table and consumers crash
-          # with "Cannot find module './index.js'".
+          # x86_64-linux-gnu matrix entry. mod.js loads `./index.cjs` first
+          # (the only form node will accept via createRequire from an ESM
+          # module in a `"type": "module"` package); we copy that alongside
+          # the original `.js` for tooling that resolves the napi default.
           if [ -d artifacts/napi-shim ]; then
             cp artifacts/napi-shim/index.js .
+            cp artifacts/napi-shim/index.js index.cjs
             cp artifacts/napi-shim/index.d.ts .
           fi
           ls -la

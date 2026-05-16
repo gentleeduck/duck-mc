@@ -72,7 +72,17 @@ export function definePlugin<P extends Plugin>(
 }
 
 const require = createRequire(import.meta.url);
-const native = require("./index.js");
+// Node refuses to load `.js` CJS via createRequire from an ESM caller
+// when the package is `"type": "module"`, so the napi shim is also
+// shipped as `index.cjs` (post-build copy). Fall back to `.js` for
+// tsx/bun, which handle the interop themselves.
+const native = (() => {
+	try {
+		return require("./index.cjs");
+	} catch {
+		return require("./index.js");
+	}
+})();
 
 function resolveSidecar(): string | null {
 	const here = dirname(fileURLToPath(import.meta.url));
