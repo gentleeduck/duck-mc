@@ -8,6 +8,13 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [0.3.3](https://github.com/gentleeduck/duck-mc/compare/dmc-diagnostic-v0.3.1...dmc-diagnostic-v0.3.3) - 2026-05-16
+
+### Other
+
+- normalize em-dash to hyphen in comments and docs
+- trim stale doc comments across crates
+
 ## [0.3.2](https://github.com/gentleeduck/duck-mc/compare/dmc-diagnostic-v0.3.1...dmc-diagnostic-v0.3.2) - 2026-05-16
 
 ### Other
