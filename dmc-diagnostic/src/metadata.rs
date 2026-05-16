@@ -10,7 +10,7 @@ pub struct SourceMeta {
   pub origin: Origin,
 }
 
-/// Where the source bytes were obtained — determines what callers can do
+/// Where the source bytes were obtained - determines what callers can do
 /// beyond display:
 ///
 /// - `File`: parent dir known, relative `file=...` resolves, safe to cache
@@ -27,6 +27,6 @@ pub enum Origin {
   /// Hard-coded fixture, REPL eval, or doc-test snippet. The `&'static str`
   /// is a human-readable label (e.g. `"E004-fixture"`).
   Inline(&'static str),
-  /// In-RAM buffer (LSP unsaved doc, generated content) — not on disk.
+  /// In-RAM buffer (LSP unsaved doc, generated content) - not on disk.
   Memory,
 }

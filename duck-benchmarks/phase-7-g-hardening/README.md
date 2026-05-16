@@ -1,11 +1,11 @@
-# Phase 7 — G-phase hardening
+# Phase 7 - G-phase hardening
 
-Re-run after the `G1`–`G9` hardening track: parser module split,
+Re-run after the `G1`-`G9` hardening track: parser module split,
 exact Unicode-punctuation classification, a miri-clean source reslice,
 three fuzz-found DoS bounds, and clippy/rustdoc cleanup plus a
-bench-regression CI gate. Like phase 6 this wasn't a speed phase — it
+bench-regression CI gate. Like phase 6 this wasn't a speed phase - it
 was correctness, safety, and maintainability. The numbers confirm the
-perf *shape* vs velite is unchanged (still ~20–100× faster); the
+perf *shape* vs velite is unchanged (still ~20-100× faster); the
 absolute native/sidecar columns drift up a bit, partly real per-char
 cost from the exact Unicode tables, partly wall-clock variance on this
 host (velite moves ±5 % the same run).
@@ -15,7 +15,7 @@ host (velite moves ±5 % the same run).
 Parser structure / safety:
 
 - `dmc-parser/src/block/` split into `heading.rs`, `html.rs`,
-  `code.rs`, `blockquote.rs`, `list.rs` — no behaviour change, the
+  `code.rs`, `blockquote.rs`, `list.rs` - no behaviour change, the
   monolithic `block.rs` is gone (`G3`).
 - `raw_source_for_token_range` no longer reslices through a raw
   pointer; it indexes the source `&str` by byte range directly.
@@ -45,12 +45,12 @@ Robustness (fuzz):
 
 CI / docs:
 
-- `bench-regression` workflow added (`G1.4`) — criterion parse benches
+- `bench-regression` workflow added (`G1.4`) - criterion parse benches
   run on PRs and fail on a regression past the noise band.
 - Workspace-wide clippy + rustdoc hardening (`G8`); roadmap / README
   refresh (`G4`).
 
-Source range: `4523aa9` (phase-6 bench) … `5f9ef34` (HEAD).
+Source range: `4523aa9` (phase-6 bench) ... `5f9ef34` (HEAD).
 
 ## Diff vs phase 6
 
@@ -70,10 +70,10 @@ scale point), `cargo run --release -p dmc-core --features pretty-code
 Read this honestly:
 
 - **Velite moves ±5 %** between phases on this host with zero code
-  changes touching it — that is the wall-clock noise floor. So a
+  changes touching it - that is the wall-clock noise floor. So a
   chunk of the native/sidecar drift is the same host variance, not
   the diff. `sidecar+kitchen-sink` actually *dropped* 15 %; nothing
-  in `G1`–`G9` made the kitchen-sink JS path faster, so that swing is
+  in `G1`-`G9` made the kitchen-sink JS path faster, so that swing is
   pure host variance and a fair upper bound on how noisy this bench
   is right now.
 - **What is plausibly real**: the exact Unicode-punctuation
@@ -123,7 +123,7 @@ on the realistic single-file fixture, 5000 iters:
 
 Transform is still dominated by `pretty_code` (syntect highlight),
 97 % of named-transformer time. `lex` + `parse` together are ~2.6 %
-— the per-token Arc clone and exact-Unicode classifier raise the
+- the per-token Arc clone and exact-Unicode classifier raise the
 parse share a hair vs phase 6 (3.23 → 4.63 µs lex, 4.23 → 7.48 µs
 parse) but they are nowhere near the cost centre. See
 `flamegraph/flame.svg` for the full sampled call tree (pprof @
@@ -131,23 +131,23 @@ parse) but they are nowhere near the cost centre. See
 
 ### Consumer corpus flamegraph (`flamegraph/duck-ui.svg`)
 
-Profiles the native compile over the real `apps/duck` corpus —
+Profiles the native compile over the real `apps/duck` corpus -
 370 mdx files. This phase captured it from the **raw `content/`
 tree**, not the `content/.dmc-cache/preprocessed` mirror (the mirror
 isn't generated in this checkout; run `bun run build:docs` in the
 consumer first to get the production-exact input). Raw vs mirror
 differs by the JS preMdx pass only, which doesn't touch the native
-path being profiled — it just leaves more MDX/JSX/expression syntax
+path being profiled - it just leaves more MDX/JSX/expression syntax
 for the native lexer+parser to chew through (deeper recovery, deeper
 recursion).
 
 Caveat on the wall-clock in `duck-ui.txt` (~143 s, ~387 ms/file):
-that is **not** the compile cost — `dmc compile <file>` clocks
+that is **not** the compile cost - `dmc compile <file>` clocks
 sub-millisecond per file and the 1000-file headline bench is 66 ms
 total. The inflation is `pprof`'s signal-driven sampler unwinding
 the much deeper native-recovery stacks the raw MDX produces, 997×/s.
 Read the flamegraph for *shape* (which frames dominate), not for
-absolute timings — for those use the headline bench or `dmc compile`.
+absolute timings - for those use the headline bench or `dmc compile`.
 
 ## How to reproduce
 
@@ -160,21 +160,21 @@ cargo run --release -p dmc-core --features pretty-code --example flamegraph
 cargo run --release -p dmc-core --features pretty-code --example profile \
   > duck-benchmarks/phase-7-g-hardening/flamegraph/stage-profile.txt
 
-# consumer-corpus flamegraph — needs apps/duck preprocessed mirror first
+# consumer-corpus flamegraph - needs apps/duck preprocessed mirror first
 cargo run --release -p dmc-core --features pretty-code --example flamegraph_consumer
 ```
 
 Copy the fresh `bench.json` + `*.svg` from `dmc-core/tmp/` here.
-As with every phase, this is a *historical* snapshot at HEAD — the
+As with every phase, this is a *historical* snapshot at HEAD - the
 fixture set in `examples/nextjs/content/` drifts, so re-running phase 7
 later will not exactly reproduce these numbers.
 
 ## Files
 
-- `bench.json` — raw samples + min/median/p95/max/stddev/host
-- `scale.svg` — wall-time vs N
-- `throughput.svg` — files/sec at N=1000
-- `table.svg` — tabular summary
-- `flamegraph/flame.svg` — pprof flamegraph of the native compile path (toy fixture)
-- `flamegraph/stage-profile.txt` — lex / parse / transform / codegen breakdown
-- `flamegraph/duck-ui.svg` + `duck-ui.txt` — pprof flamegraph + summary over the real `apps/duck` 370-mdx corpus (raw content tree — see caveat above)
+- `bench.json` - raw samples + min/median/p95/max/stddev/host
+- `scale.svg` - wall-time vs N
+- `throughput.svg` - files/sec at N=1000
+- `table.svg` - tabular summary
+- `flamegraph/flame.svg` - pprof flamegraph of the native compile path (toy fixture)
+- `flamegraph/stage-profile.txt` - lex / parse / transform / codegen breakdown
+- `flamegraph/duck-ui.svg` + `duck-ui.txt` - pprof flamegraph + summary over the real `apps/duck` 370-mdx corpus (raw content tree - see caveat above)

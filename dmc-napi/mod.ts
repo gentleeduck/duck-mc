@@ -867,7 +867,7 @@ type CbFn = (v: unknown, ctx: TransformCtx) => unknown;
 // Shared via `globalThis` because tsx (and similar) loads this file
 // twice per process: once when the config imports `s`, once when the
 // runner imports `build()`. Two module-local `Map`s would split the
-// registry — config-side ids would miss the runner-side lookup and
+// registry - config-side ids would miss the runner-side lookup and
 // every transform would be silently skipped.
 interface DmcRegistryHolder {
 	__dmcRegistry__?: { map: Map<number, CbFn>; nextId: number };
@@ -1582,7 +1582,7 @@ function dedentJsxFlowChildren(src: string): string {
 		}
 
 		// Match BOTH Capitalised (`<LinkedCard>`) and lowercase host tags
-		// (`<div>`, `<svg>`) — mdast-mdx-jsx indents children of both, so
+		// (`<div>`, `<svg>`) - mdast-mdx-jsx indents children of both, so
 		// missing lowercase here leaves a 4-space residue that CommonMark
 		// reclassifies as an indented code block (e.g. `<title>` / `<path>`
 		// inside `<svg>` rendered as plaintext).
@@ -1656,7 +1656,7 @@ async function processWithUnified(
 	};
 	// `remark-mdx` keeps JSX as typed mdast nodes; `passThrough` carries
 	// them into hast so user rehype plugins can visit/mutate them.
-	// `rehype-raw` is intentionally OMITTED — it chokes on mdxJsxFlowElement.
+	// `rehype-raw` is intentionally OMITTED - it chokes on mdxJsxFlowElement.
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	let proc: any = unified().use(remarkParse).use(remarkMdx);
 	for (const p of remarkPlugins) proc = apply(proc, p);
@@ -1682,7 +1682,7 @@ async function processWithUnified(
 
 /**
  * Lower mdxJsx*Element to hast `element` (tagName + flattened attributes
- * as properties). mdx{Flow,Text}Expression / mdxjsEsm are dropped — they
+ * as properties). mdx{Flow,Text}Expression / mdxjsEsm are dropped - they
  * only make sense at MDX runtime, not in stringified HTML.
  */
 function rehypeMdxJsxToHast() {
@@ -1842,7 +1842,7 @@ export async function build(input: UserConfig): Promise<BuildReport> {
 	}
 	await applyCustomLoaders(input, report);
 
-	// In-process unified pipeline — type-safe plugin refs run here.
+	// In-process unified pipeline - type-safe plugin refs run here.
 	const remark: Pluggable[] = (input.content?.remarkPlugins ?? []) as Pluggable[];
 	const rehype: Pluggable[] = (input.content?.rehypePlugins ?? []) as Pluggable[];
 	if (remark.length || rehype.length) {

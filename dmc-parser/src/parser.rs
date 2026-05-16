@@ -184,7 +184,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
 
   /// Rebuild the verbatim source slice covered by `tokens[start..end)`.
   /// With `with_source`, reslices the original `&str` directly. Without it,
-  /// concatenates token lexemes — loses any JSX-internal whitespace the
+  /// concatenates token lexemes - loses any JSX-internal whitespace the
   /// lexer normalized away, but callers that need that whitespace always
   /// attach a source.
   pub(crate) fn raw_source_for_token_range(&self, start: usize, end: usize) -> String {

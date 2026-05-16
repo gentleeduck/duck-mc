@@ -14,7 +14,7 @@ mod list;
 const HTML_BLOCK_TYPE1_TAGS: &[&str] = &["script", "pre", "style", "textarea"];
 
 /// CM 4.6 type-6: closes on next blank line. Type-7 is conditionally
-/// handled at the call site — MDX treats capital / namespaced tags as
+/// handled at the call site - MDX treats capital / namespaced tags as
 /// components, not type-7 HTML.
 const HTML_BLOCK_TYPE6_TAGS: &[&str] = &[
   "address",
@@ -216,7 +216,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         },
         TokenKind::JsxOpenTagStart | TokenKind::JsxCloseTagStart => {
           // Peek past the leading whitespace to check Type-1 / Type-6 raw
-          // HTML. Don't consume the Whitespace — CM 4.6 keeps the indent
+          // HTML. Don't consume the Whitespace - CM 4.6 keeps the indent
           // in the rendered output.
           let saved = self.pos;
           self.pos += 1;
@@ -426,7 +426,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
   /// Wrap the leading inline run of `item` in a `Paragraph` so loose-list
   /// formatting (`<li><p>...</p><p>...</p></li>`) kicks in. Only contiguous
   /// inline-typed children at the front are promoted; existing block
-  /// children stay put — otherwise `[Text, List]` would collapse into one
+  /// children stay put - otherwise `[Text, List]` would collapse into one
   /// paragraph that swallows the inner list.
   fn ensure_loose_item(item: &mut Node, span: &duck_diagnostic::Span) {
     let promote = |kids: &mut Vec<Node>, span: &duck_diagnostic::Span| {

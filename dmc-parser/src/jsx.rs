@@ -436,7 +436,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
 /// JSX's own whitespace rules. Without this, `<div>\n  <Card/>\n</div>`
 /// emits stray `"  "` / `"\n"` text children that turn into extra flex/grid
 /// items. Only runs when every non-blank child is itself an element or block
-/// — loose inline content (`<b>hello world</b>`) keeps its whitespace.
+/// - loose inline content (`<b>hello world</b>`) keeps its whitespace.
 fn strip_jsx_layout_whitespace(children: Vec<Node>) -> Vec<Node> {
   let is_flow_child = |n: &Node| {
     is_whitespace_text(n)

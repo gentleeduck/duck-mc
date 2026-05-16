@@ -162,7 +162,7 @@ fn is_unicode_punct(c: char) -> bool {
 }
 
 /// Flatten an inline node back to a label string preserving emphasis markers
-/// and link/image bracketing — used for ref-def lookup.
+/// and link/image bracketing - used for ref-def lookup.
 fn push_node_label(out: &mut String, node: &Node) {
   match node {
     Node::Text(t) => out.push_str(&t.value),
@@ -1200,7 +1200,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       return Some((String::new(), None));
     }
     // CM 6.3 destination: `<...>` (no whitespace/newlines) or bare run.
-    // `\` does NOT escape the closing `>` inside `<...>` — scan byte-by-
+    // `\` does NOT escape the closing `>` inside `<...>` - scan byte-by-
     // byte so `<foo\>` reads as unterminated, not as dest "foo\".
     let (dest_end, raw_dest) = if let Some(rest) = trimmed.strip_prefix('<') {
       let bytes = rest.as_bytes();

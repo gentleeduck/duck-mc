@@ -279,8 +279,7 @@ impl Math {
       let abs = search + rel;
       let at_line_start = abs == 0 || rest.as_bytes()[abs - 1] == b'\n';
       let after = abs + fence.len();
-      let terminates =
-        after == rest.len() || rest.as_bytes()[after] == b'\n' || rest.as_bytes()[after] == b'\r';
+      let terminates = after == rest.len() || rest.as_bytes()[after] == b'\n' || rest.as_bytes()[after] == b'\r';
       if at_line_start && terminates {
         let mut end = body_start + after;
         if end < bytes.len() && bytes[end] == b'\r' {

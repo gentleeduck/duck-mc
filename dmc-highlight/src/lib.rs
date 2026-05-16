@@ -15,7 +15,7 @@ use syntect::highlighting::{HighlightState, Highlighter, RangedHighlightIterator
 use syntect::parsing::{ParseState, ScopeStack, SyntaxDefinition, SyntaxSet, SyntaxSetBuilder};
 use syntect::util::LinesWithEndings;
 
-// Embedded so the compiled `.node` is self-contained — the build-time
+// Embedded so the compiled `.node` is self-contained - the build-time
 // CARGO_MANIFEST_DIR path would not resolve on any other machine.
 static GRAMMARS_DIR: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/assets/grammars-sublime");
 static THEMES_DIR: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/assets/themes-bat");
@@ -204,7 +204,7 @@ pub fn highlight_code_multi<'a>(code: &'a str, lang: Option<&str>, theme_names: 
       let text = per_theme[0][tok_i].1;
       let styles: Vec<Style> = per_theme.iter().map(|v| v[tok_i].0).collect();
       // Coalesce with the previous token when every theme produces an
-      // identical style — matches shiki / rehype-pretty-code span counts.
+      // identical style - matches shiki / rehype-pretty-code span counts.
       if let Some(prev) = tokens.last_mut()
         && styles_match(&prev.styles, &styles)
         && let Some(joined) = join_adjacent(prev.text, text)

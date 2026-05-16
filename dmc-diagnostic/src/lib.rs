@@ -43,7 +43,7 @@ pub type DiagResult<T = ()> = Result<T, Diagnostic<Code>>;
 /// - `S***`  - shared cross-cutting errors (IO, JSON, locks; always available)
 /// - `SW***` - shared cross-cutting warnings (always available)
 ///
-/// `Custom { code, severity }` is the third-party escape hatch — emit through
+/// `Custom { code, severity }` is the third-party escape hatch - emit through
 /// the same engine without forking this enum.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Code {

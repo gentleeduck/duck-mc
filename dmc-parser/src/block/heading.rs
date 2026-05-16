@@ -13,7 +13,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     self.advance();
     let mut children = self.collect_inline_until_break();
     // CM 4.2: trailing-spaces hard breaks don't render as `<br />` inside
-    // a heading — drop them along with any whitespace-only tail text.
+    // a heading - drop them along with any whitespace-only tail text.
     while matches!(children.last(), Some(Node::HardBreak(_))) {
       children.pop();
     }

@@ -152,7 +152,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     }
     let mut value = self.raw_source_for_token_range(start_idx, self.pos);
     // CM 5.1: HTML block inside a blockquote has `>` markers on every
-    // continuation line — strip them.
+    // continuation line - strip them.
     if value.contains("\n>") {
       let stripped: String = value
         .split_inclusive('\n')
@@ -243,7 +243,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
   }
 
   /// Top-level lowercase HTML close tags (`</a></b>`) are inline raw HTML,
-  /// not JSX terminators — paragraph collection must not stop on them.
+  /// not JSX terminators - paragraph collection must not stop on them.
   pub(super) fn parse_plain_html_close_paragraph(&mut self) -> Node {
     let span = self.current_span();
     let children = self.collect_inline(&|k| {

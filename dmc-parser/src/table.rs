@@ -176,7 +176,7 @@ fn parse_alignment_row(s: &str) -> Option<Vec<TableAlign>> {
 }
 
 /// Split `|a|b|c|` into cell strings. Pipes inside `` `code` `` spans and
-/// `\|` escapes are content, not delimiters — required for GFM tables like
+/// `\|` escapes are content, not delimiters - required for GFM tables like
 /// `` | `"x" \| "y"` | `"z"` |``.
 fn split_cells(s: &str) -> Vec<String> {
   let t = s.trim();

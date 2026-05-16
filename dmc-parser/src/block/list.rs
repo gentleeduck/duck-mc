@@ -268,7 +268,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
             let span = self.current_span();
             let mut buf = String::new();
             loop {
-              // Use visual column width (`peek_leading_indent`) — must match
+              // Use visual column width (`peek_leading_indent`) - must match
               // the outer loop, else a tab-indented line could spin forever.
               let aligned = self.peek_leading_indent().is_some_and(|w| w >= content_floor + 4);
               if !aligned {
