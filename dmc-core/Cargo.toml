@@ -67,7 +67,7 @@ plotters.workspace = true
 # does not build on Windows. The `flamegraph*` examples compile to a stub
 # `main` there.
 [target.'cfg(unix)'.dev-dependencies]
-pprof = { version = "0.14", features = ["flamegraph"] }
+pprof = { version = "0.15", features = ["flamegraph"] }
 
 [[bench]]
 name = "compile"
