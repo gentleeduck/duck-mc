@@ -3,7 +3,15 @@ name: CI
 on:
   push:
     branches: [master, main]
+    paths-ignore:
+      - '**/*.md'
+      - '.github/**/*.md'
+      - 'docs/**'
   pull_request:
+    paths-ignore:
+      - '**/*.md'
+      - '.github/**/*.md'
+      - 'docs/**'
 
 permissions:
   contents: read
@@ -36,6 +44,8 @@ jobs:
         with:
           components: clippy
       - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: ${{ github.job }}
       - run: cargo clippy --workspace --all-features -- -D warnings
 
   test:
@@ -49,6 +59,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: ${{ github.job }}-${{ matrix.os }}
       - run: cargo test --workspace --features pretty-code
 
   feature-matrix:
@@ -58,5 +70,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: ${{ github.job }}
       - run: cargo check --workspace --no-default-features
       - run: cargo check --workspace --all-features

@@ -1,4 +1,28 @@
-# dmc-codegen
+<p align="center">
+  <img src="../public/logo-dark.svg" alt="dmc-codegen" width="120"/>
+</p>
+
+<h1 align="center">dmc-codegen</h1>
+
+<p align="center">
+  HTML and MDX body emitters for the dmc compiler.
+</p>
+
+<p align="center">
+  <a href="../LICENSE">MIT</a> -
+  <a href="../CHANGELOG.md">Changelog</a> -
+  <a href="../CONTRIBUTING.md">Contributing</a> -
+  <a href="https://crates.io/crates/dmc-codegen">crates.io</a> -
+  <a href="https://docs.rs/dmc-codegen">docs.rs</a>
+</p>
+
+<p align="center">
+  <a href="https://crates.io/crates/dmc-codegen"><img src="https://img.shields.io/crates/v/dmc-codegen.svg" alt="crates.io"/></a>
+  <a href="https://docs.rs/dmc-codegen"><img src="https://docs.rs/dmc-codegen/badge.svg" alt="docs.rs"/></a>
+  <a href="../LICENSE"><img src="https://img.shields.io/crates/l/dmc-codegen.svg" alt="MIT"/></a>
+</p>
+
+---
 
 HTML and MDX emitters for the `dmc` document AST.
 

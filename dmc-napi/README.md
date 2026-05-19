@@ -18,6 +18,7 @@
 
 <p align="center">
   <a href="https://www.npmjs.com/package/@gentleduck/md"><img src="https://img.shields.io/npm/v/@gentleduck/md.svg" alt="npm"/></a>
+  <a href="https://www.npmjs.com/package/@gentleduck/md"><img src="https://img.shields.io/npm/dm/@gentleduck/md.svg" alt="downloads"/></a>
   <a href="https://github.com/gentleeduck/duck-mc/blob/master/LICENSE"><img src="https://img.shields.io/npm/l/@gentleduck/md.svg" alt="MIT"/></a>
 </p>
 

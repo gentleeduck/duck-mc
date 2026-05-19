@@ -4,7 +4,7 @@
 	"description": "Optional Node helper for foreign remark/rehype plugins, paired with @gentleduck/md",
 	"license": "MIT",
 	"author": "gentleduck",
-	"homepage": "https://github.com/gentleeduck/duck-mc#readme",
+	"homepage": "https://gentleduck.org/duck-md",
 	"repository": {
 		"type": "git",
 		"url": "git+https://github.com/gentleeduck/duck-mc.git",
