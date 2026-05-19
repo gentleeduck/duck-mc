@@ -69,7 +69,7 @@
 		"rehype-stringify": "^10"
 	},
 	"optionalDependencies": {
-		"chokidar": "^4",
+		"chokidar": "^5",
 		"tsx": "^4"
 	},
 	"devDependencies": {
