@@ -78,7 +78,20 @@ fn resolve_asset(ctx: &Ctx, raw: &str, allow_abs: bool) -> Result<PathBuf, Valid
     return Ok(PathBuf::from(raw));
   }
   let dir = ctx.file_path.parent().unwrap_or(&ctx.root);
-  Ok(dir.join(raw))
+  let joined = dir.join(raw);
+  // SEC-004: a relative `../` field can escape the project root. Canonicalize
+  // the joined path and assert it stays inside `ctx.root`; reject otherwise.
+  // (`canonicalize` resolves `..` and symlinks; the asset must exist anyway
+  // since `publish_asset` reads it next.)
+  let canonical =
+    joined.canonicalize().map_err(|e| ValidationError::root(format!("cannot resolve asset '{raw}': {e}")))?;
+  let root_canonical = ctx.root.canonicalize().unwrap_or_else(|_| ctx.root.clone());
+  if !canonical.starts_with(&root_canonical) {
+    return Err(ValidationError::root(format!(
+      "'{raw}' resolves outside the project root and was rejected (path traversal)",
+    )));
+  }
+  Ok(canonical)
 }
 
 fn publish_asset(ctx: &Ctx, path: &PathBuf) -> Result<String, ValidationError> {
@@ -105,4 +118,38 @@ fn publish_asset(ctx: &Ctx, path: &PathBuf) -> Result<String, ValidationError> {
   let mut map = cfg.map.lock().unwrap();
   map.insert(path.to_string_lossy().to_string(), url.clone());
   Ok(url)
+}
+
+#[cfg(test)]
+mod traversal_tests {
+  use super::resolve_asset;
+  use crate::Ctx;
+
+  /// SEC-004: a relative asset field using `../` must not escape the
+  /// project root, even though it is neither a URL nor an absolute path.
+  #[test]
+  fn rejects_relative_path_traversal() {
+    // Build a unique on-disk project root so `canonicalize` succeeds.
+    let root = std::env::temp_dir().join(format!("dmc-sec004-{}", std::process::id()));
+    let docs = root.join("docs");
+    std::fs::create_dir_all(&docs).unwrap();
+    std::fs::write(docs.join("page.md"), "x").unwrap();
+    // A file that exists outside the root (the traversal target).
+    let outside = std::env::temp_dir().join(format!("dmc-sec004-secret-{}", std::process::id()));
+    std::fs::write(&outside, "secret").unwrap();
+
+    let ctx = Ctx::new(docs.join("page.md"), root.clone(), String::new());
+
+    // `../<secret>` escapes the project root -> rejected.
+    let escaping = format!("../{}", outside.file_name().unwrap().to_string_lossy());
+    let err = resolve_asset(&ctx, &escaping, false);
+    assert!(err.is_err(), "path traversal `{escaping}` was not rejected");
+
+    // A sibling inside the root still resolves.
+    std::fs::write(docs.join("ok.png"), "img").unwrap();
+    assert!(resolve_asset(&ctx, "ok.png", false).is_ok());
+
+    let _ = std::fs::remove_dir_all(&root);
+    let _ = std::fs::remove_file(&outside);
+  }
 }
