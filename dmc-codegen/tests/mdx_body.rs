@@ -1,8 +1,13 @@
-use dmc_codegen::render_mdx_body;
+use dmc_codegen::{MdxBodyEmitter, RenderOptions, render_mdx_body};
 use dmc_parser::parse;
 
 fn body(src: &str) -> String {
   render_mdx_body(&parse(src))
+}
+
+/// Render with raw-HTML passthrough enabled (CommonMark "unsafe" mode).
+fn body_unsafe(src: &str) -> String {
+  MdxBodyEmitter::render_with(&parse(src), RenderOptions { allow_dangerous_html: true, ..Default::default() }).0
 }
 
 #[test]
@@ -63,13 +68,44 @@ fn expression_passed_through() {
 /// and ancestor).
 #[test]
 fn inline_raw_html_does_not_drop_enclosing_jsx_element() {
+  // `allow_dangerous_html: true` so the raw inline `<code>` HTML is
+  // emitted; the regression this guards (dropped sibling/ancestor
+  // frames) is independent of the safe/unsafe mode.
   let src = "<Acc>\n<Item>\nNo. <code className=\"x\">react</code>, more.\n</Item>\n</Acc>\n";
-  let s = body(src);
+  let s = body_unsafe(src);
   assert!(s.contains("jsx(Acc,") || s.contains("jsxs(Acc,"), "no `jsx(Acc,` in body:\n{}", s);
   assert!(s.contains("jsx(Item,") || s.contains("jsxs(Item,"), "no `jsx(Item,` in body:\n{}", s);
   assert!(s.contains("dangerouslySetInnerHTML"), "raw HTML not emitted:\n{}", s);
   assert!(s.contains("\"react\""), "text inside <code> dropped:\n{}", s);
   assert!(s.contains("more."), "trailing text dropped:\n{}", s);
+}
+
+/// SEC-010: in safe mode (default) raw HTML must NOT compile to a live
+/// `dangerouslySetInnerHTML`. Block-level raw HTML is omitted; inline raw
+/// HTML is escaped to visible text.
+#[test]
+fn raw_html_not_emitted_as_dangerously_set_inner_html_by_default() {
+  let s = body("<script>alert(1)</script>");
+  assert!(!s.contains("dangerouslySetInnerHTML"), "raw HTML leaked as live HTML in safe mode:\n{}", s);
+  assert!(!s.contains("<script>"), "raw <script> leaked verbatim:\n{}", s);
+}
+
+/// SEC-010: inline raw HTML in safe mode is escaped to a text node, not
+/// dropped and not live.
+#[test]
+fn inline_raw_html_escaped_to_text_in_safe_mode() {
+  let s = body("see <b>this</b> here");
+  assert!(!s.contains("dangerouslySetInnerHTML"), "inline raw HTML leaked as live HTML:\n{}", s);
+  // The `<b>` markup survives as an escaped string literal (visible text).
+  assert!(s.contains("<b>"), "inline raw HTML text dropped:\n{}", s);
+  assert!(s.contains("see") && s.contains("here"), "surrounding text dropped:\n{}", s);
+}
+
+/// SEC-010: explicit opt-in still produces `dangerouslySetInnerHTML`.
+#[test]
+fn raw_html_emitted_when_allow_dangerous_html() {
+  let s = body_unsafe("<div>raw</div>");
+  assert!(s.contains("dangerouslySetInnerHTML"), "opt-in raw HTML not emitted:\n{}", s);
 }
 
 #[test]

@@ -37,6 +37,12 @@ pub struct CompileConfig {
   pub math_engine: Option<MathEngine>,
   /// Force every listed JS plugin to the sidecar; drop every native transformer.
   pub force_sidecar: bool,
+  /// SEC-010: raw embedded HTML passthrough (CommonMark "unsafe" mode).
+  /// When `false` (the default), attacker-supplied `<script>` / `<iframe>`
+  /// / `on*=` markup is NOT emitted verbatim into the HTML or MDX output —
+  /// block-level raw HTML is dropped and inline raw HTML is escaped to
+  /// visible text. Set `true` only when the caller fully trusts the input.
+  pub allow_dangerous_html: bool,
   /// Per-plugin sidecar override. Recognised entries: "remark-gfm",
   /// "remark-math", "remark-emoji", "rehype-pretty-code", "shiki",
   /// "rehype-katex", "rehype-mathjax", "rehype-slug",
@@ -64,6 +70,7 @@ impl Default for CompileConfig {
       math_engine: None,
       force_sidecar: false,
       prefer_sidecar: vec![],
+      allow_dangerous_html: false,
     }
   }
 }
@@ -255,8 +262,14 @@ impl Compiler {
     diag_engine: &mut DiagnosticEngine<Code>,
   ) -> CompileOutput {
     let mut acc = Accumulator::new();
-    let mut html_sink = if compile_cfg.emit_html { Some(HtmlEmitter::new()) } else { None };
-    let mut body_sink = if compile_cfg.emit_body { Some(MdxBodyEmitter::new()) } else { None };
+    // SEC-010: propagate the caller's raw-HTML policy into both emitters
+    // so `compile()` / napi callers are safe-by-default.
+    let render_opts =
+      dmc_codegen::RenderOptions { allow_dangerous_html: compile_cfg.allow_dangerous_html, ..Default::default() };
+    let mut html_sink =
+      if compile_cfg.emit_html { Some(HtmlEmitter::new_with_options(render_opts)) } else { None };
+    let mut body_sink =
+      if compile_cfg.emit_body { Some(MdxBodyEmitter::new_with_options(render_opts)) } else { None };
 
     let mut sinks: Vec<&mut dyn dmc_codegen::NodeSink> = Vec::with_capacity(3);
     sinks.push(&mut acc);
@@ -385,6 +398,31 @@ mod tests {
     let mut cfg = CompileConfig::default();
     cfg.markdown_rehype_plugins.push(json!("rehype-pretty-code"));
     assert!(cfg.has_js_plugins());
+  }
+
+  /// SEC-010: `compile()` (and therefore napi `compile`/`build`) must be
+  /// safe-by-default — attacker `<script>` must not survive into the MDX
+  /// body as a live `dangerouslySetInnerHTML`, nor as a raw `<script>`.
+  #[test]
+  fn compile_does_not_ship_raw_script_in_mdx_body() {
+    let mut diag = DiagnosticEngine::<Code>::new();
+    let out = Compiler::compile("<script>alert(1)</script>\n", &mut diag);
+    assert!(
+      !out.body.contains("dangerouslySetInnerHTML"),
+      "raw HTML leaked as live dangerouslySetInnerHTML in MDX body:\n{}",
+      out.body
+    );
+    assert!(!out.body.contains("<script>"), "raw <script> leaked into MDX body:\n{}", out.body);
+    assert!(!out.html.contains("<script>"), "raw <script> leaked into HTML output:\n{}", out.html);
+  }
+
+  /// SEC-010: explicit opt-in restores raw-HTML passthrough.
+  #[test]
+  fn compile_with_allow_dangerous_html_emits_raw_html() {
+    let mut diag = DiagnosticEngine::<Code>::new();
+    let cfg = CompileConfig { allow_dangerous_html: true, ..CompileConfig::default() };
+    let out = Compiler::compile_with_pipeline("<div>raw</div>\n", Path::new("."), &cfg, &mut diag);
+    assert!(out.body.contains("dangerouslySetInnerHTML"), "opt-in raw HTML not emitted in MDX body:\n{}", out.body);
   }
 }
 

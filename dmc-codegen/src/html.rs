@@ -226,7 +226,7 @@ impl HtmlEmitter {
         self.out.push_str(&format!("<li class=\"task-list-item\"><input type=\"checkbox\"{} disabled> ", checked));
       },
       Node::Link(l) => {
-        self.out.push_str(&format!("<a href=\"{}\"", escape_attr(&escape_url(sanitize_url(&l.href)))));
+        self.out.push_str(&format!("<a href=\"{}\"", escape_attr(&escape_url(&sanitize_url(&l.href)))));
         // CM 6.3 / 4.7: link title -> anchor `title` attribute.
         // (autolink-headings tooltip borrows this same field.)
         if let Some(title) = &l.title {
@@ -297,7 +297,7 @@ impl HtmlEmitter {
   fn image(&mut self, i: &Image) {
     self.out.push_str(&format!(
       "<img src=\"{}\" alt=\"{}\"",
-      escape_attr(&escape_url(sanitize_url(&i.src))),
+      escape_attr(&escape_url(&sanitize_url(&i.src))),
       escape_attr(&i.alt)
     ));
     if let Some(title) = &i.title {
@@ -439,7 +439,7 @@ impl HtmlEmitter {
         self.out.push_str("</code>");
       },
       Node::Link(l) => {
-        self.out.push_str(&format!("<a href=\"{}\"", escape_attr(&escape_url(sanitize_url(&l.href)))));
+        self.out.push_str(&format!("<a href=\"{}\"", escape_attr(&escape_url(&sanitize_url(&l.href)))));
         if let Some(label) = &l.title {
           self.out.push_str(&format!(" aria-label=\"{}\"", escape_attr(label)));
         }

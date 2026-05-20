@@ -15,6 +15,26 @@ pub fn escape_text(s: &str) -> String {
   out
 }
 
+/// True for ASCII control bytes (`0x00..=0x1f`, `0x7f`). Browsers strip
+/// TAB/LF/CR (and treat other control chars erratically) from URLs
+/// *before* scheme matching, so `java\tscript:` resolves to
+/// `javascript:`. We mirror that by stripping all control chars before
+/// scheme detection.
+fn is_url_control_byte(b: u8) -> bool {
+  b <= 0x1f || b == 0x7f
+}
+
+/// Returns `true` when `url` contains any ASCII control byte.
+fn has_control_char(url: &str) -> bool {
+  url.bytes().any(is_url_control_byte)
+}
+
+/// Strip every ASCII control byte from `url` — the browser-effective
+/// form used for scheme matching.
+fn strip_control_chars(url: &str) -> String {
+  url.bytes().filter(|b| !is_url_control_byte(*b)).map(|b| b as char).collect()
+}
+
 /// Reject URLs carrying a dangerous scheme (`javascript:`, `data:`,
 /// `vbscript:`, `file:`, ...). Allows relative URLs (no scheme) and the
 /// absolute-scheme allowlist `{http, https, mailto, tel}`.
@@ -22,8 +42,14 @@ pub fn escape_text(s: &str) -> String {
 /// A URL has a scheme if it matches `^[a-zA-Z][a-zA-Z0-9+.-]*:` *before*
 /// any `/`, `?`, or `#` — so `./foo:bar`, `/foo:bar`, `#frag` and
 /// `?q=a:b` are correctly treated as schemeless (safe).
+///
+/// The input is checked in its control-char-stripped form (see
+/// [`strip_control_chars`]) — a pre-`:` token holding a control byte
+/// (TAB/LF/CR/NUL/...) would otherwise look schemeless here while a
+/// browser collapses it back into a live `javascript:` scheme.
 pub fn is_safe_url(url: &str) -> bool {
-  let trimmed = url.trim_start_matches([' ', '\t', '\n', '\r']);
+  let stripped = strip_control_chars(url);
+  let trimmed = stripped.trim_start_matches([' ', '\t', '\n', '\r']);
   let bytes = trimmed.as_bytes();
   // Find the scheme delimiter `:` before any path/query/fragment marker.
   let mut i = 0;
@@ -40,7 +66,10 @@ pub fn is_safe_url(url: &str) -> bool {
         let first_ok = chars.next().is_some_and(|c| c.is_ascii_alphabetic());
         let rest_ok = chars.all(|c| c.is_ascii_alphanumeric() || matches!(c, b'+' | b'.' | b'-'));
         if !(first_ok && rest_ok) {
-          return true; // not a valid scheme token -> treat as relative
+          // A non-canonical scheme token in the *stripped* form is not a
+          // recognized scheme — treat as relative. (Control chars are
+          // already gone, so this can no longer be exploited.)
+          return true;
         }
         return matches!(scheme.to_ascii_lowercase().as_str(), "http" | "https" | "mailto" | "tel");
       },
@@ -50,10 +79,23 @@ pub fn is_safe_url(url: &str) -> bool {
   true // no `:` at all -> relative -> safe
 }
 
-/// Sanitize a link/image URL: returns the URL unchanged when it passes
-/// [`is_safe_url`], otherwise the safe fallback `"#"`.
-pub fn sanitize_url(url: &str) -> &str {
-  if is_safe_url(url) { url } else { "#" }
+/// Sanitize a link/image URL. Returns the URL unchanged when it is both
+/// safe ([`is_safe_url`]) *and* free of control chars; otherwise returns
+/// the safe fallback `"#"`.
+///
+/// A control-char-bearing URL is never passed through verbatim — even if
+/// its stripped form is safe — because the raw bytes can be re-interpreted
+/// downstream. When in doubt, fall back to `#`.
+pub fn sanitize_url(url: &str) -> String {
+  if has_control_char(url) {
+    // Re-check the browser-effective (stripped) form; never emit the raw
+    // control-char-bearing URL.
+    if is_safe_url(url) { strip_control_chars(url) } else { "#".to_string() }
+  } else if is_safe_url(url) {
+    url.to_string()
+  } else {
+    "#".to_string()
+  }
 }
 
 /// Percent-encode the bytes that CM's reference renderer escapes inside
@@ -133,6 +175,7 @@ mod url_safety_tests {
     for u in [
       "javascript:alert(1)",
       "JavaScript:alert(1)",
+      "JAVASCRIPT:alert(1)",
       "  javascript:alert(1)",
       "data:text/html,<script>x</script>",
       "vbscript:msgbox(1)",
@@ -141,6 +184,35 @@ mod url_safety_tests {
       assert!(!is_safe_url(u), "should reject {u:?}");
       assert_eq!(sanitize_url(u), "#");
     }
+  }
+
+  /// SEC-009: control chars inside the scheme token must not bypass the
+  /// allowlist. Browsers strip TAB/LF/CR/NUL before scheme matching, so
+  /// `java\tscript:` collapses to a live `javascript:`. `sanitize_url`
+  /// must fall back to `#` and never emit the raw control-char URL.
+  #[test]
+  fn rejects_control_char_scheme_bypass() {
+    for u in [
+      "java\tscript:alert(1)",
+      "java\nscript:alert(1)",
+      "java\rscript:alert(1)",
+      "\u{0}javascript:alert(1)",
+      "java\u{0}script:alert(1)",
+      "jav\u{1}ascript:alert(1)",
+      "javascript\t:alert(1)",
+      "\tjavascript:alert(1)",
+    ] {
+      assert!(!is_safe_url(u), "should reject {u:?}");
+      assert_eq!(sanitize_url(u), "#", "should fall back to # for {u:?}");
+    }
+  }
+
+  /// A control-char-bearing URL whose stripped form is *safe* must still
+  /// not be emitted verbatim — emit the stripped form instead.
+  #[test]
+  fn strips_control_chars_from_otherwise_safe_url() {
+    assert_eq!(sanitize_url("https://exa\tmple.com"), "https://example.com");
+    assert_eq!(sanitize_url("/re\nl/path"), "/rel/path");
   }
 
   #[test]
