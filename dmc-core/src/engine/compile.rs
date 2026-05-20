@@ -266,10 +266,8 @@ impl Compiler {
     // so `compile()` / napi callers are safe-by-default.
     let render_opts =
       dmc_codegen::RenderOptions { allow_dangerous_html: compile_cfg.allow_dangerous_html, ..Default::default() };
-    let mut html_sink =
-      if compile_cfg.emit_html { Some(HtmlEmitter::new_with_options(render_opts)) } else { None };
-    let mut body_sink =
-      if compile_cfg.emit_body { Some(MdxBodyEmitter::new_with_options(render_opts)) } else { None };
+    let mut html_sink = if compile_cfg.emit_html { Some(HtmlEmitter::new_with_options(render_opts)) } else { None };
+    let mut body_sink = if compile_cfg.emit_body { Some(MdxBodyEmitter::new_with_options(render_opts)) } else { None };
 
     let mut sinks: Vec<&mut dyn dmc_codegen::NodeSink> = Vec::with_capacity(3);
     sinks.push(&mut acc);
