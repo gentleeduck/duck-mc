@@ -699,6 +699,35 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     Node::Paragraph(Paragraph { children, span })
   }
 
+  /// SEC-003: depth-limit fallback. Reached when block nesting (lists,
+  /// blockquotes, JSX) hits [`crate::parser::MAX_BLOCK_NESTING_DEPTH`].
+  /// Instead of recursing further (which would overflow the stack on
+  /// adversarial input), consume the current line's tokens verbatim into a
+  /// literal-text `Paragraph` and emit a diagnostic. Always advances the
+  /// cursor by at least one token so the top-level loop makes progress.
+  pub(crate) fn parse_overflow_paragraph(&mut self) -> Node {
+    let span = self.current_span();
+    self.diag(
+      Code::BlockNestingTooDeep,
+      "block nesting exceeded the maximum depth; remaining content kept as literal text",
+    );
+    let mut value = String::new();
+    let mut consumed = false;
+    while let Some(tok) = self.peek() {
+      if matches!(tok.kind, TokenKind::SoftBreak | TokenKind::HardBreak | TokenKind::BlankLine | TokenKind::Eof) {
+        break;
+      }
+      value.push_str(tok.raw);
+      self.advance();
+      consumed = true;
+    }
+    // Guarantee forward progress even on an empty / break-only line.
+    if !consumed && self.peek().is_some() {
+      self.advance();
+    }
+    Node::Paragraph(Paragraph { children: vec![Node::Text(Text { value, span: span.clone() })], span })
+  }
+
   /// Surface one actionable diagnostic for `<Foo bar=` -shaped lines that
   /// failed JSX lex and would otherwise silently render as text.
   fn maybe_diag_unterminated_text_jsx(&mut self) {

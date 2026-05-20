@@ -1,20 +1,39 @@
 use crate::ast::*;
-use crate::parser::Parser;
+use crate::parser::{MAX_BLOCK_NESTING_DEPTH, Parser};
 use dmc_lexer::token::TokenKind;
 
 impl<'eng, 'tokens> Parser<'eng, 'tokens> {
   /// Cursor on `>`. Walks lines maintaining a stack of nesting levels:
   /// more markers grows the stack, fewer markers closes inner levels and
   /// folds them into the parent.
+  ///
+  /// SEC-003: bounded by [`MAX_BLOCK_NESTING_DEPTH`]. Past the cap the
+  /// remaining content is folded into a literal paragraph instead of
+  /// recursing, so adversarial `>>>>...` input cannot overflow the stack.
   pub(super) fn parse_blockquote(&mut self) -> Node {
+    if self.block_depth >= MAX_BLOCK_NESTING_DEPTH {
+      return self.parse_overflow_paragraph();
+    }
+    self.block_depth += 1;
+    let node = self.parse_blockquote_inner();
+    self.block_depth -= 1;
+    node
+  }
+
+  fn parse_blockquote_inner(&mut self) -> Node {
     let span = self.current_span();
     let para_span = self.current_span();
     let mut children: Vec<Vec<Node>> = vec![Vec::new()];
     let mut paragraphs: Vec<Vec<Node>> = vec![Vec::new()];
 
     loop {
-      let line_markers = self.count_line_blockquote_markers();
-      if line_markers == 0 {
+      let raw_markers = self.count_line_blockquote_markers();
+      // SEC-003: a single `> > > ...` line nests one `Blockquote` AST node
+      // per marker without recursing the parser, but a 10k-deep AST then
+      // overflows the recursive codegen walker. Clamp the *nesting* depth
+      // while still consuming every marker token on the line.
+      let line_markers = raw_markers.min(MAX_BLOCK_NESTING_DEPTH);
+      if raw_markers == 0 {
         let starts_other_block = self.line_starts_other_block();
         let top = children.len() - 1;
         let lazy_eligible = !paragraphs[top].is_empty()
@@ -59,7 +78,10 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
         }
       }
 
-      self.consume_blockquote_markers(line_markers);
+      // Consume every marker token on the line (`raw_markers`), even the
+      // ones past the clamped nesting depth, so the cursor advances and the
+      // surplus `>` cannot wedge the loop.
+      self.consume_blockquote_markers(raw_markers);
       let top = children.len() - 1;
       let after_marker_kind = match self.peek_kind() {
         Some(k) => k.clone(),

@@ -126,6 +126,11 @@ pub enum Code {
   /// P014 - List item used an ordered marker number that overflows `u32`.
   #[cfg(feature = "parser")]
   ListMarkerOverflow,
+  /// P015 - Block nesting (lists / blockquotes / JSX) exceeded the depth
+  /// limit; the remaining content was kept as literal text. Guards against
+  /// recursion-driven stack overflow on adversarial input (SEC-003).
+  #[cfg(feature = "parser")]
+  BlockNestingTooDeep,
 
   /// PW001 - Frontmatter parsed but YAML content was empty.
   #[cfg(feature = "parser")]
@@ -323,6 +328,8 @@ impl DiagnosticCode for Code {
       #[cfg(feature = "parser")]
       Self::ListMarkerOverflow => "P014",
       #[cfg(feature = "parser")]
+      Self::BlockNestingTooDeep => "P015",
+      #[cfg(feature = "parser")]
       Self::EmptyFrontmatter => "PW001",
       #[cfg(feature = "parser")]
       Self::InvalidFrontmatterYaml => "PW002",
@@ -435,7 +442,8 @@ impl DiagnosticCode for Code {
       | Self::TableShapeMismatch
       | Self::StraySetextUnderline
       | Self::MissingJsxAttributeValue
-      | Self::ListMarkerOverflow => Severity::Error,
+      | Self::ListMarkerOverflow
+      | Self::BlockNestingTooDeep => Severity::Error,
       #[cfg(feature = "parser")]
       Self::EmptyFrontmatter
       | Self::InvalidFrontmatterYaml
