@@ -1,11 +1,25 @@
 use crate::ast::*;
-use crate::parser::Parser;
+use crate::parser::{MAX_BLOCK_NESTING_DEPTH, Parser};
 use dmc_lexer::token::TokenKind;
 
 impl<'eng, 'tokens> Parser<'eng, 'tokens> {
   /// Collect a `List` of one flavor. `indent` is the marker's column;
   /// nested lists pass a larger `indent` so deeper sub-items keep recursing.
+  ///
+  /// SEC-003: bounded by [`MAX_BLOCK_NESTING_DEPTH`]. Past the cap the
+  /// remaining content is folded into a literal paragraph instead of
+  /// recursing, so adversarial `- - - ...` input cannot overflow the stack.
   pub(super) fn parse_list(&mut self, ordered: bool, indent: usize) -> Node {
+    if self.block_depth >= MAX_BLOCK_NESTING_DEPTH {
+      return self.parse_overflow_paragraph();
+    }
+    self.block_depth += 1;
+    let node = self.parse_list_inner(ordered, indent);
+    self.block_depth -= 1;
+    node
+  }
+
+  fn parse_list_inner(&mut self, ordered: bool, indent: usize) -> Node {
     let span = self.current_span();
     let mut items: Vec<Node> = Vec::new();
     let start: Option<u32> = if ordered {

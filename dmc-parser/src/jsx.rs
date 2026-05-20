@@ -1,5 +1,5 @@
 use crate::ast::*;
-use crate::parser::Parser;
+use crate::parser::{MAX_BLOCK_NESTING_DEPTH, Parser};
 use dmc_diagnostic::Code;
 use dmc_lexer::token::{QuoteKind, TokenKind};
 
@@ -198,7 +198,21 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
 
   /// Cursor at `JsxOpenTagStart`. Consumes through the matching close
   /// (or self-close) and returns `JsxElement` / `JsxSelfClosing`.
+  /// SEC-003: bounded by [`MAX_BLOCK_NESTING_DEPTH`]. Past the cap the
+  /// remaining content is folded into a literal paragraph instead of
+  /// recursing, so adversarial nested `<div>` input cannot overflow the
+  /// stack.
   pub(crate) fn parse_jsx(&mut self) -> Node {
+    if self.block_depth >= MAX_BLOCK_NESTING_DEPTH {
+      return self.parse_overflow_paragraph();
+    }
+    self.block_depth += 1;
+    let node = self.parse_jsx_inner();
+    self.block_depth -= 1;
+    node
+  }
+
+  fn parse_jsx_inner(&mut self) -> Node {
     let span = self.current_span();
     self.advance();
     self.skip_jsx_ws();
@@ -366,8 +380,19 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
     out
   }
 
-  /// Cursor at `JsxFragmentOpen` (`<>`).
+  /// Cursor at `JsxFragmentOpen` (`<>`). SEC-003: bounded by
+  /// [`MAX_BLOCK_NESTING_DEPTH`].
   pub(crate) fn parse_jsx_fragment(&mut self) -> Node {
+    if self.block_depth >= MAX_BLOCK_NESTING_DEPTH {
+      return self.parse_overflow_paragraph();
+    }
+    self.block_depth += 1;
+    let node = self.parse_jsx_fragment_inner();
+    self.block_depth -= 1;
+    node
+  }
+
+  fn parse_jsx_fragment_inner(&mut self) -> Node {
     let span = self.current_span();
     self.advance();
     let mut children = Vec::new();

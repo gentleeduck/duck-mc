@@ -47,7 +47,19 @@ pub struct Parser<'eng, 'tokens> {
   /// terminates the run instead of leaking as literal text. Lowercase HTML
   /// tags never push here; only MDX component names.
   pub jsx_open_stack: Vec<String>,
+  /// Current recursive-descent block-nesting depth (lists, blockquotes,
+  /// JSX children). Bounded by [`MAX_BLOCK_NESTING_DEPTH`] so adversarial
+  /// deeply-nested input (`>>>>...`, `- - - ...`, nested `<div>`) cannot
+  /// overflow the stack. See SEC-003.
+  pub block_depth: usize,
 }
+
+/// Maximum recursive-descent block-nesting depth before the parser stops
+/// recursing and treats the remaining content as literal text. A
+/// recursive-descent parser uses real stack frames per level; 128 leaves
+/// generous headroom for legitimate documents while bounding hostile
+/// input well below a stack overflow.
+pub(crate) const MAX_BLOCK_NESTING_DEPTH: usize = 128;
 
 /// Maximum `[...]` link-label nesting before `[` is treated as literal. The
 /// unresolved-shortcut fallback re-parses its label into the outer delimiter
@@ -70,6 +82,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       source: None,
       link_label_depth: 0,
       jsx_open_stack: Vec::new(),
+      block_depth: 0,
     }
   }
 
@@ -89,6 +102,7 @@ impl<'eng, 'tokens> Parser<'eng, 'tokens> {
       source: None,
       link_label_depth: 0,
       jsx_open_stack: Vec::new(),
+      block_depth: 0,
     }
   }
 
