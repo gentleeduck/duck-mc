@@ -15,24 +15,27 @@ pub fn escape_text(s: &str) -> String {
   out
 }
 
-/// True for ASCII control bytes (`0x00..=0x1f`, `0x7f`). Browsers strip
+/// True for ASCII control chars (`0x00..=0x1f`, `0x7f`). Browsers strip
 /// TAB/LF/CR (and treat other control chars erratically) from URLs
 /// *before* scheme matching, so `java\tscript:` resolves to
-/// `javascript:`. We mirror that by stripping all control chars before
-/// scheme detection.
-fn is_url_control_byte(b: u8) -> bool {
-  b <= 0x1f || b == 0x7f
+/// `javascript:`. We mirror that by stripping all C0 + DEL control
+/// chars before scheme detection. Note: only ASCII C0/DEL is stripped
+/// (the SEC-009 set); non-ASCII (incl. C1) passes through, since `char`
+/// iteration keeps multibyte UTF-8 intact.
+fn is_url_control_char(c: char) -> bool {
+  (c as u32) <= 0x1f || c == '\u{7f}'
 }
 
-/// Returns `true` when `url` contains any ASCII control byte.
+/// Returns `true` when `url` contains any ASCII control char.
 fn has_control_char(url: &str) -> bool {
-  url.bytes().any(is_url_control_byte)
+  url.chars().any(is_url_control_char)
 }
 
-/// Strip every ASCII control byte from `url` — the browser-effective
-/// form used for scheme matching.
+/// Strip every ASCII control char from `url` — the browser-effective
+/// form used for scheme matching. SEC-011: iterates over `char`s, not
+/// raw bytes, so multibyte UTF-8 sequences survive intact.
 fn strip_control_chars(url: &str) -> String {
-  url.bytes().filter(|b| !is_url_control_byte(*b)).map(|b| b as char).collect()
+  url.chars().filter(|c| !is_url_control_char(*c)).collect()
 }
 
 /// Reject URLs carrying a dangerous scheme (`javascript:`, `data:`,
@@ -213,6 +216,16 @@ mod url_safety_tests {
   fn strips_control_chars_from_otherwise_safe_url() {
     assert_eq!(sanitize_url("https://exa\tmple.com"), "https://example.com");
     assert_eq!(sanitize_url("/re\nl/path"), "/rel/path");
+  }
+
+  /// SEC-011: stripping control chars must not mangle multibyte UTF-8.
+  /// The TAB is removed; the `ä` (and other non-ASCII) survives intact.
+  #[test]
+  fn strip_preserves_multibyte_utf8() {
+    assert_eq!(sanitize_url("https://exämple.com/\tpath"), "https://exämple.com/path");
+    // non-ASCII bytes are never reinterpreted as Latin-1 chars
+    assert!(is_safe_url("https://exämple.com/\tpath"));
+    assert_eq!(sanitize_url("/café\n/menu"), "/café/menu");
   }
 
   #[test]
