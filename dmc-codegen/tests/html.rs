@@ -151,12 +151,66 @@ fn gfm_email_autolink_keeps_underscore_in_local_part() {
   );
 }
 
+// --- SEC-001: javascript:/data: URL XSS ---
+
+#[test]
+fn rejects_javascript_url_in_link() {
+  let h = html("[x](javascript:alert(1))");
+  assert!(!h.contains("javascript:"), "javascript: href leaked: {h}");
+  assert!(h.contains("href=\"#\""), "expected safe fallback href: {h}");
+}
+
+#[test]
+fn rejects_javascript_url_in_image() {
+  let h = html("![x](javascript:alert(1))");
+  assert!(!h.contains("javascript:"), "javascript: src leaked: {h}");
+  assert!(h.contains("src=\"#\""), "expected safe fallback src: {h}");
+}
+
+#[test]
+fn rejects_data_url_in_image() {
+  let h = html("![x](data:text/html,<script>alert(1)</script>)");
+  assert!(!h.contains("data:"), "data: src leaked: {h}");
+}
+
+#[test]
+fn keeps_safe_urls() {
+  let h = html("[x](https://example.com/y) ![z](/img/a.png)");
+  assert!(h.contains("href=\"https://example.com/y\""), "{h}");
+  assert!(h.contains("src=\"/img/a.png\""), "{h}");
+}
+
+// --- SEC-002: raw HTML passthrough XSS ---
+
+#[test]
+fn raw_html_block_omitted_in_safe_mode() {
+  let h = html("<script>alert(1)</script>\n");
+  assert!(!h.contains("<script>"), "raw <script> passed through: {h}");
+}
+
+#[test]
+fn inline_raw_html_escaped_in_safe_mode() {
+  let h = html("a <img src=x onerror=alert(1)> b");
+  assert!(!h.contains("<img src=x"), "raw inline HTML passed through: {h}");
+  assert!(h.contains("&lt;img"), "inline raw HTML not escaped: {h}");
+}
+
+#[test]
+fn raw_html_passthrough_when_opted_in() {
+  let doc = parse("<div class=\"ok\">hi</div>\n");
+  let h = render_html_with(&doc, RenderOptions { allow_dangerous_html: true, ..Default::default() });
+  assert!(h.contains("<div class=\"ok\">"), "opt-in passthrough failed: {h}");
+}
+
 #[test]
 fn gfm_disallowed_raw_html_can_be_enabled() {
   let doc = dmc_parser::parse(
     "<strong> <title> <style> <em>\n\n<blockquote>\n  <xmp> is disallowed.  <XMP> is also disallowed.\n</blockquote>\n",
   );
-  let h = render_html_with(&doc, RenderOptions { gfm_disallowed_raw_html: true });
+  let h = render_html_with(
+    &doc,
+    RenderOptions { gfm_disallowed_raw_html: true, allow_dangerous_html: true },
+  );
   assert_eq!(
     h,
     "<p><strong> &lt;title> &lt;style> <em></p>\n\

@@ -1,6 +1,6 @@
 use crate::{
   NodeSink, WalkCtx, Walker,
-  escape::{escape_attr, escape_text, escape_url},
+  escape::{escape_attr, escape_text, escape_url, sanitize_url},
 };
 use dmc_diagnostic::Code;
 use dmc_parser::ast::*;
@@ -11,6 +11,13 @@ pub struct RenderOptions {
   /// GFM disallowed raw HTML extension. When enabled, a fixed tag-name
   /// set gets its leading `<` escaped in raw HTML output.
   pub gfm_disallowed_raw_html: bool,
+  /// Raw embedded HTML passthrough (CommonMark "unsafe" mode). When
+  /// `false` (the default), raw HTML is NOT emitted verbatim: block-level
+  /// raw HTML is omitted and inline raw HTML is escaped to visible text,
+  /// so attacker-supplied `<script>` / `<iframe>` / `on*=` markup cannot
+  /// reach the output. Set `true` to opt back into verbatim passthrough
+  /// (the caller then owns the XSS risk).
+  pub allow_dangerous_html: bool,
 }
 
 /// Static HTML emitter driven by walker enter/leave events. Tables are
@@ -42,11 +49,22 @@ impl NodeSink for HtmlEmitter {
       Node::HardBreak(_) => self.out.push_str("<br />\n"),
       // Block-level raw HTML gets a trailing `\n` (CM line-per-block);
       // inline raw HTML inside a paragraph/heading must not.
+      //
+      // SEC-002: raw HTML passthrough is gated behind `allow_dangerous_html`.
+      // When off (default, CommonMark "safe" mode): block-level raw HTML is
+      // omitted entirely; inline raw HTML is escaped to visible text.
       Node::Html(h) => {
+        let inline_context = matches!(ctx.parent, Some(Node::Paragraph(_)) | Some(Node::Heading(_)));
+        if !self.options.allow_dangerous_html {
+          if inline_context {
+            self.out.push_str(&escape_text(&h.value));
+          }
+          // Block-level raw HTML: omitted entirely in safe mode.
+          return;
+        }
         let value =
           if self.options.gfm_disallowed_raw_html { escape_disallowed_raw_html_tag(&h.value) } else { h.value.clone() };
         self.out.push_str(&value);
-        let inline_context = matches!(ctx.parent, Some(Node::Paragraph(_)) | Some(Node::Heading(_)));
         if !inline_context && !value.ends_with('\n') {
           self.out.push('\n');
         }
@@ -208,7 +226,7 @@ impl HtmlEmitter {
         self.out.push_str(&format!("<li class=\"task-list-item\"><input type=\"checkbox\"{} disabled> ", checked));
       },
       Node::Link(l) => {
-        self.out.push_str(&format!("<a href=\"{}\"", escape_attr(&escape_url(&l.href))));
+        self.out.push_str(&format!("<a href=\"{}\"", escape_attr(&escape_url(sanitize_url(&l.href)))));
         // CM 6.3 / 4.7: link title -> anchor `title` attribute.
         // (autolink-headings tooltip borrows this same field.)
         if let Some(title) = &l.title {
@@ -277,7 +295,11 @@ impl HtmlEmitter {
   }
 
   fn image(&mut self, i: &Image) {
-    self.out.push_str(&format!("<img src=\"{}\" alt=\"{}\"", escape_attr(&escape_url(&i.src)), escape_attr(&i.alt)));
+    self.out.push_str(&format!(
+      "<img src=\"{}\" alt=\"{}\"",
+      escape_attr(&escape_url(sanitize_url(&i.src))),
+      escape_attr(&i.alt)
+    ));
     if let Some(title) = &i.title {
       self.out.push_str(&format!(" title=\"{}\"", escape_attr(title)));
     }
@@ -291,15 +313,23 @@ impl HtmlEmitter {
       return;
     }
     match s.name.as_str() {
+      // SEC-002: `MermaidSvg` / `MathMl` emit renderer-produced markup
+      // (an `<svg>` / `<math>` document) verbatim. Both are derived from
+      // attacker-influenced source (chart text / math source), so the
+      // raw passthrough is gated behind `allow_dangerous_html`. In safe
+      // mode the markup is dropped rather than escaped — an escaped SVG
+      // document is meaningless as visible text.
       "MermaidSvg" => {
-        if let Some(attr) = s.attrs.iter().find(|a| a.name == "svg")
+        if self.options.allow_dangerous_html
+          && let Some(attr) = s.attrs.iter().find(|a| a.name == "svg")
           && let JsxAttrValue::String(svg) = &attr.value
         {
           self.out.push_str(svg);
         }
       },
       "MathMl" => {
-        if let Some(attr) = s.attrs.iter().find(|a| a.name == "mathml")
+        if self.options.allow_dangerous_html
+          && let Some(attr) = s.attrs.iter().find(|a| a.name == "mathml")
           && let JsxAttrValue::String(mathml) = &attr.value
         {
           // Reverse the JSX-attr escape from Math::preprocess_source.
@@ -409,7 +439,7 @@ impl HtmlEmitter {
         self.out.push_str("</code>");
       },
       Node::Link(l) => {
-        self.out.push_str(&format!("<a href=\"{}\"", escape_attr(&escape_url(&l.href))));
+        self.out.push_str(&format!("<a href=\"{}\"", escape_attr(&escape_url(sanitize_url(&l.href)))));
         if let Some(label) = &l.title {
           self.out.push_str(&format!(" aria-label=\"{}\"", escape_attr(label)));
         }

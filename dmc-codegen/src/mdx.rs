@@ -1,6 +1,6 @@
 use std::collections::BTreeSet;
 
-use crate::{NodeSink, WalkCtx, Walker};
+use crate::{NodeSink, WalkCtx, Walker, escape::sanitize_url};
 use dmc_diagnostic::Code;
 use dmc_parser::ast::*;
 use duck_diagnostic::{DiagnosticEngine, diag};
@@ -208,7 +208,7 @@ impl MdxBodyEmitter {
         format!("{}({}, {{ children: {} }})", callee, self.jsx_tag_ref("li"), kids)
       },
       Node::Link(l) => {
-        let mut props = format!("href: {}", Self::js_string(&l.href));
+        let mut props = format!("href: {}", Self::js_string(sanitize_url(&l.href)));
         if let Some(title) = &l.title {
           props.push_str(&format!(", \"aria-label\": {}", Self::js_string(title)));
         }
@@ -268,7 +268,7 @@ impl MdxBodyEmitter {
     format!(
       "jsx({}, {{ src: {}, alt: {} }})",
       self.jsx_tag_ref("img"),
-      Self::js_string(&i.src),
+      Self::js_string(sanitize_url(&i.src)),
       Self::js_string(&i.alt)
     )
   }
@@ -483,7 +483,7 @@ impl MdxBodyEmitter {
       Node::Link(l) => {
         let kids: Vec<String> = l.children.iter().map(|n| self.inline_expr(n)).collect();
         let (callee, kids_expr) = jsx_callee_and_children(&kids);
-        let mut props = format!("href: {}", Self::js_string(&l.href));
+        let mut props = format!("href: {}", Self::js_string(sanitize_url(&l.href)));
         if let Some(title) = &l.title {
           props.push_str(&format!(", \"aria-label\": {}", Self::js_string(title)));
         }

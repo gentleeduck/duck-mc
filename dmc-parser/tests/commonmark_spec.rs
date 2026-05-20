@@ -50,6 +50,13 @@ fn normalize(html: &str) -> String {
   out
 }
 
+// SEC-001: the codegen URL sanitizer (`is_safe_url`) only permits the
+// `{http, https, mailto, tel}` scheme allowlist for absolute URLs. Four
+// CommonMark autolink examples (596, 598, 599, 601) use otherwise-valid
+// but non-allowlisted schemes (`irc:`, `a+b+c:`, `made-up-scheme:`,
+// `localhost:`) and now render `href="#"`. The baseline was lowered from
+// 652 -> 648 to reflect this intentional security trade-off: rejecting
+// arbitrary schemes is what neutralizes `<javascript:...>` autolink XSS.
 fn read_baseline() -> usize {
   std::fs::read_to_string(baseline_path()).ok().and_then(|s| s.trim().parse().ok()).unwrap_or(0)
 }
@@ -70,7 +77,10 @@ fn commonmark_spec_no_regression() {
         legacy_gfm_emphasis: false,
       },
     );
-    let html = dmc_codegen::render_html(&doc);
+    let html = dmc_codegen::render_html_with(
+      &doc,
+      dmc_codegen::RenderOptions { allow_dangerous_html: true, ..Default::default() },
+    );
     if normalize(&html) == normalize(&ex.html) {
       pass += 1;
     } else if first_failures.len() < 8 {
@@ -107,7 +117,10 @@ fn commonmark_spec_dump_failures() {
         legacy_gfm_emphasis: false,
       },
     );
-    let html = dmc_codegen::render_html(&doc);
+    let html = dmc_codegen::render_html_with(
+      &doc,
+      dmc_codegen::RenderOptions { allow_dangerous_html: true, ..Default::default() },
+    );
     if normalize(&html) != normalize(&ex.html) {
       shown += 1;
       println!("=== example {} ({}) ===", ex.example, ex.section);
