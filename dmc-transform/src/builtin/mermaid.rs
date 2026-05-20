@@ -154,22 +154,22 @@ impl Mermaid {
   fn render_mmdc(&self, source: &str, theme: &str) -> Result<String, String> {
     let cfg_json = self.build_mermaid_config();
     let cfg_str = cfg_json.to_string();
-    let cfg_dir = std::env::temp_dir();
-    // Hash the config so concurrent compiles with different options
-    // don't clobber each other's config file.
-    let cfg_hash = {
-      use std::hash::{Hash, Hasher};
-      let mut hasher = std::collections::hash_map::DefaultHasher::new();
-      cfg_str.hash(&mut hasher);
-      hasher.finish()
-    };
-    let cfg_path = cfg_dir.join(format!("dmc-mermaid-config-{}-{cfg_hash:x}.json", std::process::id()));
-    if !cfg_path.exists() {
-      std::fs::write(&cfg_path, &cfg_str).map_err(|e| format!("config write failed: {e}"))?;
-    }
+    // SEC-005: write the `mmdc --configFile` config to a `tempfile`
+    // NamedTempFile — a randomised, exclusively-created path (no
+    // predictable name in the world-writable system temp dir, so a
+    // local attacker can't pre-plant or symlink it). The handle is held
+    // for the lifetime of the `mmdc` child and the file is unlinked on
+    // drop.
+    let mut cfg_file = tempfile::Builder::new()
+      .prefix("dmc-mermaid-config-")
+      .suffix(".json")
+      .tempfile()
+      .map_err(|e| format!("config temp file failed: {e}"))?;
+    cfg_file.write_all(cfg_str.as_bytes()).map_err(|e| format!("config write failed: {e}"))?;
+    cfg_file.flush().map_err(|e| format!("config write failed: {e}"))?;
 
     let bg = self.opts.background_color.as_deref().unwrap_or("transparent");
-    let cfg_path_str = cfg_path.to_str().unwrap_or("").to_string();
+    let cfg_path_str = cfg_file.path().to_str().unwrap_or("").to_string();
 
     let mut args: Vec<String> = vec![
       "--input".into(),
