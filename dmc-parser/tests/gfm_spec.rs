@@ -48,6 +48,14 @@ fn normalize(html: &str) -> String {
   out
 }
 
+// SEC-001: the codegen URL sanitizer (`is_safe_url`) only permits the
+// `{http, https, mailto, tel}` scheme allowlist. Five GFM autolink
+// examples (604, 606, 607, 609, 628) use otherwise-valid but
+// non-allowlisted schemes (`irc:`, `a+b+c:`, `made-up-scheme:`,
+// `localhost:`, `ftp:`) and now render `href="#"`. The baseline was
+// lowered from 670 -> 665 to reflect this intentional security
+// trade-off — the same allowlist is what neutralizes `<javascript:...>`
+// autolink XSS.
 fn read_baseline() -> usize {
   std::fs::read_to_string(baseline_path()).ok().and_then(|s| s.trim().parse().ok()).unwrap_or(0)
 }
@@ -67,7 +75,7 @@ fn gfm_spec_no_regression() {
       dmc_parser::parser::ParseOptions { cm_strict_html_blocks: true, gfm_autolinks, legacy_gfm_emphasis: true },
     );
     let html =
-      dmc_codegen::render_html_with(&doc, dmc_codegen::RenderOptions { gfm_disallowed_raw_html: gfm_tagfilter });
+      dmc_codegen::render_html_with(&doc, dmc_codegen::RenderOptions { gfm_disallowed_raw_html: gfm_tagfilter, allow_dangerous_html: true });
     if normalize(&html) == normalize(&ex.html) {
       pass += 1;
     } else if first_failures.len() < 8 {
@@ -103,7 +111,7 @@ fn gfm_spec_dump_failures() {
       dmc_parser::parser::ParseOptions { cm_strict_html_blocks: true, gfm_autolinks, legacy_gfm_emphasis: true },
     );
     let html =
-      dmc_codegen::render_html_with(&doc, dmc_codegen::RenderOptions { gfm_disallowed_raw_html: gfm_tagfilter });
+      dmc_codegen::render_html_with(&doc, dmc_codegen::RenderOptions { gfm_disallowed_raw_html: gfm_tagfilter, allow_dangerous_html: true });
     if normalize(&html) != normalize(&ex.html) {
       shown += 1;
       println!("=== example {} ({}) ===", ex.example, ex.section);
