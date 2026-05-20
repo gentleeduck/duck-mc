@@ -207,10 +207,7 @@ fn gfm_disallowed_raw_html_can_be_enabled() {
   let doc = dmc_parser::parse(
     "<strong> <title> <style> <em>\n\n<blockquote>\n  <xmp> is disallowed.  <XMP> is also disallowed.\n</blockquote>\n",
   );
-  let h = render_html_with(
-    &doc,
-    RenderOptions { gfm_disallowed_raw_html: true, allow_dangerous_html: true },
-  );
+  let h = render_html_with(&doc, RenderOptions { gfm_disallowed_raw_html: true, allow_dangerous_html: true });
   assert_eq!(
     h,
     "<p><strong> &lt;title> &lt;style> <em></p>\n\
