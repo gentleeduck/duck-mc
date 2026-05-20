@@ -32,6 +32,7 @@ pulldown-latex = { workspace = true, optional = true }
 emojis = { workspace = true, optional = true }
 serde.workspace = true
 serde_json.workspace = true
+tempfile.workspace = true
 
 # katex backend selected per target. quick-js is faster but POSIX-only.
 [target.'cfg(not(target_os = "windows"))'.dependencies]
@@ -42,7 +43,6 @@ katex = { workspace = true, features = ["duktape"], optional = true }
 
 [dev-dependencies]
 pretty_assertions.workspace = true
-tempfile.workspace = true
 
 [[bin]]
 name = "transform"
