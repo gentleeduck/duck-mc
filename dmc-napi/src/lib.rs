@@ -85,6 +85,11 @@ pub struct BuildInput {
   pub mermaid: Option<Value>,
   /// Free-form JSON, deserialised into `PrettyCodeOptions`.
   pub pretty_code: Option<Value>,
+  /// SEC-010: opt in to raw embedded HTML passthrough (CommonMark
+  /// "unsafe" mode). Defaults to `false` — attacker-supplied `<script>`
+  /// markup is escaped/dropped rather than emitted verbatim. Enable only
+  /// when the markdown source is fully trusted.
+  pub allow_dangerous_html: Option<bool>,
 }
 
 #[napi(object)]
@@ -160,6 +165,7 @@ pub fn build(input: BuildInput) -> Result<BuildReport> {
     math_engine: None,
     force_sidecar: input.force_sidecar.unwrap_or(false),
     prefer_sidecar: input.prefer_sidecar.unwrap_or_default(),
+    allow_dangerous_html: input.allow_dangerous_html.unwrap_or(false),
   };
 
   let cfg = EngineConfig {

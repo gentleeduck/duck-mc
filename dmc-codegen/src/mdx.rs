@@ -1,6 +1,6 @@
 use std::collections::BTreeSet;
 
-use crate::{NodeSink, WalkCtx, Walker, escape::sanitize_url};
+use crate::{NodeSink, RenderOptions, WalkCtx, Walker, escape::sanitize_url};
 use dmc_diagnostic::Code;
 use dmc_parser::ast::*;
 use duck_diagnostic::{DiagnosticEngine, diag};
@@ -23,6 +23,13 @@ pub struct MdxBodyEmitter {
   in_table_depth: usize,
   used_intrinsic: BTreeSet<String>,
   used_components: BTreeSet<String>,
+  /// SEC-010: gates raw-HTML passthrough. When `false` (the default),
+  /// `Node::Html` arms do NOT emit `dangerouslySetInnerHTML` — inline
+  /// raw HTML is escaped to visible text and block-level raw HTML is
+  /// omitted, mirroring the `HtmlEmitter` safe mode. Set via
+  /// [`MdxBodyEmitter::new_with_options`] to opt back into verbatim
+  /// passthrough (the caller then owns the XSS risk).
+  options: RenderOptions,
 }
 
 #[derive(Default, Debug)]
@@ -31,7 +38,7 @@ struct Frame {
 }
 
 impl NodeSink for MdxBodyEmitter {
-  fn enter(&mut self, node: &Node, _ctx: &WalkCtx) {
+  fn enter(&mut self, node: &Node, ctx: &WalkCtx) {
     if self.in_table_depth > 0 {
       return;
     }
@@ -72,6 +79,18 @@ impl NodeSink for MdxBodyEmitter {
       // would bail without popping -- silently dropping every sibling
       // and ancestor expression that follows.
       Node::Html(h) => {
+        // SEC-010: raw-HTML passthrough is gated behind
+        // `allow_dangerous_html`. In safe mode (default), inline raw HTML
+        // is escaped to visible text and block-level raw HTML is omitted
+        // — never emitted as a live `dangerouslySetInnerHTML`.
+        if !self.options.allow_dangerous_html {
+          let inline_context = matches!(ctx.parent, Some(Node::Paragraph(_)) | Some(Node::Heading(_)));
+          if inline_context {
+            self.push_part(Self::js_string(&h.value));
+          }
+          // Block-level raw HTML: omitted entirely in safe mode.
+          return;
+        }
         let tag = self.jsx_tag_ref("div");
         self.push_part(format!(
           "jsx({}, {{ dangerouslySetInnerHTML: {{ __html: {} }} }})",
@@ -114,6 +133,14 @@ impl Default for MdxBodyEmitter {
 
 impl MdxBodyEmitter {
   pub fn new() -> Self {
+    Self::new_with_options(RenderOptions::default())
+  }
+
+  /// Construct with explicit [`RenderOptions`]. The only field
+  /// `MdxBodyEmitter` honors is `allow_dangerous_html`; when `false`
+  /// (the default via [`MdxBodyEmitter::new`]) raw HTML is rendered as
+  /// safe text rather than `dangerouslySetInnerHTML`.
+  pub fn new_with_options(options: RenderOptions) -> Self {
     Self {
       stack: vec![Frame::default()],
       imports: Vec::new(),
@@ -122,11 +149,19 @@ impl MdxBodyEmitter {
       in_table_depth: 0,
       used_intrinsic: BTreeSet::new(),
       used_components: BTreeSet::new(),
+      options,
     }
   }
 
   pub fn render(doc: &Document) -> (String, DiagnosticEngine<Code>) {
     let mut emitter = Self::new();
+    Walker::new(doc).walk(&mut [&mut emitter]);
+    emitter.into_parts()
+  }
+
+  /// Drive the walker with explicit [`RenderOptions`].
+  pub fn render_with(doc: &Document, options: RenderOptions) -> (String, DiagnosticEngine<Code>) {
+    let mut emitter = Self::new_with_options(options);
     Walker::new(doc).walk(&mut [&mut emitter]);
     emitter.into_parts()
   }
@@ -208,7 +243,7 @@ impl MdxBodyEmitter {
         format!("{}({}, {{ children: {} }})", callee, self.jsx_tag_ref("li"), kids)
       },
       Node::Link(l) => {
-        let mut props = format!("href: {}", Self::js_string(sanitize_url(&l.href)));
+        let mut props = format!("href: {}", Self::js_string(&sanitize_url(&l.href)));
         if let Some(title) = &l.title {
           props.push_str(&format!(", \"aria-label\": {}", Self::js_string(title)));
         }
@@ -268,7 +303,7 @@ impl MdxBodyEmitter {
     format!(
       "jsx({}, {{ src: {}, alt: {} }})",
       self.jsx_tag_ref("img"),
-      Self::js_string(sanitize_url(&i.src)),
+      Self::js_string(&sanitize_url(&i.src)),
       Self::js_string(&i.alt)
     )
   }
@@ -483,7 +518,7 @@ impl MdxBodyEmitter {
       Node::Link(l) => {
         let kids: Vec<String> = l.children.iter().map(|n| self.inline_expr(n)).collect();
         let (callee, kids_expr) = jsx_callee_and_children(&kids);
-        let mut props = format!("href: {}", Self::js_string(sanitize_url(&l.href)));
+        let mut props = format!("href: {}", Self::js_string(&sanitize_url(&l.href)));
         if let Some(title) = &l.title {
           props.push_str(&format!(", \"aria-label\": {}", Self::js_string(title)));
         }
@@ -500,11 +535,20 @@ impl MdxBodyEmitter {
         format!("{}(Fragment, {{ children: {} }})", callee, kids_expr)
       },
       Node::Table(t) => self.table_expr(t),
-      Node::Html(h) => format!(
-        "jsx({}, {{ dangerouslySetInnerHTML: {{ __html: {} }} }})",
-        self.jsx_tag_ref("div"),
-        Self::js_string(&h.value)
-      ),
+      // SEC-010: raw-HTML passthrough gated behind `allow_dangerous_html`.
+      // This path is the inline (table-cell) recursion, so in safe mode
+      // the raw HTML is escaped to a visible text node.
+      Node::Html(h) => {
+        if self.options.allow_dangerous_html {
+          format!(
+            "jsx({}, {{ dangerouslySetInnerHTML: {{ __html: {} }} }})",
+            self.jsx_tag_ref("div"),
+            Self::js_string(&h.value)
+          )
+        } else {
+          Self::js_string(&h.value)
+        }
+      },
       Node::FootnoteRef(f) => format!(
         "jsx({}, {{ children: jsx({}, {{ href: \"#fn-{}\", children: {} }}) }})",
         self.jsx_tag_ref("sup"),
