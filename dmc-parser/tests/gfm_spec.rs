@@ -74,8 +74,10 @@ fn gfm_spec_no_regression() {
       &ex.markdown,
       dmc_parser::parser::ParseOptions { cm_strict_html_blocks: true, gfm_autolinks, legacy_gfm_emphasis: true },
     );
-    let html =
-      dmc_codegen::render_html_with(&doc, dmc_codegen::RenderOptions { gfm_disallowed_raw_html: gfm_tagfilter, allow_dangerous_html: true });
+    let html = dmc_codegen::render_html_with(
+      &doc,
+      dmc_codegen::RenderOptions { gfm_disallowed_raw_html: gfm_tagfilter, allow_dangerous_html: true },
+    );
     if normalize(&html) == normalize(&ex.html) {
       pass += 1;
     } else if first_failures.len() < 8 {
@@ -110,8 +112,10 @@ fn gfm_spec_dump_failures() {
       &ex.markdown,
       dmc_parser::parser::ParseOptions { cm_strict_html_blocks: true, gfm_autolinks, legacy_gfm_emphasis: true },
     );
-    let html =
-      dmc_codegen::render_html_with(&doc, dmc_codegen::RenderOptions { gfm_disallowed_raw_html: gfm_tagfilter, allow_dangerous_html: true });
+    let html = dmc_codegen::render_html_with(
+      &doc,
+      dmc_codegen::RenderOptions { gfm_disallowed_raw_html: gfm_tagfilter, allow_dangerous_html: true },
+    );
     if normalize(&html) != normalize(&ex.html) {
       shown += 1;
       println!("=== example {} ({}) ===", ex.example, ex.section);
