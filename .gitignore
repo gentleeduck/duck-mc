@@ -17,3 +17,4 @@ dmc-napi/index.d.ts
 **/temp*
 /docs
 /.claude/
+audit/
