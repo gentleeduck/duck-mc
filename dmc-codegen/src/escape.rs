@@ -1,6 +1,9 @@
 /// HTML-escape text content per CommonMark reference output: `&`, `<`,
 /// `>`, and `"` map to named entities. CM's spec runner encodes `"` in
-/// text too so the diff stays clean.
+/// text too so the diff stays clean. CommonMark 2.3 also mandates
+/// replacing U+0000 with U+FFFD before any text is emitted; a literal
+/// NUL in output breaks downstream tools and is a known XSS smuggle
+/// vector in browsers that strip it from attribute values.
 pub fn escape_text(s: &str) -> String {
   let mut out = String::with_capacity(s.len());
   for ch in s.chars() {
@@ -9,6 +12,7 @@ pub fn escape_text(s: &str) -> String {
       '<' => out.push_str("&lt;"),
       '>' => out.push_str("&gt;"),
       '"' => out.push_str("&quot;"),
+      '\0' => out.push('\u{FFFD}'),
       _ => out.push(ch),
     }
   }
@@ -163,6 +167,7 @@ pub fn escape_attr(s: &str) -> String {
       '"' => out.push_str("&quot;"),
       '<' => out.push_str("&lt;"),
       '>' => out.push_str("&gt;"),
+      '\0' => out.push('\u{FFFD}'),
       _ => out.push(ch),
     }
   }
