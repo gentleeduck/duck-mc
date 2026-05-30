@@ -94,6 +94,12 @@ impl<'eng, 'src: 'eng> Lexer<'eng, 'src> {
             continue;
           }
         }
+        // Non-entity trailing `;` is treated like other trailing
+        // punctuation: stripped, then trim continues so an inner
+        // unbalanced `)` (e.g. `...md);` closing an inline-link
+        // destination) gets exposed back to the parser.
+        i -= 1;
+        continue;
       }
       break;
     }
