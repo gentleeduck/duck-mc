@@ -33,7 +33,9 @@ pub(crate) fn resolve_emphasis_delims(out: &mut Vec<Node>, delims: &mut [DelimRe
       }
       // CM rule 9/10: skip when both delim sides are open+close and the
       // combined length is a multiple of 3 (unless this side is itself).
-      let combined = (d.run + delims[i].run) as usize;
+      // Cast each `u8` to `usize` before adding so a 200-`*` adversarial
+      // run does not panic on the intermediate `u8 + u8` overflow.
+      let combined = (d.run as usize) + (delims[i].run as usize);
       let both_open_close = (d.can_open && d.can_close) || (delims[i].can_open && delims[i].can_close);
       if both_open_close && combined.is_multiple_of(3) && !(d.run as usize).is_multiple_of(3) {
         continue;
