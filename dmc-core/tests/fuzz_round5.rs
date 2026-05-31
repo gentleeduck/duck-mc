@@ -332,8 +332,10 @@ fn heading_level_invariants() {
     if level <= 6 {
       assert!(lower.contains(&format!("<h{level}")), "missing <h{level}> for {src:?}: {html}");
     } else {
-      // Too many hashes = paragraph
-      assert!(!lower.contains("<h7") && !lower.contains("<h8"), "invalid heading level emitted for {src:?}");
+      // Too many hashes = paragraph. Cover every level the loop emits.
+      for bad in 7..=10usize {
+        assert!(!lower.contains(&format!("<h{bad}")), "invalid heading level <h{bad}> emitted for {src:?}: {html}");
+      }
     }
   }
 }
