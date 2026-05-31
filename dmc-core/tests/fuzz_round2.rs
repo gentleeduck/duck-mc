@@ -389,16 +389,19 @@ fn dangerous_schemes_blocked_in_links_and_images() {
   for sch in schemes {
     let link = format!("[x]({sch}alert(1))");
     let img = format!("![x]({sch}alert(1))");
+    let sch_lower = sch.to_ascii_lowercase();
+    // Strip whitespace and control chars the same way the URL sanitizer
+    // would, then assert the resulting "stripped" scheme prefix never
+    // appears in an active href= or src= position.
+    let sch_stripped: String =
+      sch_lower.chars().filter(|c| !c.is_whitespace() && (*c as u32) > 0x1f && *c != '\u{7f}').collect();
     for src in [&link, &img] {
       let html = compile_default(src);
       let low = html.to_ascii_lowercase();
-      assert!(
-        !low.contains("href=\"javascript")
-          && !low.contains("src=\"javascript")
-          && !low.contains("href=\"vbscript")
-          && !low.contains("href=\"data:text/html"),
-        "dangerous scheme leaked for src={src:?}\n  html={html}"
-      );
+      let href_needle = format!("href=\"{sch_stripped}");
+      let src_needle = format!("src=\"{sch_stripped}");
+      assert!(!low.contains(&href_needle), "scheme {sch:?} leaked into href= for src={src:?}\n  html={html}");
+      assert!(!low.contains(&src_needle), "scheme {sch:?} leaked into src= for src={src:?}\n  html={html}");
     }
   }
 }

@@ -49,6 +49,15 @@ fn compile_default_blocks_javascript_url() {
 }
 
 #[test]
+fn compile_default_blocks_javascript_url_in_images() {
+  let mut diag: DiagnosticEngine<Code> = DiagnosticEngine::new();
+  let out = Compiler::compile("![x](javascript:alert(1))\n", &mut diag);
+  let html = out.html.as_str();
+  let lower = html.to_ascii_lowercase();
+  assert!(!lower.contains("src=\"javascript:"), "javascript: leaked in img src from default compile: {html}");
+}
+
+#[test]
 fn compile_default_strips_raw_script_block() {
   let mut diag: DiagnosticEngine<Code> = DiagnosticEngine::new();
   let out = Compiler::compile("<script>alert(1)</script>\n", &mut diag);

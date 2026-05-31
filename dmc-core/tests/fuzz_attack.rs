@@ -11,10 +11,10 @@ fn compile_default(src: &str) -> String {
   out.html
 }
 
-/// Extract substrings between literal `<` and the next `>` (skipping
-/// any inner `<...>` boundary). These are the actual HTML tag bodies
-/// the browser will parse. Escaped text never produces a `<` byte and
-/// is therefore inert.
+/// Extract substrings between literal `<` and the matching `>`. The
+/// scan is quote-aware so a `>` inside a quoted attribute value does
+/// not prematurely terminate the tag body. Escaped text never produces
+/// a `<` byte and is therefore inert.
 fn raw_tag_bodies(html: &str) -> Vec<String> {
   let mut out = Vec::new();
   let bytes = html.as_bytes();
@@ -23,7 +23,17 @@ fn raw_tag_bodies(html: &str) -> Vec<String> {
     if bytes[i] == b'<' {
       let start = i + 1;
       let mut j = start;
-      while j < bytes.len() && bytes[j] != b'>' && bytes[j] != b'<' {
+      let mut in_dq = false;
+      let mut in_sq = false;
+      while j < bytes.len() {
+        let b = bytes[j];
+        if !in_sq && b == b'"' {
+          in_dq = !in_dq;
+        } else if !in_dq && b == b'\'' {
+          in_sq = !in_sq;
+        } else if !in_dq && !in_sq && (b == b'>' || b == b'<') {
+          break;
+        }
         j += 1;
       }
       if j < bytes.len() && bytes[j] == b'>' {

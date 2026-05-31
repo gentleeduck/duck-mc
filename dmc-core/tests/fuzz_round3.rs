@@ -257,18 +257,49 @@ fn random_block_combo_walk() {
   }
 }
 
-/// Output must be valid UTF-8 (Rust guarantees this for `String`) and
-/// must not contain unpaired surrogates encoded via WTF-8-like leakage.
+/// Edge-case codepoints and numeric character references must render
+/// without producing raw surrogate bytes, unmatched raw HTML brackets,
+/// or unescaped ampersands.
+///
+/// Behaviour exercised here:
+/// - Valid scalar codepoints in the source survive verbatim.
+/// - Decimal / hex numeric refs that decode to a valid scalar produce
+///   that scalar in the output.
+/// - Refs whose target falls in the surrogate range or beyond U+10FFFF
+///   fall through as inert text with the ampersand escaped, never as a
+///   raw surrogate byte sequence.
 #[test]
-fn output_is_pure_utf8() {
-  let cases =
-    ["&#xd800;", "&#xdc00;", "\u{D7FF}", "\u{E000}", "\u{FFFD}", "\u{10FFFF}", "\u{0301}", "\u{1F600}", "&#1114111;"];
-  for s in cases {
-    let html = compile(s);
-    // .chars() iteration would panic on invalid utf-8, but String is
-    // utf-8 by construction. We assert that *bytes* are valid utf-8
-    // by re-parsing - cheap sanity check.
-    assert!(std::str::from_utf8(html.as_bytes()).is_ok(), "non-utf8 output for src={s:?}");
+fn numeric_refs_and_edge_codepoints_render_safely() {
+  // Valid scalars must appear verbatim in the output.
+  let scalars: &[&str] = &["\u{D7FF}", "\u{E000}", "\u{FFFD}", "\u{10FFFF}", "\u{0301}", "\u{1F600}"];
+  for src in scalars {
+    let html = compile(src);
+    assert!(html.contains(src), "expected {src:?} verbatim in output, got {html}");
+  }
+  // Refs that decode to a valid scalar produce that scalar.
+  let decoded: &[(&str, char)] = &[("&#1114111;", '\u{10FFFF}'), ("&#65;", 'A'), ("&#x41;", 'A')];
+  for (src, expected) in decoded {
+    let html = compile(src);
+    assert!(html.contains(*expected), "expected decoded {expected:?} for src={src:?}, got {html}");
+  }
+  // Surrogate / out-of-range refs fall through as inert text with the
+  // ampersand HTML-escaped to `&amp;`.
+  let inert_refs: &[&str] = &["&#xd800;", "&#xdc00;", "&#1114112;"];
+  for src in inert_refs {
+    let html = compile(src);
+    let after_amp = src.strip_prefix('&').expect("starts with &");
+    let expected = format!("&amp;{after_amp}");
+    assert!(html.contains(&expected), "expected inert {expected:?} for src={src:?}, got {html}");
+  }
+  // None of these sources contain a `<`, so the only `<` the output
+  // may carry is the structural `<p>` wrapper. A `<script` / `<svg`
+  // here would indicate raw-HTML injection.
+  for src in scalars.iter().chain(decoded.iter().map(|(s, _)| s)).chain(inert_refs.iter()) {
+    let html = compile(src);
+    let low = html.to_ascii_lowercase();
+    for forbidden in ["<script", "<svg", "<iframe", "<img", "<a "] {
+      assert!(!low.contains(forbidden), "unexpected {forbidden:?} in output for src={src:?}: {html}");
+    }
   }
 }
 

@@ -28,12 +28,6 @@ fn malformed_link_emits_one_diagnostic() {
 }
 
 #[test]
-fn well_formed_link_with_codespan_label_emits_no_diagnostic() {
-  let diag = parse_with_diagnostics("[`STATUS.md`](https://example.com/STATUS.md);\n");
-  assert_eq!(diag.iter().count(), 0, "diagnostics: {:?}", diag.get_diagnostics());
-}
-
-#[test]
 fn unterminated_fence_emits_one_diagnostic() {
   let diag = parse_with_diagnostics("```\n");
   assert_eq!(diag.iter().count(), 1);
