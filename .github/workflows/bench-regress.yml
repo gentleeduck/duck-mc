@@ -52,7 +52,20 @@ jobs:
           git checkout -
 
       # Fail if any benchmark is >10% slower on the PR branch.
+      # critcmp does not have a built-in fail flag; parse its output
+      # and exit nonzero when any PR-side ratio exceeds the threshold.
       - name: Compare
         run: |
-          critcmp base pr
-          critcmp base pr --threshold 10 --fail-on-regression
+          set -o pipefail
+          critcmp base pr | tee /tmp/critcmp.out
+          awk '
+            NR <= 2 { next }
+            NF >= 8 {
+              pr_ratio = $5 + 0
+              if (pr_ratio > 1.10) {
+                printf "regression: %s pr is %.2fx vs base\n", $1, pr_ratio
+                bad = 1
+              }
+            }
+            END { exit bad }
+          ' /tmp/critcmp.out
