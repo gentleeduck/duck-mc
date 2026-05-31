@@ -276,8 +276,10 @@ fn numeric_refs_and_edge_codepoints_render_safely() {
     let html = compile(src);
     assert!(html.contains(src), "expected {src:?} verbatim in output, got {html}");
   }
-  // Refs that decode to a valid scalar produce that scalar.
-  let decoded: &[(&str, char)] = &[("&#1114111;", '\u{10FFFF}'), ("&#65;", 'A'), ("&#x41;", 'A')];
+  // Refs that decode to a valid scalar produce that scalar. CM 6.6
+  // explicitly maps `&#0;` to U+FFFD; cover that path here.
+  let decoded: &[(&str, char)] =
+    &[("&#0;", '\u{FFFD}'), ("&#1114111;", '\u{10FFFF}'), ("&#65;", 'A'), ("&#x41;", 'A')];
   for (src, expected) in decoded {
     let html = compile(src);
     assert!(html.contains(*expected), "expected decoded {expected:?} for src={src:?}, got {html}");
