@@ -15,7 +15,7 @@ readme = "README.md"
 [dependencies]
 duck-diagnostic.workspace = true
 dmc-diagnostic = { workspace = true, features = ["lexer"] }
-memchr = "2.8.0"
+memchr = "2.8.1"
 
 [dev-dependencies]
 pretty_assertions.workspace = true
