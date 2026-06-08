@@ -73,7 +73,7 @@
 		"tsx": "^4"
 	},
 	"devDependencies": {
-		"@napi-rs/cli": "^2.18.4",
+		"@napi-rs/cli": "^3.7.0",
 		"@types/node": "^25",
 		"@types/unist": "^3",
 		"typescript": "^6"
