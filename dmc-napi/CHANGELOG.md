@@ -1,5 +1,11 @@
 # @gentleduck/md
 
+## 0.4.1
+
+### Patch Changes
+
+- Maintenance release. CI hardening only (all GitHub Actions SHA-pinned for Scorecard `PinnedDependenciesID`); no changes to the published compiler or its API.
+
 ## 0.4.0
 
 ### Minor Changes
