@@ -16,8 +16,8 @@ publish = false
 crate-type = ["cdylib"]
 
 [dependencies]
-dmc-core = { version = "0.3.6", path = "../dmc-core" }
-dmc-diagnostic = { version = "0.3.6", path = "../dmc-diagnostic" }
+dmc-core = { version = "0.4.1", path = "../dmc-core" }
+dmc-diagnostic = { version = "0.4.1", path = "../dmc-diagnostic" }
 duck-diagnostic.workspace = true
 # Pin to napi 2.x; napi 3.x changed the macro internals (ctor,
 # register_js_function) and is incompatible with napi-derive 2.x.
