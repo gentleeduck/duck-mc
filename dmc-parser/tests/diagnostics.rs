@@ -73,3 +73,16 @@ fn diagnostic_output_snapshots_are_stable() {
   assert!(jsx.contains("--> <test>:1:6"));
   assert!(jsx.contains("= help: add a quoted string, `{expression}`, or remove the trailing `=`"));
 }
+
+#[test]
+fn backtick_in_link_label_no_diagnostic() {
+  // Regression: [`code`](url); triggered spurious P001 in duck-ui docs build.
+  let src = "status is tracked in [`STATUS.md`](https://github.com/gentleeduck/gentleduck/blob/master/packages/duck-auth/STATUS.md);\n";
+  let diag = parse_with_diagnostics(src);
+  assert_eq!(
+    diag.iter().count(),
+    0,
+    "backtick code span inside link label should not emit P001; got: {:?}",
+    diag.get_diagnostics()
+  );
+}
