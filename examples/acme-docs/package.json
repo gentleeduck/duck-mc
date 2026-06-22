@@ -24,7 +24,7 @@
     "remark-gfm": "^4",
     "remark-parse": "^11",
     "remark-rehype": "^11",
-    "shiki": "^1.29.2",
+    "shiki": "^4.2.0",
     "unified": "^11"
   },
   "devDependencies": {
