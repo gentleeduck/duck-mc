@@ -27,7 +27,7 @@ jobs:
     # Skip on the auto-merged Version Packages commit itself unless it's
     # the merge that should fire the tag - let the action figure it out.
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           fetch-depth: 0
           # Must be a PAT (or app token) - refs pushed with the default
