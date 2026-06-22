@@ -67,7 +67,7 @@ pulldown-latex = "0.7"
 # katex backend differs per platform: quick-js on POSIX (faster), duktape
 # on Windows (cross-platform). Per-crate target-conditional deps select.
 katex = { version = "0.4", default-features = false }
-emojis = "0.8"
+emojis = "0.9"
 
 # Dev
 pretty_assertions = "1"
