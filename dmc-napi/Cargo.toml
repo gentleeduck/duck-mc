@@ -23,7 +23,7 @@ duck-diagnostic.workspace = true
 # register_js_function) and is incompatible with napi-derive 2.x.
 # Bump both together when napi-rs publishes matching v3 derive.
 napi = { version = "=2.16.17", default-features = false, features = ["napi9", "serde-json"] }
-napi-derive = "=2.16.13"
+napi-derive = "=3.5.7"
 serde.workspace = true
 serde_json.workspace = true
 
