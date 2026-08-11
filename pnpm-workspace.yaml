@@ -3,3 +3,6 @@ packages:
   - 'dmc-sidecar'
   - 'examples/*'
   - '**/tmp'
+allowBuilds:
+  esbuild: true
+  sharp: true

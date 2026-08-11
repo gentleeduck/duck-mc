@@ -1,0 +1,72 @@
+{
+  "title": "duck-ui real-corpus content-compile benchmark: velite vs @gentleduck/md (dmc), cold vs warm cache",
+  "date": "2026-08-11",
+  "host": {
+    "cpu": "AMD Ryzen 9 9955HX 16-Core Processor",
+    "os": "Linux 7.1.6-arch1-1 x86_64",
+    "logical_cpus": 32,
+    "bun_version": "1.3.14-canary.1+0d9b296af",
+    "node_version": "v26.7.0"
+  },
+  "methodology": {
+    "measured_step": "content-compile only (not the full `next build`): the CLI invocation that turns apps/duck/content/**/*.mdx into the generated JSON collections consumed by the app.",
+    "old_toolchain_command": "node node_modules/.bin/velite build --clean",
+    "new_toolchain_command": "node node_modules/@gentleduck/md/bin/duck-md.mjs build --quiet",
+    "timer": "wall-clock (bash `date +%s%N` around the process), full process including runtime startup",
+    "cold_definition": {
+      "dmc": "`duck-md clean` (removes apps/duck/.gentleduck/.cache) run immediately before the timed build",
+      "velite": "`--clean` flag; velite has no persistent cache so every run is architecturally cold"
+    },
+    "warm_definition": "dmc only: `duck-md build` run again immediately after a prior build, reusing apps/duck/.gentleduck/.cache/dmc",
+    "runner_note": "invoked via /usr/bin/node directly, not `bun`; duck-md.mjs's TS-config re-exec path (spawns `process.execPath` to run the tsx loader) assumes Node semantics and crashes under Bun's execPath on this host -- see caveats"
+  },
+  "repos": {
+    "dmc_compiler": {
+      "path": "@duck-md (this repo)",
+      "head_commit": "625b9ebfabdc7ebe6043c2c604a9b68387085639",
+      "gentleduck_md_version": "0.4.1"
+    },
+    "duck_ui": {
+      "path": "@duck-ui",
+      "new_commit": "2a4823bf57df703352d40236878321bbd5cf9a3d",
+      "new_commit_subject": "fix(registry-examples): fix crash in primitives-vs-radix benchmark chart",
+      "old_commit": "a91c669b1fd0d3628c2e067fb6c45c6063a8bf4c",
+      "old_commit_subject": "chore: version packages (#461)",
+      "migration_commit": "5a99f61d3b6be9a10e29caa1a80cb3b03fac9122",
+      "migration_commit_subject": "chore(docs): migrate duck site content pipeline from velite to @gentleduck/md",
+      "old_commit_is_direct_parent_of_migration_commit": true
+    }
+  },
+  "corpus": {
+    "old_commit_content_files": 366,
+    "new_commit_content_files": 516,
+    "note": "corpus grew 41% between the two commits; numbers below are NOT normalized per-file, they compare the real historical corpus at each point in time"
+  },
+  "runs_ms": {
+    "velite_cold": [215437.78, 218309, 225315],
+    "dmc_cold": [5831, 5476, 5434],
+    "dmc_warm": [2749, 2838, 3154, 3032, 2978]
+  },
+  "stats_ms": {
+    "velite_cold": { "median": 218309, "mean": 219687.26, "min": 215437.78, "max": 225315, "n": 3 },
+    "dmc_cold": { "median": 5476, "mean": 5580.33, "min": 5434, "max": 5831, "n": 3 },
+    "dmc_warm": { "median": 2978, "mean": 2950.2, "min": 2749, "max": 3154, "n": 5 }
+  },
+  "dmc_cache_hit_rate": {
+    "warm_run_example": "516 files: 510 hits, 6 misses",
+    "note": "6 misses persisted across every warm run; cache never reaches 100% hit rate on this corpus"
+  },
+  "speedups": {
+    "dmc_cold_vs_velite": 39.86,
+    "dmc_warm_vs_velite": 73.31,
+    "dmc_warm_vs_dmc_cold": 1.84,
+    "cache_time_saved_pct": 45.6
+  },
+  "caveats": [
+    "velite has no persistent cache; its three runs (215.4s, 218.3s, 225.3s) show no warm-up trend, confirming every velite build is architecturally cold",
+    "corpus size differs (366 vs 516 files) because content grew between the two commits; dmc is processing 41% more content and is still ~40-73x faster",
+    "each number includes Node process startup, TS config loading, and (for dmc) shiki/syntect highlighter init -- this is real end-to-end CLI time a developer would feel, not a microbenchmark of the parser alone",
+    "n=3 for cold runs, n=5 for warm; see duck-benchmarks/GUIDE.md for how the existing phase-1..7 benchmarks treat sample-size/stddev -- this phase is a smaller, real-corpus spot-check rather than a 200-sample statistical run",
+    "running `duck-md build` via `bun` directly fails on this host with `Cannot find module './cjs/index.cjs' from ''`; root cause is duck-md.mjs's loadConfig() re-exec-under-tsx path using process.execPath (which under Bun is the bun binary, not node) to spawn tsx's Node-oriented CLI loader. Running via a real Node binary (/usr/bin/node) works correctly and is what was used for every measurement in this file."
+  ]
+}
