@@ -27,7 +27,7 @@ impl CompileCmd {
 
     Ok(diag!(
       Code::Custom { code: String::from("N001"), severity: duck_diagnostic::Severity::Note },
-      format!("compiled successfully")
+      String::from("compiled successfully")
     ))
   }
 }
