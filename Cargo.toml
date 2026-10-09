@@ -59,7 +59,7 @@ image = { version = "0.25", default-features = false, features = ["png", "jpeg",
 notify = "8"
 notify-debouncer-mini = "0.4"
 rayon = "1"
-base64 = "0.22"
+base64 = "0.23"
 regex = "1"
 fancy-regex = "0.19"
 unicode-segmentation = "1"
