@@ -233,19 +233,31 @@ fn validate_components(
     return Vec::new();
   }
   let mut out = Vec::with_capacity(found.len());
+  // `parent` indexes the collected list, and dropping an item shifts everything after it, so each
+  // original position is mapped to where it ended up — or to None, when it did not survive.
+  let mut moved: Vec<Option<usize>> = Vec::with_capacity(found.len());
+
   for mut item in found {
     let name = item.get("name").and_then(Value::as_str).unwrap_or_default().to_string();
-    let Some(schema) = schemas.get(&name) else { continue };
+    let Some(schema) = schemas.get(&name) else {
+      moved.push(None);
+      continue;
+    };
     let props = item.get("props").cloned().unwrap_or(Value::Null);
     let line = item.get("line").and_then(Value::as_u64).unwrap_or(0);
     match schema.parse(&props, ctx) {
       Ok(v) => {
+        // the collector pushes a parent before walking its children, so this is always resolved
+        let parent = item.get("parent").and_then(Value::as_u64).and_then(|i| moved.get(i as usize).copied().flatten());
         if let Some(obj) = item.as_object_mut() {
           obj.insert("props".into(), v);
+          obj.insert("parent".into(), parent.map_or(Value::Null, Value::from));
         }
+        moved.push(Some(out.len()));
         out.push(item);
       },
       Err(e) => {
+        moved.push(None);
         diag_engine.emit(diag!(Code::JsonDeserialize, format!("<{}> at {}:{}: {}", name, path.display(), line, e)));
       },
     }
