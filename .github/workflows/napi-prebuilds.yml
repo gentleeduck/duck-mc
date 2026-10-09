@@ -52,7 +52,14 @@ jobs:
           - host: ubuntu-latest
             target: x86_64-unknown-linux-musl
             docker: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-alpine
-            build: pnpm exec napi build --platform --release --target x86_64-unknown-linux-musl
+            # No napi CLI here. The alpine image is built on alpine 3.18, whose
+            # repos only ever carry Node 18, and the CLI needs >=20.17 for
+            # @inquirer/core. Nothing in this target needs the CLI: the publish
+            # job globs *.node by name, and the index.js shim comes from the gnu
+            # entry. So cargo is called directly and the cdylib renamed to the
+            # file index.js looks for. -crt-static keeps it dynamically linked,
+            # which a loadable .node has to be.
+            build: RUSTFLAGS="-C target-feature=-crt-static" cargo build --release --target x86_64-unknown-linux-musl && ls -l ../target/x86_64-unknown-linux-musl/release/*.so && cp ../target/x86_64-unknown-linux-musl/release/libdmc_napi.so ./dmc.linux-x64-musl.node
 
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -100,19 +107,6 @@ jobs:
           options: -v ${{ github.workspace }}:/build -w /build/${{ env.WORKDIR }} -e HUSKY=0
           run: |
             set -e
-            # The napi CLI pulls @inquirer/core, which imports util.styleText and
-            # so needs Node ^20.17 || ^22.13 || >=23.5. The alpine image ships an
-            # reaches cargo. The image is on Node 18, so it has to be upgraded from
-            # alpine's repos, and the assertion afterwards names the version it got
-            # rather than failing again on the same import.
-            if command -v apk >/dev/null; then
-              echo "node in the image: $(node -p process.version)"
-              # --upgrade, because nodejs is already installed and a plain `apk add`
-              # is then a no-op: the image stays on the v18 that cannot run the CLI.
-              apk add --no-cache --upgrade nodejs npm
-              echo "node after apk:    $(node -p process.version)"
-              node -e 'var v=process.versions.node.split(".").map(Number), a=v[0], b=v[1], ok=a>23||(a==23&&b>=5)||(a==22&&b>=13)||(a==20&&b>=17); if(!ok){console.error("node "+process.version+" is below what @inquirer/core needs");process.exit(1)}'
-            fi
             # Bundled corepack has stale keyids and rejects current pnpm
             # signatures; sidestep it and install pnpm as a normal global.
             corepack disable || true
