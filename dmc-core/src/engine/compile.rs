@@ -7,6 +7,9 @@ use dmc_diagnostic::{
 };
 use dmc_lexer::Lexer;
 use dmc_parser::{Parser, ast::Document};
+use std::collections::HashSet;
+
+use crate::engine::components::ComponentCollector;
 use dmc_transform::{CopyLinkedFilesOptions, MathEngine, MermaidOptions, PipelineConfig, PrettyCodeOptions};
 use duck_diagnostic::DiagnosticEngine;
 use serde::{Deserialize, Serialize};
@@ -230,6 +233,20 @@ impl Compiler {
     compile_cfg: &CompileConfig,
     diag_engine: &mut DiagnosticEngine<Code>,
   ) -> CompileOutput {
+    Self::compile_collecting(source, path, compile_cfg, &HashSet::new(), diag_engine)
+  }
+
+  /// As `compile_with_pipeline`, also collecting every JSX node named in `components`.
+  ///
+  /// The props arrive unvalidated: the caller holds the schemas, and validating there is what
+  /// lets a diagnostic name the collection the schema came from.
+  pub fn compile_collecting(
+    source: &str,
+    path: &Path,
+    compile_cfg: &CompileConfig,
+    components: &HashSet<String>,
+    diag_engine: &mut DiagnosticEngine<Code>,
+  ) -> CompileOutput {
     let meta = Arc::from(SourceMeta { path: Arc::from(path.display().to_string()), origin: Origin::File(path.into()) });
     // Rewrite `$...$` / `$$...$$` to `<MathMl/>` so the parser does not
     // treat `_` / `^` inside math as emphasis markers.
@@ -250,7 +267,7 @@ impl Compiler {
 
     pipeline.run(&mut doc, &meta, diag_engine);
 
-    Self::finalize(source, doc, compile_cfg, diag_engine)
+    Self::finalize(source, doc, compile_cfg, components, diag_engine)
   }
 
   /// Per-sink `DiagnosticEngine`s merge into the caller's engine after
@@ -259,6 +276,7 @@ impl Compiler {
     source: &str,
     doc: Document,
     compile_cfg: &CompileConfig,
+    components: &HashSet<String>,
     diag_engine: &mut DiagnosticEngine<Code>,
   ) -> CompileOutput {
     let mut acc = Accumulator::new();
@@ -269,8 +287,13 @@ impl Compiler {
     let mut html_sink = if compile_cfg.emit_html { Some(HtmlEmitter::new_with_options(render_opts)) } else { None };
     let mut body_sink = if compile_cfg.emit_body { Some(MdxBodyEmitter::new_with_options(render_opts)) } else { None };
 
-    let mut sinks: Vec<&mut dyn dmc_codegen::NodeSink> = Vec::with_capacity(3);
+    let mut collector = (!components.is_empty()).then(|| ComponentCollector::new(components));
+
+    let mut sinks: Vec<&mut dyn dmc_codegen::NodeSink> = Vec::with_capacity(4);
     sinks.push(&mut acc);
+    if let Some(ref mut c) = collector {
+      sinks.push(c);
+    }
     if let Some(ref mut h) = html_sink {
       sinks.push(h);
     }
@@ -301,7 +324,23 @@ impl Compiler {
       (None, None) => (String::new(), String::new()),
     };
 
-    acc.into_compile_output(source, html, body, compile_cfg)
+    let mut out = acc.into_compile_output(source, html, body, compile_cfg);
+    if let Some(c) = collector {
+      out.components = c
+        .found
+        .into_iter()
+        .map(|f| {
+          serde_json::json!({
+            "name": f.name,
+            "props": f.props,
+            "line": f.line,
+            "column": f.column,
+            "parent": f.parent,
+          })
+        })
+        .collect();
+    }
+    out
   }
 }
 
@@ -438,4 +477,8 @@ pub struct CompileOutput {
   pub toc: Vec<TocItem>,
   pub imports: Vec<String>,
   pub exports: Vec<String>,
+  /// Components named by the collection's `components` map, in document order.
+  /// Empty unless the caller asked for them; `default` so older cache records still load.
+  #[serde(default)]
+  pub components: Vec<Value>,
 }

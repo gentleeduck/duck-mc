@@ -444,6 +444,7 @@ fn make_cfg(
       base_dir: root.to_path_buf(),
       schema: None,
       single: false,
+      ..Default::default()
     }],
     include_html: false,
     cache_enabled: false,
