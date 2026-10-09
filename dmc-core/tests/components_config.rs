@@ -147,3 +147,91 @@ fn a_component_failing_its_schema_is_left_out() {
   );
   let _ = fs::remove_dir_all(&dir);
 }
+
+#[test]
+fn parent_still_points_at_the_right_component_after_one_is_dropped() {
+  // The first Task fails its schema and is withheld. Everything after it shifts down a slot, so a
+  // child whose `parent` was recorded against the unfiltered list would point at the wrong one.
+  let dir = tmp("remap");
+  fs::create_dir_all(dir.join("content")).unwrap();
+  fs::write(
+    dir.join("content/lesson.mdx"),
+    concat!(
+      "---\nid: x\ntitle: X\n---\n\n",
+      "<Task id=\"bad\" title=\"T\" node=\"not-a-number\" />\n\n",
+      "<Task id=\"good\" title=\"T\">\n",
+      "  <Check name=\"c1\" run=\"true\" />\n",
+      "</Task>\n"
+    ),
+  )
+  .unwrap();
+  let out = dir.join(".out");
+  let cfg = EngineConfig {
+    root: dir.to_path_buf(),
+    output_dir: out.clone(),
+    clean: true,
+    collections: vec![Collection {
+      name: "lessons".into(),
+      pattern: "content/**/*.mdx".into(),
+      base_dir: dir.to_path_buf(),
+      components: Some(schemas()),
+      ..Default::default()
+    }],
+    cache_enabled: false,
+    compile: CompileConfig::new(),
+    ..Default::default()
+  };
+  let mut diag = DiagnosticEngine::<Code>::new();
+  dmc::Engine::run(&cfg, None, &mut diag).expect("engine run");
+  let records: Vec<Value> = serde_json::from_str(&fs::read_to_string(out.join("lessons.json")).unwrap()).unwrap();
+  let items = records[0]["components"].as_array().expect("the surviving components");
+
+  let names: Vec<&str> = items.iter().map(|i| i["name"].as_str().unwrap()).collect();
+  assert_eq!(names, ["Task", "Check"], "the invalid Task is withheld");
+  assert_eq!(items[0]["props"]["id"], "good");
+  assert_eq!(items[1]["parent"], 0, "the Check points at the Task it is actually inside");
+
+  let _ = fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn a_child_of_a_dropped_component_has_no_parent() {
+  let dir = tmp("orphan");
+  fs::create_dir_all(dir.join("content")).unwrap();
+  fs::write(
+    dir.join("content/lesson.mdx"),
+    concat!(
+      "---\nid: x\ntitle: X\n---\n\n",
+      "<Task id=\"bad\" title=\"T\" node=\"not-a-number\">\n",
+      "  <Check name=\"c1\" run=\"true\" />\n",
+      "</Task>\n"
+    ),
+  )
+  .unwrap();
+  let out = dir.join(".out");
+  let cfg = EngineConfig {
+    root: dir.to_path_buf(),
+    output_dir: out.clone(),
+    clean: true,
+    collections: vec![Collection {
+      name: "lessons".into(),
+      pattern: "content/**/*.mdx".into(),
+      base_dir: dir.to_path_buf(),
+      components: Some(schemas()),
+      ..Default::default()
+    }],
+    cache_enabled: false,
+    compile: CompileConfig::new(),
+    ..Default::default()
+  };
+  let mut diag = DiagnosticEngine::<Code>::new();
+  dmc::Engine::run(&cfg, None, &mut diag).expect("engine run");
+  let records: Vec<Value> = serde_json::from_str(&fs::read_to_string(out.join("lessons.json")).unwrap()).unwrap();
+  let items = records[0]["components"].as_array().unwrap();
+
+  assert_eq!(items.len(), 1);
+  assert_eq!(items[0]["name"], "Check");
+  assert!(items[0]["parent"].is_null(), "its parent was withheld, so it reports none rather than an index");
+
+  let _ = fs::remove_dir_all(&dir);
+}
