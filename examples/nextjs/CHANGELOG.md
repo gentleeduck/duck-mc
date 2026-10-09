@@ -1,5 +1,12 @@
 # dmc-nextjs
 
+## 0.0.5
+
+### Patch Changes
+
+- Updated dependencies [7782fe9]
+  - @gentleduck/md@0.5.0
+
 ## 0.0.4
 
 ### Patch Changes
