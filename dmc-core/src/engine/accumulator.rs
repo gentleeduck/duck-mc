@@ -107,6 +107,7 @@ impl Accumulator {
       toc,
       imports: self.imports,
       exports: self.exports,
+      components: Vec::new(),
     }
   }
 

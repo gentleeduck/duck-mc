@@ -10,6 +10,7 @@ pub mod accumulator;
 pub mod cache;
 pub mod collection;
 pub mod compile;
+pub mod components;
 pub mod config;
 pub mod index;
 pub mod schema_ts;
