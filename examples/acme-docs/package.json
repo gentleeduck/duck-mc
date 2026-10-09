@@ -17,7 +17,7 @@
     "react": "^19",
     "react-dom": "^19",
     "rehype-autolink-headings": "^7",
-    "rehype-pretty-code": "^0.14.1",
+    "rehype-pretty-code": "^0.14.5",
     "rehype-raw": "^7",
     "rehype-slug": "^6",
     "rehype-stringify": "^10",
