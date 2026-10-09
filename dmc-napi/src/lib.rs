@@ -49,7 +49,7 @@ pub fn compile(source: String, options: Option<CompileOptions>) -> Result<Value>
   let cfg = compile_config_from(options)?;
   let mut diag = DiagnosticEngine::<Code>::new();
   let out = Compiler::compile_with_pipeline(&source, Path::new("."), &cfg, &mut diag);
-  serde_json::to_value(&out).map_err(|e| Error::from_reason(e.to_string()))
+  output_with_diagnostics(&out, &diag)
 }
 
 /// Render a LaTeX fragment to KaTeX HTML. Output is byte-compatible with
@@ -69,12 +69,14 @@ pub fn compile_many(sources: Vec<String>, options: Option<CompileOptions>) -> Re
   // One config for the batch: the syntax bundle behind `prettyCode` is parsed once
   // per process, so a shared config is what makes a batch cheaper than N calls.
   let cfg = compile_config_from(options)?;
-  let mut diag = DiagnosticEngine::<Code>::new();
   sources
     .into_iter()
     .map(|s| {
+      // a fresh engine per source: a shared one would hand every later output the
+      // diagnostics of the sources compiled before it
+      let mut diag = DiagnosticEngine::<Code>::new();
       let out = Compiler::compile_with_pipeline(&s, Path::new("."), &cfg, &mut diag);
-      serde_json::to_value(&out).map_err(|e| Error::from_reason(e.to_string()))
+      output_with_diagnostics(&out, &diag)
     })
     .collect()
 }
@@ -263,7 +265,17 @@ pub fn build(input: BuildInput) -> Result<BuildReport> {
     })
     .collect();
 
-  let diagnostics: Vec<DiagnosticReport> = diag
+  Ok(BuildReport { diagnostics: reports_of(&diag), collections, errors: Vec::new() })
+}
+
+/// Every diagnostic the engine collected, as the JS-facing shape.
+///
+/// `build` reports these on `BuildReport`; `compile` attaches them to its output. A
+/// theme name that is not bundled is a warning, not an error, and highlighting falls
+/// back -- so a caller that never sees the warning has no way to tell a working theme
+/// from a silently substituted one.
+fn reports_of(diag: &DiagnosticEngine<Code>) -> Vec<DiagnosticReport> {
+  diag
     .iter()
     .map(|d| {
       use duck_diagnostic::DiagnosticCode;
@@ -278,9 +290,26 @@ pub fn build(input: BuildInput) -> Result<BuildReport> {
         column: first_label.map(|l| l.span.column as u32),
       }
     })
-    .collect();
+    .collect()
+}
 
-  Ok(BuildReport { diagnostics, collections, errors: Vec::new() })
+/// Serialize one compile output and hang the run's diagnostics off it.
+fn output_with_diagnostics(out: &dmc::engine::compile::CompileOutput, diag: &DiagnosticEngine<Code>) -> Result<Value> {
+  let mut v = serde_json::to_value(out).map_err(|e| Error::from_reason(e.to_string()))?;
+  let reports = reports_of(diag);
+  if let Some(obj) = v.as_object_mut() {
+    let list = reports
+      .iter()
+      .map(|r| {
+        serde_json::json!({
+          "code": r.code, "severity": r.severity, "message": r.message, "help": r.help,
+          "file": r.file, "line": r.line, "column": r.column,
+        })
+      })
+      .collect::<Vec<_>>();
+    obj.insert("diagnostics".into(), Value::Array(list));
+  }
+  Ok(v)
 }
 
 fn severity_label(s: duck_diagnostic::Severity) -> String {
