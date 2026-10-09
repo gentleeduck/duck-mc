@@ -202,5 +202,8 @@ jobs:
       - name: publish
         working-directory: ${{ env.WORKDIR }}
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_AUTH_TOKEN }}
+          # Whichever of the two the repo actually holds. Named NPM_TOKEN historically; an empty
+          # value here does not fail the step, it publishes anonymously and 401s at the end of a
+          # full matrix build, so taking both names is cheaper than rebuilding to find out.
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_AUTH_TOKEN || secrets.NPM_TOKEN }}
         run: pnpm publish --access public --no-git-checks
