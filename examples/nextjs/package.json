@@ -1,7 +1,7 @@
 {
 	"name": "dmc-nextjs",
 	"private": true,
-	"version": "0.0.5",
+	"version": "0.0.6",
 	"scripts": {
 		"content": "tsx scripts/build-content.ts",
 		"predev": "pnpm content",
