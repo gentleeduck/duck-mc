@@ -261,6 +261,31 @@ fn options_serde_full_round_trip() {
 }
 
 #[test]
+fn strategy_reads_from_camel_case_only() {
+  // A caller passing these options as JSON — a config file, or the napi bridge — is the
+  // only way `multiThemeStrategy` gets set, so the spelling it answers to is part of the
+  // contract. snake_case is silently ignored by `#[serde(default)]`, which is the trap.
+  use dmc_transform::MultiThemeStrategy;
+
+  let camel: PrettyCodeOptions = serde_json::from_str(r#"{"theme":"Nord","multiThemeStrategy":"css-vars"}"#).unwrap();
+  assert!(matches!(camel.multi_theme_strategy, Some(MultiThemeStrategy::CssVars)));
+
+  let split: PrettyCodeOptions = serde_json::from_str(r#"{"theme":"Nord","multiThemeStrategy":"split"}"#).unwrap();
+  assert!(matches!(split.multi_theme_strategy, Some(MultiThemeStrategy::Split)));
+
+  let snake: PrettyCodeOptions = serde_json::from_str(r#"{"theme":"Nord","multi_theme_strategy":"split"}"#).unwrap();
+  assert!(snake.multi_theme_strategy.is_none(), "snake_case is not the spelling and must not take effect");
+}
+
+#[test]
+fn a_theme_that_is_not_a_name_is_rejected() {
+  // Rejected rather than defaulted: a typo in a config should stop the build, not
+  // quietly ship a document highlighted in some other theme.
+  let err = serde_json::from_str::<PrettyCodeOptions>(r#"{"theme":{"light":7}}"#);
+  assert!(err.is_err(), "a number is not a theme name");
+}
+
+#[test]
 fn mermaid_codeblock_is_left_for_other_transformer() {
   let mut d = dmc_parser::parse("```mermaid\ngraph TD; a-->b\n```\n");
   Pipeline::new().add(PrettyCode::default()).run_silent(&mut d);

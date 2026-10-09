@@ -3,7 +3,7 @@
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
 use serde_json::Value;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use dmc::Engine;
 use dmc::engine::collection::Collection as CollectionDef;
@@ -12,10 +12,43 @@ use dmc::engine::config::EngineConfig;
 use dmc_diagnostic::Code;
 use duck_diagnostic::DiagnosticEngine;
 
+/// Compile-time options, the subset of `ContentOptions` that changes how one
+/// source is compiled. `build` takes the same settings through `BuildInput`;
+/// this is for callers compiling a string they already hold.
+#[napi(object)]
+pub struct CompileOptions {
+  pub markdown_gfm: Option<bool>,
+  pub mdx_minify: Option<bool>,
+  pub mdx_output_format: Option<String>,
+  pub copy_linked_files: Option<bool>,
+  /// Syntax highlighting. Without it code fences compile to plain `<pre>`,
+  /// which is why a consumer would otherwise have to highlight in the browser.
+  pub pretty_code: Option<Value>,
+  pub mermaid: Option<Value>,
+  pub allow_dangerous_html: Option<bool>,
+}
+
+pub fn compile_config_from(opts: Option<CompileOptions>) -> Result<CompileConfig> {
+  let Some(o) = opts else { return Ok(CompileConfig::new()) };
+  Ok(CompileConfig {
+    markdown_gfm: o.markdown_gfm.unwrap_or(true),
+    emit_html: true,
+    emit_body: true,
+    mdx_minify: o.mdx_minify.unwrap_or(false),
+    mdx_output_format: o.mdx_output_format,
+    copy_linked_files: o.copy_linked_files.unwrap_or(false),
+    pretty_code: pretty_code_of(&o.pretty_code)?,
+    mermaid: mermaid_of(&o.mermaid)?,
+    allow_dangerous_html: o.allow_dangerous_html.unwrap_or(false),
+    ..CompileConfig::new()
+  })
+}
+
 #[napi]
-pub fn compile(source: String) -> Result<Value> {
+pub fn compile(source: String, options: Option<CompileOptions>) -> Result<Value> {
+  let cfg = compile_config_from(options)?;
   let mut diag = DiagnosticEngine::<Code>::new();
-  let out = Compiler::compile(&source, &mut diag);
+  let out = Compiler::compile_with_pipeline(&source, Path::new("."), &cfg, &mut diag);
   serde_json::to_value(&out).map_err(|e| Error::from_reason(e.to_string()))
 }
 
@@ -32,12 +65,15 @@ pub fn latex_to_html(latex: String, display: bool) -> Result<String> {
 }
 
 #[napi]
-pub fn compile_many(sources: Vec<String>) -> Result<Vec<Value>> {
+pub fn compile_many(sources: Vec<String>, options: Option<CompileOptions>) -> Result<Vec<Value>> {
+  // One config for the batch: the syntax bundle behind `prettyCode` is parsed once
+  // per process, so a shared config is what makes a batch cheaper than N calls.
+  let cfg = compile_config_from(options)?;
   let mut diag = DiagnosticEngine::<Code>::new();
   sources
     .into_iter()
     .map(|s| {
-      let out = Compiler::compile(&s, &mut diag);
+      let out = Compiler::compile_with_pipeline(&s, Path::new("."), &cfg, &mut diag);
       serde_json::to_value(&out).map_err(|e| Error::from_reason(e.to_string()))
     })
     .collect()
@@ -133,6 +169,24 @@ fn array_or_default(v: Option<Value>) -> Vec<Value> {
   }
 }
 
+fn pretty_code_of(v: &Option<Value>) -> Result<Option<dmc::PrettyCodeOptions>> {
+  v.as_ref()
+    .map(|v| {
+      serde_json::from_value::<dmc::PrettyCodeOptions>(v.clone())
+        .map_err(|e| Error::from_reason(format!("invalid prettyCode config: {e}")))
+    })
+    .transpose()
+}
+
+fn mermaid_of(v: &Option<Value>) -> Result<Option<dmc::MermaidOptions>> {
+  v.as_ref()
+    .map(|v| {
+      serde_json::from_value::<dmc::MermaidOptions>(v.clone())
+        .map_err(|e| Error::from_reason(format!("invalid mermaid config: {e}")))
+    })
+    .transpose()
+}
+
 #[napi]
 pub fn build(input: BuildInput) -> Result<BuildReport> {
   let compile = CompileConfig {
@@ -148,22 +202,8 @@ pub fn build(input: BuildInput) -> Result<BuildReport> {
     copy_linked_files: input.copy_linked_files.unwrap_or(false),
     output_assets: input.output_assets,
     output_base: input.output_base,
-    pretty_code: input
-      .pretty_code
-      .as_ref()
-      .map(|v| {
-        serde_json::from_value::<dmc::PrettyCodeOptions>(v.clone())
-          .map_err(|e| Error::from_reason(format!("invalid prettyCode config: {e}")))
-      })
-      .transpose()?,
-    mermaid: input
-      .mermaid
-      .as_ref()
-      .map(|v| {
-        serde_json::from_value::<dmc::MermaidOptions>(v.clone())
-          .map_err(|e| Error::from_reason(format!("invalid mermaid config: {e}")))
-      })
-      .transpose()?,
+    pretty_code: pretty_code_of(&input.pretty_code)?,
+    mermaid: mermaid_of(&input.mermaid)?,
     math_engine: None,
     force_sidecar: input.force_sidecar.unwrap_or(false),
     prefer_sidecar: input.prefer_sidecar.unwrap_or_default(),
