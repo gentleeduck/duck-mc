@@ -102,13 +102,14 @@ jobs:
             set -e
             # The napi CLI pulls @inquirer/core, which imports util.styleText and
             # so needs Node ^20.17 || ^22.13 || >=23.5. The alpine image ships an
-            # older Node and the build dies on `import { styleText }` before it
-            # reaches cargo. Alpine's own repo carries a newer Node than the image
-            # was built with, so take that, and say which version if it still is
-            # not enough rather than failing again on the same import.
+            # reaches cargo. The image is on Node 18, so it has to be upgraded from
+            # alpine's repos, and the assertion afterwards names the version it got
+            # rather than failing again on the same import.
             if command -v apk >/dev/null; then
               echo "node in the image: $(node -p process.version)"
-              apk add --no-cache nodejs npm
+              # --upgrade, because nodejs is already installed and a plain `apk add`
+              # is then a no-op: the image stays on the v18 that cannot run the CLI.
+              apk add --no-cache --upgrade nodejs npm
               echo "node after apk:    $(node -p process.version)"
               node -e 'var v=process.versions.node.split(".").map(Number), a=v[0], b=v[1], ok=a>23||(a==23&&b>=5)||(a==22&&b>=13)||(a==20&&b>=17); if(!ok){console.error("node "+process.version+" is below what @inquirer/core needs");process.exit(1)}'
             fi
