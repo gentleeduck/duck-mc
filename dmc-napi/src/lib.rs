@@ -50,6 +50,8 @@ pub struct CollectionInput {
   pub base_dir: String,
   pub schema: Option<Value>,
   pub single: Option<bool>,
+  /// Component name -> schema descriptor; validated in the body and emitted onto the record.
+  pub components: Option<Value>,
 }
 
 #[napi(object)]
@@ -186,6 +188,7 @@ pub fn build(input: BuildInput) -> Result<BuildReport> {
         base_dir: PathBuf::from(c.base_dir),
         schema: c.schema,
         single: c.single.unwrap_or(false),
+        components: c.components,
       })
       .collect(),
     compile,

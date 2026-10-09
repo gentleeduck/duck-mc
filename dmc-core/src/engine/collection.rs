@@ -1,7 +1,8 @@
 use dmc_diagnostic::Code;
 use duck_diagnostic::{DiagnosticEngine, diag};
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-use std::path::PathBuf;
+use std::collections::{HashMap, HashSet};
+use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -22,6 +23,10 @@ pub struct Collection {
   pub base_dir: PathBuf,
   #[serde(skip_serializing_if = "Option::is_none")]
   pub schema: Option<Value>,
+  /// Component name -> schema descriptor. Matching JSX in a body is validated and emitted onto
+  /// the record, so the interactive parts of a document are readable as data.
+  #[serde(skip_serializing_if = "Option::is_none")]
+  pub components: Option<Value>,
   #[serde(skip_serializing_if = "std::ops::Not::not")]
   pub single: bool,
 }
@@ -48,8 +53,13 @@ impl Collection {
         .ok()
     });
 
+    let component_schemas = self.component_schemas(diag_engine);
+    let component_names: HashSet<String> = component_schemas.keys().cloned().collect();
+
     let cache = if cfg.cache_enabled { FileCache::open(cfg.output_dir.join(".cache").join("dmc")) } else { None };
-    let cfg_fp = fingerprint(&(&cfg.compile, &cfg.include_html, &self.name, &self.schema, &cfg.output_format));
+    // the component schemas change what a record holds, so they belong in the cache key
+    let cfg_fp =
+      fingerprint(&(&cfg.compile, &cfg.include_html, &self.name, &self.schema, &cfg.output_format, &self.components));
 
     let outcomes: Vec<Option<Value>> = paths
       .par_iter()
@@ -76,7 +86,8 @@ impl Collection {
         let local_compiler_cfg = cfg.compile.for_render();
         let use_sidecar = cfg.compile.has_js_plugins();
 
-        let mut compiled = Compiler::compile_with_pipeline(&source, path, &local_compiler_cfg, &mut local_diag_engine);
+        let mut compiled =
+          Compiler::compile_collecting(&source, path, &local_compiler_cfg, &component_names, &mut local_diag_engine);
 
         if use_sidecar && let Some(html) = run_sidecar(&compiled.content, cfg) {
           compiled.html = html;
@@ -89,23 +100,39 @@ impl Collection {
           compiled.body = minify_js(&compiled.body);
         }
 
+        // Shared: a component schema may use the same path- and content-derived kinds
+        // (`path`, `excerpt`, `toc`) as frontmatter, which an empty context would starve.
+        let schema_ctx = build_schema_ctx(path, &cfg.root, &compiled, cfg);
+
         let validated_frontmatter = match (&collection_schema, &compiled.frontmatter) {
-          (Some(schema), fm) if !fm.is_null() => {
-            let ctx = build_schema_ctx(path, &cfg.root, &compiled, cfg);
-            match schema.parse(fm, &ctx) {
-              Ok(v) => v,
-              Err(e) => {
-                local_diag_engine
-                  .emit(diag!(Code::JsonDeserialize, format!("frontmatter validation at {}: {}", path.display(), e)));
-                compiled.frontmatter.clone()
-              },
-            }
+          (Some(schema), fm) if !fm.is_null() => match schema.parse(fm, &schema_ctx) {
+            Ok(v) => v,
+            Err(e) => {
+              local_diag_engine
+                .emit(diag!(Code::JsonDeserialize, format!("frontmatter validation at {}: {}", path.display(), e)));
+              compiled.frontmatter.clone()
+            },
           },
           _ => compiled.frontmatter.clone(),
         };
 
+        let items = validate_components(
+          std::mem::take(&mut compiled.components),
+          &component_schemas,
+          &schema_ctx,
+          path,
+          &mut local_diag_engine,
+        );
+
         let include_html = cfg.include_html || use_sidecar;
-        let rec = build_velite_record(compiled, validated_frontmatter, path, &self.base_dir, &self.name, include_html);
+        let mut rec =
+          build_velite_record(compiled, validated_frontmatter, path, &self.base_dir, &self.name, include_html);
+
+        if !items.is_empty()
+          && let Some(obj) = rec.as_object_mut()
+        {
+          obj.insert("components".into(), Value::Array(items));
+        }
 
         // Cache only clean runs so diagnostics re-fire until the source is fixed.
         let dirty = local_diag_engine.error_count() + local_diag_engine.bug_count() > 0;
@@ -138,4 +165,90 @@ impl Collection {
 
     Ok(CollectionReport { name: self.name.clone(), records: count, output_path: out_path })
   }
+}
+
+impl Collection {
+  /// The collection's `components` map compiled into schemas, one per name.
+  ///
+  /// A descriptor that does not compile is reported and dropped rather than failing the build:
+  /// the rest of the collection is still worth emitting, and the diagnostic names the component.
+  fn component_schemas(
+    &self,
+    diag_engine: &mut DiagnosticEngine<Code>,
+  ) -> HashMap<String, Box<dyn dmc_schema::Schema>> {
+    let mut out = HashMap::new();
+    let Some(Value::Object(map)) = self.components.as_ref() else {
+      if let Some(v) = self.components.as_ref() {
+        diag_engine.emit(diag!(
+          Code::InvalidConfig,
+          format!(
+            "`components` for collection `{}` must be an object of name -> schema, got {}",
+            self.name,
+            kind_of(v)
+          )
+        ));
+      }
+      return out;
+    };
+    for (name, descriptor) in map {
+      match dmc_schema::compile_descriptor(descriptor) {
+        Ok(s) => {
+          out.insert(name.clone(), s);
+        },
+        Err(e) => {
+          diag_engine.emit(diag!(
+            Code::JsonDeserialize,
+            format!("component schema `{}` in collection `{}`: {}", name, self.name, e)
+          ));
+        },
+      }
+    }
+    out
+  }
+}
+
+fn kind_of(v: &Value) -> &'static str {
+  match v {
+    Value::Null => "null",
+    Value::Bool(_) => "a boolean",
+    Value::Number(_) => "a number",
+    Value::String(_) => "a string",
+    Value::Array(_) => "an array",
+    Value::Object(_) => "an object",
+  }
+}
+
+/// Validate each collected component against its schema.
+///
+/// A component that fails its schema is reported against its own line and left out of the record,
+/// so a consumer never reads props that were never checked.
+fn validate_components(
+  found: Vec<Value>,
+  schemas: &HashMap<String, Box<dyn dmc_schema::Schema>>,
+  ctx: &dmc_schema::Ctx,
+  path: &Path,
+  diag_engine: &mut DiagnosticEngine<Code>,
+) -> Vec<Value> {
+  if found.is_empty() {
+    return Vec::new();
+  }
+  let mut out = Vec::with_capacity(found.len());
+  for mut item in found {
+    let name = item.get("name").and_then(Value::as_str).unwrap_or_default().to_string();
+    let Some(schema) = schemas.get(&name) else { continue };
+    let props = item.get("props").cloned().unwrap_or(Value::Null);
+    let line = item.get("line").and_then(Value::as_u64).unwrap_or(0);
+    match schema.parse(&props, ctx) {
+      Ok(v) => {
+        if let Some(obj) = item.as_object_mut() {
+          obj.insert("props".into(), v);
+        }
+        out.push(item);
+      },
+      Err(e) => {
+        diag_engine.emit(diag!(Code::JsonDeserialize, format!("<{}> at {}:{}: {}", name, path.display(), line, e)));
+      },
+    }
+  }
+  out
 }
