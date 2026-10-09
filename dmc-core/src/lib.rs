@@ -13,5 +13,5 @@ pub mod engine;
 pub mod loaders;
 
 pub use dmc_parser::{ast, parse};
-pub use dmc_transform::{MermaidOptions, MermaidThemeMode, PrettyCodeOptions, PrettyCodeTheme};
+pub use dmc_transform::{MermaidOptions, MermaidThemeMode, MultiThemeStrategy, PrettyCodeOptions, PrettyCodeTheme};
 pub use engine::Engine;

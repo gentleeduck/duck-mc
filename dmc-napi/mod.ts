@@ -1359,12 +1359,37 @@ function adaptToBuildInput(
 	};
 }
 
-export function compile(source: string): CompileOutput {
-	return native.compile(source) as CompileOutput;
+/**
+ * Compile-time options: the subset of {@link ContentOptions} that changes how a
+ * single source compiles. Omit them and code fences come back as plain `<pre>`.
+ */
+export interface CompileOptions {
+	markdownGfm?: boolean;
+	mdxMinify?: boolean;
+	mdxOutputFormat?: string;
+	copyLinkedFiles?: boolean;
+	/** Syntax highlighting, applied while compiling rather than in the browser. */
+	prettyCode?: PrettyCodeOptions;
+	mermaid?: MermaidOptions;
+	allowDangerousHtml?: boolean;
 }
 
-export function compileMany(sources: string[]): CompileOutput[] {
-	return native.compileMany(sources) as CompileOutput[];
+/**
+ * Compile one source. `options.prettyCode` is what makes `output.html` carry
+ * highlighted code, so a consumer can ship markup instead of a highlighter.
+ */
+export function compile(source: string, options?: CompileOptions): CompileOutput {
+	return native.compile(source, options) as CompileOutput;
+}
+
+/**
+ * Compile several sources under one config.
+ *
+ * Cheaper than calling {@link compile} in a loop: the syntax and theme bundle
+ * behind `prettyCode` is parsed once for the batch.
+ */
+export function compileMany(sources: string[], options?: CompileOptions): CompileOutput[] {
+	return native.compileMany(sources, options) as CompileOutput[];
 }
 
 /**
