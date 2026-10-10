@@ -1,0 +1,230 @@
+{
+  "title": "duck-ui docs build with every mermaid diagram drawn: dmc 0.6.2 (mmdc per diagram) vs 0.6.3 (one browser), and velite",
+  "date": "2026-10-10",
+  "host": {
+    "cpu": "Apple M4 (4 performance + 6 efficiency cores)",
+    "memory_gb": 16,
+    "os": "macOS 27.0.1",
+    "node_version": "v25.8.0",
+    "dmc_mermaid": "@mermaid-js/mermaid-cli 11.15.0, puppeteer 24.43.1, chrome-headless-shell 148.0.7778.97",
+    "velite_mermaid": "Google Chrome 154.0.8037.99, one headless launch per page (velite-era rehype-mermaid)"
+  },
+  "methodology": {
+    "measured_step": "content compile only, not `next build`; same scope as phase 8",
+    "timer": "wall-clock around the whole CLI process, including Node startup and config load",
+    "dmc_command": "node <@gentleduck/md>/bin/duck-md.mjs build --config bench.config.ts, run in apps/duck",
+    "dmc_config": "a bench config that imports duck-ui's own duck-md.config.ts and overrides `root` (a frozen copy of the content) plus `output.data` and `content.mermaid.outputDir` (a scratch directory)",
+    "states": {
+      "cold": "scratch directory deleted: no per-doc compile cache, no mermaid SVG cache",
+      "svg": "output and every compile cache (per-doc and preMdx) deleted, mermaid.outputDir SVGs kept; a dmc upgrade invalidates only the per-doc cache, so it costs at most this",
+      "warm": "everything kept from the previous run"
+    },
+    "velite_command": "node node_modules/.bin/velite build --clean, run in apps/duck of a `git archive` export of a91c669b1, installed from its own bun.lock, with @gentleduck/docs built",
+    "load1_at_start": "macOS 1-minute load average sampled as each run starts; it lags, so a high value right after a heavy run is mostly that run's tail"
+  },
+  "versions": {
+    "dmc_before": "@gentleduck/md 0.6.2 (npm)",
+    "dmc_after": "@gentleduck/md 0.6.3 (npm), mermaid change from gentleeduck/duck-mc#148 (86b9a27)"
+  },
+  "corpora": {
+    "now": {
+      "duck_ui_commit": "43af295be",
+      "mdx_files": 554,
+      "records": 554,
+      "mermaid": "279 <MermaidDiagram> + 5 ```mermaid; 558 distinct renders (theme x source)",
+      "variants": [
+        "dmc-0.6.2-now",
+        "dmc-0.6.3-now"
+      ]
+    },
+    "old": {
+      "duck_ui_commit": "a91c669b1 (parent of the velite -> dmc migration commit 5a99f61d3)",
+      "mdx_files": 366,
+      "records": 366,
+      "mermaid": "169 <MermaidDiagram> + 4 ```mermaid; velite's output carries lightSvg/darkSvg for all 169",
+      "variants": [
+        "velite",
+        "dmc-0.6.2-old",
+        "dmc-0.6.3-old"
+      ]
+    }
+  },
+  "runs": {
+    "dmc-0.6.3-now/cold": [
+      {
+        "wall_s": 88.27,
+        "load1_at_start": 2.94
+      },
+      {
+        "wall_s": 85.95,
+        "load1_at_start": 6.88
+      },
+      {
+        "wall_s": 129.6,
+        "load1_at_start": 8.39
+      }
+    ],
+    "dmc-0.6.3-now/svg": [
+      {
+        "wall_s": 11.72,
+        "load1_at_start": 19.03
+      },
+      {
+        "wall_s": 9.79,
+        "load1_at_start": 17.97
+      },
+      {
+        "wall_s": 10.03,
+        "load1_at_start": 16.85
+      }
+    ],
+    "dmc-0.6.3-now/warm": [
+      {
+        "wall_s": 3.4,
+        "load1_at_start": 16.63
+      },
+      {
+        "wall_s": 3.56,
+        "load1_at_start": 15.62
+      },
+      {
+        "wall_s": 3.37,
+        "load1_at_start": 14.93
+      },
+      {
+        "wall_s": 3.45,
+        "load1_at_start": 14.93
+      },
+      {
+        "wall_s": 3.26,
+        "load1_at_start": 14.14
+      }
+    ],
+    "dmc-0.6.2-now/cold": [
+      {
+        "wall_s": 303.73,
+        "load1_at_start": 13.32
+      },
+      {
+        "wall_s": 266.11,
+        "load1_at_start": 68.47
+      }
+    ],
+    "dmc-0.6.3-old/cold": [
+      {
+        "wall_s": 72.4,
+        "load1_at_start": 57.52
+      },
+      {
+        "wall_s": 74.56,
+        "load1_at_start": 29.43
+      },
+      {
+        "wall_s": 73.91,
+        "load1_at_start": 18.81
+      }
+    ],
+    "dmc-0.6.3-old/warm": [
+      {
+        "wall_s": 3.95,
+        "load1_at_start": 17.42
+      },
+      {
+        "wall_s": 3.09,
+        "load1_at_start": 17.7
+      },
+      {
+        "wall_s": 2.66,
+        "load1_at_start": 17.7
+      }
+    ],
+    "velite/cold": [
+      {
+        "wall_s": 413.54,
+        "load1_at_start": 16.61
+      },
+      {
+        "wall_s": 450.74,
+        "load1_at_start": 12.13
+      },
+      {
+        "wall_s": 411.04,
+        "load1_at_start": 18.6
+      }
+    ],
+    "dmc-0.6.2-old/cold": [
+      {
+        "wall_s": 172.35,
+        "load1_at_start": 9.29
+      },
+      {
+        "wall_s": 164.59,
+        "load1_at_start": 49.41
+      }
+    ]
+  },
+  "stats": {
+    "dmc-0.6.3-now/cold": {
+      "median_s": 88.27,
+      "min_s": 85.95,
+      "max_s": 129.6,
+      "n": 3
+    },
+    "dmc-0.6.3-now/svg": {
+      "median_s": 10.03,
+      "min_s": 9.79,
+      "max_s": 11.72,
+      "n": 3
+    },
+    "dmc-0.6.3-now/warm": {
+      "median_s": 3.4,
+      "min_s": 3.26,
+      "max_s": 3.56,
+      "n": 5
+    },
+    "dmc-0.6.2-now/cold": {
+      "median_s": 284.92,
+      "min_s": 266.11,
+      "max_s": 303.73,
+      "n": 2
+    },
+    "dmc-0.6.3-old/cold": {
+      "median_s": 73.91,
+      "min_s": 72.4,
+      "max_s": 74.56,
+      "n": 3
+    },
+    "dmc-0.6.3-old/warm": {
+      "median_s": 3.09,
+      "min_s": 2.66,
+      "max_s": 3.95,
+      "n": 3
+    },
+    "velite/cold": {
+      "median_s": 413.54,
+      "min_s": 411.04,
+      "max_s": 450.74,
+      "n": 3
+    },
+    "dmc-0.6.2-old/cold": {
+      "median_s": 168.47,
+      "min_s": 164.59,
+      "max_s": 172.35,
+      "n": 2
+    }
+  },
+  "speedups": {
+    "now: 0.6.3 cold vs 0.6.2 cold": 3.23,
+    "now: 0.6.3 svg vs 0.6.2 cold": 28.41,
+    "now: 0.6.3 warm vs 0.6.2 cold": 83.8,
+    "old: dmc 0.6.2 cold vs velite": 2.45,
+    "old: dmc 0.6.3 cold vs velite": 5.6,
+    "old: dmc 0.6.3 warm vs velite": 133.83
+  },
+  "caveats": [
+    "not a quiet machine: macOS storage indexing and other dev tools were busy throughout; one 0.6.3 cold run took 129.6 s against 86-88 s for the other two",
+    "small samples, n = 2 to 5 per variant",
+    "velite and dmc draw with different browsers, each the one its own pipeline uses",
+    "phase 8 ran on a 32-thread Linux desktop and does not record whether mmdc was installed; without it dmc draws nothing (MmdcUnavailable), so its numbers do not compare with these"
+  ]
+}
