@@ -12,13 +12,17 @@ record.
 
 ```
 blake3(
-  "dmc/v1" |
+  "dmc/v2" |
   CARGO_PKG_VERSION |
   "\0src\0" | source_bytes |
   "\0path\0" | path_string |
   "\0cfg\0" | cfg_fingerprint
 )[..16 hex]
 ```
+
+The namespace is bumped when entries an older build wrote can be wrong. `CARGO_PKG_VERSION`
+alone cannot drop them: it is the crate's version, which an `@gentleduck/md` release can ship
+unchanged.
 
 `cfg_fingerprint` = `blake3(serde_json::to_vec((&compile_cfg,
 &include_html, &collection_name, &schema, &output_format)))`. Any

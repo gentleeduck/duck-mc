@@ -1,5 +1,7 @@
 use dmc_codegen::{NodeSink, WalkCtx};
+use dmc_diagnostic::Code;
 use dmc_parser::ast::Node;
+use duck_diagnostic::{Diagnostic, Span, diag};
 
 use crate::engine::compile::{CompileConfig, CompileOutput, Metadata, TocItem};
 
@@ -7,6 +9,9 @@ use crate::engine::compile::{CompileConfig, CompileOutput, Metadata, TocItem};
 pub struct Accumulator {
   pub frontmatter: serde_json::Value,
   pub frontmatter_raw: String,
+  /// PW002 when the block's YAML did not parse, which leaves `frontmatter` null. Held here because a
+  /// sink has no engine; `finalize` emits it after the walk.
+  pub frontmatter_error: Option<Diagnostic<Code>>,
   pub imports: Vec<String>,
   pub exports: Vec<String>,
   /// Text for excerpt + word count.
@@ -23,7 +28,10 @@ impl NodeSink for Accumulator {
     match node {
       Node::Frontmatter(f) => {
         self.frontmatter_raw = f.raw.clone();
-        self.frontmatter = serde_yaml::from_str(&f.raw).unwrap_or(serde_json::Value::Null);
+        self.frontmatter = serde_yaml::from_str(&f.raw).unwrap_or_else(|e| {
+          self.frontmatter_error = Some(Self::invalid_yaml(&e, &f.span));
+          serde_json::Value::Null
+        });
       },
       Node::Import(i) => self.imports.push(i.raw.clone()),
       Node::Export(x) => self.exports.push(x.raw.clone()),
@@ -77,6 +85,7 @@ impl Accumulator {
     Self {
       frontmatter: serde_json::Value::Null,
       frontmatter_raw: String::new(),
+      frontmatter_error: None,
       imports: Vec::new(),
       exports: Vec::new(),
       plain: String::new(),
@@ -109,6 +118,21 @@ impl Accumulator {
       exports: self.exports,
       components: Vec::new(),
     }
+  }
+
+  /// PW002 at the place in the file YAML stopped on. `open` is the opening `---`, and YAML counts
+  /// lines from the one after it, so its line is the file's `open.line + line`; its own
+  /// " at line L column C" is cut from the reason so the message does not give a second, smaller
+  /// count.
+  fn invalid_yaml(err: &serde_yaml::Error, open: &Span) -> Diagnostic<Code> {
+    let reason = err.to_string();
+    let reason = reason.split(" at line ").next().unwrap_or_default();
+    let (line, column) = err.location().map_or((open.line, open.column), |l| (open.line + l.line(), l.column()));
+    diag!(
+      Code::InvalidFrontmatterYaml,
+      Span::new(open.file.clone(), line, column, 1),
+      format!("frontmatter did not parse as YAML, so the page has none of its fields: {reason}")
+    )
   }
 
   /// `source` minus a leading `---...---` YAML frontmatter block (BOM tolerant).

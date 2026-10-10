@@ -1,6 +1,6 @@
 //! Persistent per-file compile cache at `<output_dir>/.cache/dmc/`,
 //! one `{16-hex blake3}.json` per record. Cache hits are O(read + parse).
-//! Key encodes dmc version + source bytes + path + config fingerprint;
+//! Key encodes a namespace + dmc version + source bytes + path + config fingerprint;
 //! nothing overwrites in place.
 
 use blake3::Hasher;
@@ -23,7 +23,10 @@ impl FileCache {
 
   pub fn key(source: &[u8], path: &Path, cfg_fingerprint: &[u8]) -> String {
     let mut h = Hasher::new();
-    h.update(b"dmc/v1");
+    // v2: before PW002, a page whose YAML did not parse compiled clean and was cached, so an older
+    // entry would skip the compile that now warns. `VERSION` cannot drop those entries: it is the
+    // crate's, 0.4.3 for every @gentleduck/md from 0.6.0 to 0.6.3.
+    h.update(b"dmc/v2");
     h.update(VERSION.as_bytes());
     h.update(b"\0src\0");
     h.update(source);
