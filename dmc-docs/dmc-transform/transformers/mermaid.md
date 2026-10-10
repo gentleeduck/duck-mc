@@ -1,10 +1,10 @@
 # `mermaid`
 
-Pre-renders mermaid diagrams to inline SVG via the external `mmdc` CLI
-(`@mermaid-js/mermaid-cli`). The browser never runs mermaid; the
+Pre-renders mermaid diagrams to inline SVG with `@mermaid-js/mermaid-cli`,
+the package behind the `mmdc` CLI. The browser never runs mermaid; the
 consumer just picks an attr based on the active theme.
 
-- **Source:** `dmc-transform/src/builtin/mermaid.rs`
+- **Source:** `dmc-transform/src/builtin/mermaid.rs`, `mermaid/renderer.{rs,mjs}`
 - **Feature flag:** `mermaid`
 - **Config struct:** [`MermaidOptions`](../src/config.rs)
 - **TS slot:** `markdown.mermaid` / `mdx.mermaid`
@@ -110,6 +110,20 @@ export default defineConfig({
 In-memory cache (per `Mermaid` instance) dedupes identical
 `(theme, source)` pairs across one compile run. Setting `outputDir`
 adds a disk-backed cache that persists across runs.
+
+## Rendering
+
+Every diagram in a process goes to one long-lived renderer: a node child
+running mermaid-cli's own `renderMermaid` in a single headless browser,
+one diagram per compile thread at a time. A cold build pays one browser
+launch instead of one per diagram and theme, and the SVG is byte for byte
+what `mmdc` writes. The renderer closes 30s after its last diagram, and
+with the process that started it.
+
+It loads the `@mermaid-js/mermaid-cli` package that the `mmdc` on `PATH`
+belongs to (a symlinked global install, or `node_modules/.bin`). Where
+there is none, e.g. an `mmdc` that wraps the docker image, each diagram
+runs `mmdc` as before.
 
 ## Failure modes
 

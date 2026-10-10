@@ -1388,7 +1388,8 @@ function adaptToBuildInput(
 export interface CompileOptions {
 	markdownGfm?: boolean;
 	mdxMinify?: boolean;
-	mdxOutputFormat?: string;
+	/** Anything but `"module"` compiles as `"function-body"`, so only these two typecheck. */
+	mdxOutputFormat?: "function-body" | "module";
 	copyLinkedFiles?: boolean;
 	/** Syntax highlighting, applied while compiling rather than in the browser. */
 	prettyCode?: PrettyCodeOptions;
