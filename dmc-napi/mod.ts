@@ -216,7 +216,7 @@ export interface OutputOptions {
  * name is a warning that falls back to the first bundled theme rather than an error.
  * A light/dark pair of names that are both unbundled therefore produces one theme
  * twice -- a dark mode that silently renders in light colors. The warning comes back
- * on `CompileOutput.diagnostics` as `theme-not-bundled`.
+ * on `CompileOutput.diagnostics` as `TW005`.
  */
 export type PrettyCodeBundledTheme =
 	| "1337"
