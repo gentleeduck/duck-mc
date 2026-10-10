@@ -65,8 +65,8 @@ host and fixtures did not drift).
 Phases 8 and 9 time the actual `@duck-ui/apps/duck` docs build, not
 fixtures. In [phase 9](phase-9-duck-ui-mermaid), where every mermaid diagram
 is drawn, 0.6.3's one-browser renderer took a cold build of the 554-file site
-from 285 s to 88 s. With `mermaid.outputDir` set, a dmc upgrade costs at
-most 10 s, and a warm build takes 3.4 s. On the pre-migration
+from 285 s to 88 s. With `mermaid.outputDir` keeping the SVGs, a rebuild
+with no compile cache takes 10 s, and a warm build takes 3.4 s (medians). On the pre-migration
 commit's 366 files, velite takes 414 s, while dmc 0.6.3 takes 74 s cold and
 3.1 s warm.
 

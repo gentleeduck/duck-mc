@@ -19,10 +19,10 @@ byte-for-byte the same. Raw runs and the method are in [`bench.json`](bench.json
 | 0.6.3, warm | 3.4 s | **84x** |
 
 The 10 s row compiles everything and draws nothing, so about 78 s of the 88 s
-cold build is mermaid. It is also the most a dmc upgrade costs: an upgrade
-invalidates the per-doc cache but not `mermaid.outputDir`, whose SVGs are
-keyed by theme and diagram source. With `outputDir` set, only a fresh clone
-or `duck-md clean` pays the cold price.
+cold build is mermaid. A dmc upgrade does a little less work than that row:
+it invalidates the per-doc cache but keeps the preMdx cache and
+`mermaid.outputDir`, whose SVGs are keyed by theme and diagram source. With
+`outputDir` set, only a fresh clone or `duck-md clean` pays the cold price.
 
 ## Against velite: the pre-migration commit (`a91c669b1`, 366 files)
 

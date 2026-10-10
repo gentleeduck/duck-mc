@@ -16,7 +16,7 @@
     "dmc_config": "a bench config that imports duck-ui's own duck-md.config.ts and overrides `root` (a frozen copy of the content) plus `output.data` and `content.mermaid.outputDir` (a scratch directory)",
     "states": {
       "cold": "scratch directory deleted: no per-doc compile cache, no mermaid SVG cache",
-      "svg": "output and every compile cache (per-doc and preMdx) deleted, mermaid.outputDir SVGs kept; a dmc upgrade invalidates only the per-doc cache, so it costs at most this",
+      "svg": "output and every compile cache (per-doc and preMdx) deleted, mermaid.outputDir SVGs kept; a dmc upgrade invalidates only the per-doc cache, so it does a little less work than this state",
       "warm": "everything kept from the previous run"
     },
     "velite_command": "node node_modules/.bin/velite build --clean, run in apps/duck of a `git archive` export of a91c669b1, installed from its own bun.lock, with @gentleduck/docs built",
