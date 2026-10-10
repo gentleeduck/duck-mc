@@ -121,6 +121,23 @@ export interface CompileOutput {
 	frontmatterRaw: string;
 	imports: string[];
 	exports: string[];
+	/**
+	 * Components a collection's `components` map named, in document order.
+	 *
+	 * Always present, and empty when nothing asked for them -- so its presence is not the
+	 * question to ask, its length is.
+	 */
+	components: unknown[];
+	/**
+	 * What the compile reported, in the order it was reported.
+	 *
+	 * Worth reading rather than ignoring: most of what the compiler can tell you about a
+	 * document is a warning, not an error, and a warning does not stop it returning HTML.
+	 * A theme name that is not bundled is the example that motivated this -- highlighting
+	 * falls back to one theme for both modes, so the output looks fine until someone
+	 * switches to dark.
+	 */
+	diagnostics: DiagnosticReport[];
 }
 
 export type SchemaKind =
@@ -199,7 +216,7 @@ export interface OutputOptions {
  * name is a warning that falls back to the first bundled theme rather than an error.
  * A light/dark pair of names that are both unbundled therefore produces one theme
  * twice -- a dark mode that silently renders in light colors. The warning comes back
- * on `CompileOutput.diagnostics` as `theme-not-bundled`.
+ * on `CompileOutput.diagnostics` as `TW005`.
  */
 export type PrettyCodeBundledTheme =
 	| "1337"
