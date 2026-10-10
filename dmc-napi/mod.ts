@@ -192,31 +192,36 @@ export interface OutputOptions {
 }
 
 /**
- * Bundled syntect theme names. Listed for autocomplete/discovery - the
- * trailing `(string & {})` keeps the type open to any other theme
- * the syntect bundle may add without forcing a type bump.
+ * The theme names that are actually bundled.
+ *
+ * Worth being exact about, because the trailing `(string & {})` keeps the type open:
+ * a name that is not in this list still typechecks, and at compile time an unbundled
+ * name is a warning that falls back to the first bundled theme rather than an error.
+ * A light/dark pair of names that are both unbundled therefore produces one theme
+ * twice -- a dark mode that silently renders in light colors. The warning comes back
+ * on `CompileOutput.diagnostics` as `theme-not-bundled`.
  */
 export type PrettyCodeBundledTheme =
-	| "Catppuccin Latte"
-	| "Catppuccin Mocha"
+	| "1337"
+	| "ansi"
+	| "base16"
+	| "base16-256"
 	| "Catppuccin Frappe"
+	| "Catppuccin Latte"
 	| "Catppuccin Macchiato"
+	| "Catppuccin Mocha"
+	| "Coldark-Cold"
+	| "Coldark-Dark"
+	| "DarkNeon"
+	| "gruvbox-dark"
+	| "gruvbox-light"
 	| "Nord"
-	| "One Dark"
-	| "Solarized Light"
-	| "Solarized Dark"
-	| "InspiredGitHub"
-	| "GitHub"
-	| "github-light"
-	| "github-dark"
-	| "base16-ocean.dark"
-	| "base16-ocean.light"
-	| "base16-eighties.dark"
-	| "base16-mocha.dark"
-	| "Tomorrow"
-	| "Tomorrow Night"
-	| "Monokai"
-	| "Dracula"
+	| "OneHalfDark"
+	| "OneHalfLight"
+	| "Solarized (dark)"
+	| "Solarized (light)"
+	| "tokyo-night"
+	| "TwoDark"
 	// Forward-compat: any other syntect-bundled theme name.
 	| (string & {});
 
