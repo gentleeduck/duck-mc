@@ -17,7 +17,7 @@ Implemented in `dmc::engine::cache::FileCache`.
 ```rust
 pub fn key(source: &[u8], path: &Path, cfg_fingerprint: &[u8]) -> String {
     let mut h = Hasher::new();
-    h.update(b"dmc/v1");
+    h.update(b"dmc/v2");
     h.update(VERSION.as_bytes());     // CARGO_PKG_VERSION
     h.update(b"\0src\0");
     h.update(source);
@@ -30,7 +30,8 @@ pub fn key(source: &[u8], path: &Path, cfg_fingerprint: &[u8]) -> String {
 ```
 
 Inputs:
-- dmc version (any upgrade busts every entry)
+- namespace (bumped when entries an older build wrote can be wrong)
+- dmc crate version (a crate release busts every entry; an `@gentleduck/md` release alone may not, since it can ship the same crate version)
 - source bytes (any edit busts that file)
 - file path (avoid identical-content collisions)
 - caller-supplied config fingerprint
