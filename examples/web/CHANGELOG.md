@@ -1,5 +1,13 @@
 # dmc-web
 
+## 0.0.9
+
+### Patch Changes
+
+- Updated dependencies [86b9a27]
+- Updated dependencies [86b9a27]
+  - @gentleduck/md@0.6.3
+
 ## 0.0.8
 
 ### Patch Changes
