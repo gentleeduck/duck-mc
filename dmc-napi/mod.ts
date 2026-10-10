@@ -121,6 +121,23 @@ export interface CompileOutput {
 	frontmatterRaw: string;
 	imports: string[];
 	exports: string[];
+	/**
+	 * Components a collection's `components` map named, in document order.
+	 *
+	 * Always present, and empty when nothing asked for them -- so its presence is not the
+	 * question to ask, its length is.
+	 */
+	components: unknown[];
+	/**
+	 * What the compile reported, in the order it was reported.
+	 *
+	 * Worth reading rather than ignoring: most of what the compiler can tell you about a
+	 * document is a warning, not an error, and a warning does not stop it returning HTML.
+	 * A theme name that is not bundled is the example that motivated this -- highlighting
+	 * falls back to one theme for both modes, so the output looks fine until someone
+	 * switches to dark.
+	 */
+	diagnostics: DiagnosticReport[];
 }
 
 export type SchemaKind =
