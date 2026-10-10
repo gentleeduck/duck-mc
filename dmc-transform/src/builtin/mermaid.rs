@@ -13,8 +13,11 @@ use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::sync::{Mutex, OnceLock};
 
-/// Pre-render mermaid diagrams to inline SVG via the external `mmdc` CLI
-/// (`@mermaid-js/mermaid-cli`).
+mod renderer;
+
+/// Pre-render mermaid diagrams to inline SVG with `@mermaid-js/mermaid-cli`.
+/// Every diagram in the process is drawn by one long-lived browser (see
+/// `mermaid/renderer.rs`); where that can't start, each runs `mmdc` itself.
 ///
 /// Two input shapes are handled:
 ///   * ` ```mermaid ` fenced code blocks - replaced with
@@ -107,7 +110,7 @@ impl Mermaid {
       }
     }
 
-    let svg = self.render_mmdc(source, theme)?;
+    let svg = self.render(source, theme)?;
     self.cache.lock().unwrap().insert(key, svg.clone());
     if let Some(dir) = &self.opts.output_dir {
       let _ = std::fs::create_dir_all(dir);
@@ -147,6 +150,22 @@ impl Mermaid {
       }
     }
     base
+  }
+
+  /// Draw one diagram on the shared renderer, or with an `mmdc` run of its
+  /// own where that renderer can't start here.
+  fn render(&self, source: &str, theme: &str) -> Result<String, String> {
+    let config = self.build_mermaid_config();
+    let job = renderer::Job {
+      source,
+      theme,
+      background_color: self.opts.background_color.as_deref().unwrap_or("transparent"),
+      config: &config,
+    };
+    match renderer::render(&job, self.opts.puppeteer_config_file.as_deref()) {
+      Some(reply) => reply.map(|svg| self.post_process(&svg)),
+      None => self.render_mmdc(source, theme),
+    }
   }
 
   /// Run `mmdc` once for the given mermaid `source` + `theme`. Captures
