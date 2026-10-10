@@ -302,6 +302,9 @@ impl Compiler {
     }
 
     Walker::new(&doc).walk(sinks.as_mut_slice());
+    if let Some(d) = acc.frontmatter_error.take() {
+      diag_engine.emit(d);
+    }
 
     let (html, body) = match (html_sink, body_sink) {
       (Some(h), Some(b)) => {

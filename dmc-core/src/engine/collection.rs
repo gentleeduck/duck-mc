@@ -134,8 +134,11 @@ impl Collection {
           obj.insert("components".into(), Value::Array(items));
         }
 
-        // Cache only clean runs so diagnostics re-fire until the source is fixed.
-        let dirty = local_diag_engine.error_count() + local_diag_engine.bug_count() > 0;
+        // Cache only clean runs so diagnostics re-fire until the source is fixed. Frontmatter YAML
+        // that did not parse counts although it only warns: the warning is the one sign the page
+        // lost every field, and a cache hit would skip the compile that gives it.
+        let dirty = local_diag_engine.error_count() + local_diag_engine.bug_count() > 0
+          || local_diag_engine.iter().any(|d| matches!(d.code, Code::InvalidFrontmatterYaml));
         if !dirty && let (Some(c), Some(k)) = (cache.as_ref(), cache_key.as_ref()) {
           c.put(k, &rec);
         }
