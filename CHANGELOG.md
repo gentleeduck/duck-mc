@@ -8,6 +8,12 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [0.4.5](https://github.com/gentleeduck/duck-mc/compare/dmc-lexer-v0.4.4...dmc-lexer-v0.4.5) - 2026-10-11
+
+### Other
+
+- update Cargo.lock dependencies
+
 ## [0.4.4](https://github.com/gentleeduck/duck-mc/compare/dmc-lexer-v0.4.3...dmc-lexer-v0.4.4) - 2026-10-11
 
 ### Other
