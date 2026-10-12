@@ -23,7 +23,7 @@
     "remark-gfm": "^4",
     "remark-math": "^6",
     "shiki": "^4.5.0",
-    "velite": "^0.3"
+    "velite": "^0.4"
   },
   "devDependencies": {
     "@types/node": "^26",
